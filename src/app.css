@@ -1,0 +1,186 @@
+@import "tailwindcss";
+
+:root {
+  --bg-deep: #111113;
+  --bg-surface: #19191c;
+  --bg-elevated: #212124;
+  --bg-hover: #2a2a2e;
+  --border: #2e2e33;
+  --border-focus: #d19a66;
+
+  --text-primary: #d4d4d8;
+  --text-secondary: #a1a1aa;
+  --text-muted: #85858e;
+
+  --accent: #d19a66;
+  --accent-hover: #c48b4f;
+  --accent-dim: rgba(209, 154, 102, 0.10);
+
+  --success: #73c991;
+  --warning: #e5c07b;
+  --error: #e06c75;
+
+  --syntax-command: #61afef;
+  --syntax-environment: #c678dd;
+  --syntax-math: #98c379;
+  --syntax-comment: #5c6370;
+  --syntax-brace: #e5c07b;
+  --syntax-string: #ce9178;
+  --syntax-number: #d19a66;
+
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-editor: 'JetBrains Mono', monospace;
+  --font-brand: 'Instrument Serif', serif;
+
+  --topbar-h: 44px;
+  --menubar-h: 26px;
+  --toolbar-h: 34px;
+  --statusbar-h: 24px;
+  --sidebar-w: 240px;
+
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --space: 4px;
+
+  /* stage: the pasteboard is the deep background, the artboard sits on it with a shadow */
+  --stagebar-h: 34px;
+  --pasteboard: #111113;
+  --stage-shadow: rgba(0, 0, 0, 0.5);
+  --stage-ruler: #19191c;
+  --stage-ruler-tick: #5a5a62;
+  --grid-line: #8a8a94;
+  --guide: #4fc3d9;
+  --smart-guide: #e2559b;
+  --selection: #4f9cf9;
+  --onion-before: #e06c75;
+  --onion-after: #73c991;
+
+  /* timeline geometry */
+  --ruler-h: 28px;
+  --layer-header-w: 150px;
+  --layer-row-h: 24px;
+  --frame-w: 10px;
+
+  /* frame cells, spans and dots */
+  --frame-line: rgba(255, 255, 255, 0.04);
+  --frame-line-major: rgba(255, 255, 255, 0.09);
+  --frame-hold: #2c2c31;
+  --frame-hold-edge: #3a3a41;
+  --keyframe: #d4d4d8;
+  --tween: rgba(126, 107, 176, 0.32);
+  --tween-edge: #7e6bb0;
+  --pose: rgba(79, 158, 158, 0.32);
+  --pose-edge: #4f9e9e;
+
+  /* the playhead shares the accent so one color carries the eye across the app */
+  --playhead: var(--accent);
+
+  /* layer colors, desaturated so they sit on the dark surfaces */
+  --label-violet: #7e6bb0;
+  --label-iris: #6b7bb0;
+  --label-caribbean: #4f9e9e;
+  --label-lavender: #9b8fc4;
+  --label-cerulean: #5b8fc9;
+  --label-forest: #5a8f5a;
+  --label-rose: #c47f8f;
+  --label-mango: #c99a5b;
+  --label-purple: #8f6bb8;
+  --label-blue: #5b7fc9;
+  --label-teal: #4f9e8a;
+  --label-magenta: #b06b9e;
+  --label-tan: #b09a7e;
+  --label-green: #6fae6f;
+  --label-brown: #9a7a5c;
+  --label-yellow: #c9b45b;
+
+  color-scheme: dark;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-deep);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(209, 154, 102, 0.25);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+button {
+  font-family: var(--font-ui);
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-family: var(--font-editor);
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  line-height: 1;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
