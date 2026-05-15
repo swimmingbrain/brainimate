@@ -1,0 +1,17 @@
+{
+  "name": "brainIMATE",
+  "short_name": "brainIMATE",
+  "author": "Braian Plaku",
+  "description": "Vector drawing and 2D animation in your browser. Draw, animate on a timeline, rig with bones.",
+  "start_url": "/editor",
+  "display": "standalone",
+  "background_color": "#111113",
+  "theme_color": "#111113",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
