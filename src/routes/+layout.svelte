@@ -1,5 +1,6 @@
 <script lang="ts">
   import '../app.css';
+  import Toast from '$lib/ui/Toast.svelte';
   import { onMount } from 'svelte';
   import { browser, dev } from '$app/environment';
   import { beforeNavigate } from '$app/navigation';
@@ -29,3 +30,4 @@
 </script>
 
 {@render children()}
+<Toast />
