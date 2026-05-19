@@ -19,7 +19,7 @@ export const TOOL_INFO: Record<ToolId, ToolInfo> = {
   pencil: { id: 'pencil', name: 'Pencil', icon: 'pencil', shortcut: 'N', group: 1, cursor: 'crosshair' },
   brush: { id: 'brush', name: 'Brush', icon: 'brush', shortcut: 'B', group: 1, cursor: 'crosshair' },
   eraser: { id: 'eraser', name: 'Eraser', icon: 'eraser', shortcut: 'E', group: 1, cursor: 'crosshair' },
-  line: { id: 'line', name: 'Line', icon: 'line', shortcut: '\', group: 2, cursor: 'crosshair' },
+  line: { id: 'line', name: 'Line', icon: 'line', shortcut: '\\', group: 2, cursor: 'crosshair' },
   rect: { id: 'rect', name: 'Rectangle', icon: 'rect', shortcut: 'M', group: 2, cursor: 'crosshair' },
   ellipse: { id: 'ellipse', name: 'Ellipse', icon: 'ellipse', shortcut: 'L', group: 2, cursor: 'crosshair' },
   polygon: { id: 'polygon', name: 'Polygon and star', icon: 'polygon', shortcut: '', group: 2, cursor: 'crosshair' },
