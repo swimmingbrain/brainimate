@@ -65,6 +65,8 @@ export const dirty = writable(false);
 // current fill and stroke, null is none
 export const fillColor = writable<string | null>(get(preferences).drawing.fill);
 export const strokeColor = writable<string | null>(get(preferences).drawing.stroke);
+// which of the two chips the color panel and the swatches change
+export const colorTarget = writable<'fill' | 'stroke'>('fill');
 
 export const outlineMode = writable(false);
 
@@ -77,11 +79,14 @@ export interface View {
 
 export const view = writable<View>({ zoom: 1, panX: 0, panY: 0 });
 
-export const WORKSPACES: { id: Workspace; label: string; shortcut: string }[] = [
-  { id: 'essentials', label: 'Essentials', shortcut: 'Ctrl+1' },
-  { id: 'illustrate', label: 'Illustrate', shortcut: 'Ctrl+2' },
-  { id: 'animate', label: 'Animate', shortcut: 'Ctrl+3' },
-  { id: 'rig', label: 'Rig', shortcut: 'Ctrl+4' }
+// size of the stage in document pixels, until the document model holds it
+export const stageSize = writable({ width: 1920, height: 1080, background: '#ffffff' });
+
+export const WORKSPACES: { id: Workspace; label: string }[] = [
+  { id: 'essentials', label: 'Essentials' },
+  { id: 'illustrate', label: 'Illustrate' },
+  { id: 'animate', label: 'Animate' },
+  { id: 'rig', label: 'Rig' }
 ];
 
 export const workspace = writable<Workspace>(get(preferences).workspace);
