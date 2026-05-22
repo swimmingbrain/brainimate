@@ -1,0 +1,169 @@
+<script lang="ts">
+  import Icon from '$lib/icons/Icon.svelte';
+  import Menu from './Menu.svelte';
+  import NumberField from './NumberField.svelte';
+  import { TOOL_INFO } from '$lib/tools';
+  import { toggleGrid, toggleOnion, toggleOutline, toggleRulers, toggleSnapping } from '$lib/editor/commands';
+  import { zoomFit, zoomTo } from '$lib/editor/view';
+  import { activeTool, outlineMode, view, type MenuItem } from '$lib/stores/app';
+  import { preferences } from '$lib/stores/preferences';
+
+  const ZOOMS = [25, 50, 100, 200, 400, 800];
+
+  const zoomItems: MenuItem[] = [
+    ...ZOOMS.map((z) => ({ label: `${z}%`, action: () => zoomTo(z / 100) })),
+    { label: '', separator: true },
+    { label: 'Fit in window', shortcut: 'Ctrl+0', action: zoomFit }
+  ];
+
+  const toggles = $derived([
+    { icon: 'grid', label: 'Grid', on: $preferences.grid.show, run: toggleGrid },
+    { icon: 'rulers', label: 'Rulers', on: $preferences.rulers.show, run: toggleRulers },
+    { icon: 'snap', label: 'Snapping', on: $preferences.snapping.enabled, run: toggleSnapping },
+    { icon: 'onion', label: 'Onion skin', on: $preferences.timeline.onion, run: toggleOnion },
+    { icon: 'outline', label: 'Outline mode', on: $outlineMode, run: toggleOutline }
+  ]);
+</script>
+
+<div class="stagebar">
+  <div class="crumbs">
+    <span class="crumb">
+      <Icon name="layer" size={13} />
+      Scene 1
+    </span>
+  </div>
+
+  <!-- the active tool puts its options here once it has some -->
+  <div class="options">
+    <span class="tool-name">{TOOL_INFO[$activeTool].name}</span>
+  </div>
+
+  <div class="controls">
+    <div class="zoom">
+      <NumberField
+        value={Math.round($view.zoom * 100)}
+        min={2}
+        max={6400}
+        precision={0}
+        unit="%"
+        label="Zoom"
+        onchange={(v) => zoomTo(v / 100)} />
+      <Menu items={zoomItems}>
+        {#snippet trigger({ toggle })}
+          <button class="icon-btn small" onclick={toggle} title="Zoom presets" aria-label="Zoom presets">
+            <Icon name="chevron-down" size={12} />
+          </button>
+        {/snippet}
+      </Menu>
+    </div>
+    <button class="icon-btn" onclick={zoomFit} title="Fit in window (Ctrl+0)" aria-label="Fit in window">
+      <Icon name="fit" size={14} />
+    </button>
+    <span class="sep"></span>
+    {#each toggles as t (t.icon)}
+      <button class="icon-btn" class:on={t.on} onclick={t.run} title={t.label} aria-label={t.label} aria-pressed={t.on}>
+        <Icon name={t.icon} size={14} />
+      </button>
+    {/each}
+  </div>
+</div>
+
+<style>
+  .stagebar {
+    height: var(--stagebar-h);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 6px 0 10px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  .crumbs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .crumb {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: var(--text-primary);
+  }
+
+  .crumb :global(svg) {
+    color: var(--text-muted);
+  }
+
+  .options {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border);
+    height: 18px;
+  }
+
+  .tool-name {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .zoom {
+    display: flex;
+    align-items: center;
+    width: 82px;
+    margin-right: 2px;
+  }
+
+  .icon-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+  }
+
+  .icon-btn.small {
+    width: 16px;
+  }
+
+  .icon-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .icon-btn.on {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .sep {
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background: var(--border);
+  }
+
+  @media (max-width: 600px) {
+    .options {
+      display: none;
+    }
+  }
+</style>
