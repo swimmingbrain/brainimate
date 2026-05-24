@@ -12,9 +12,20 @@ const viewport = { width: 0, height: 0 };
 
 let redraw: (() => void) | null = null;
 
+// the stage refits on every resize until someone zooms or pans by hand
+let autoFit = true;
+
 export function setViewport(width: number, height: number) {
   viewport.width = width;
   viewport.height = height;
+}
+
+export function setAutoFit(on: boolean) {
+  autoFit = on;
+}
+
+export function isAutoFit(): boolean {
+  return autoFit;
 }
 
 export function setRedraw(fn: (() => void) | null) {
@@ -46,11 +57,14 @@ export function zoomAround(v: View, zoom: number, sx: number, sy: number): View 
 }
 
 export function fitView(width: number, height: number, docWidth: number, docHeight: number, margin = 48): View {
-  const zoom = clampZoom(Math.min((width - margin * 2) / docWidth, (height - margin * 2) / docHeight));
+  // a small window keeps a smaller margin, or the stage would vanish
+  const m = Math.min(margin, width * 0.08, height * 0.08);
+  const zoom = clampZoom(Math.min((width - m * 2) / docWidth, (height - m * 2) / docHeight));
   return { zoom, panX: (width - docWidth * zoom) / 2, panY: (height - docHeight * zoom) / 2 };
 }
 
 export function zoomTo(zoom: number) {
+  autoFit = false;
   view.update((v) => zoomAround(v, zoom, viewport.width / 2, viewport.height / 2));
 }
 
@@ -72,4 +86,5 @@ export function zoomFit() {
   if (viewport.width === 0 || viewport.height === 0) return;
   const size = get(stageSize);
   view.set(fitView(viewport.width, viewport.height, size.width, size.height));
+  autoFit = true;
 }

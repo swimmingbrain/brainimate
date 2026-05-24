@@ -3,7 +3,7 @@
   import { get } from 'svelte/store';
   import { activeTool, outlineMode, stageSize, view, type View } from '$lib/stores/app';
   import { preferences, type Preferences } from '$lib/stores/preferences';
-  import { fitView, screenToWorld, setRedraw, setViewport, zoomAround } from '$lib/editor/view';
+  import { fitView, isAutoFit, screenToWorld, setAutoFit, setRedraw, setViewport, zoomAround } from '$lib/editor/view';
   import { cursorFor, doubleClick, drawToolOverlay, keyDown, pointerDown, pointerMove, pointerUp } from '$lib/tools';
   import type { ToolEvent } from '$lib/tools/tool';
 
@@ -31,7 +31,6 @@
   let dpr = 1;
   let contentDirty = true;
   let overlayDirty = true;
-  let fitted = false;
   let panStart: { x: number; y: number; panX: number; panY: number } | null = null;
 
   // read once from the theme, the canvas cannot use css variables
@@ -70,8 +69,7 @@
       canvas.style.height = `${height}px`;
     }
     setViewport(width, height);
-    if (!fitted && width > 0 && height > 0) {
-      fitted = true;
+    if (isAutoFit() && width > 0 && height > 0) {
       const size = get(stageSize);
       view.set(fitView(width, height, size.width, size.height));
     }
@@ -261,6 +259,7 @@
       const v = get(view);
       panStart = { x: e.clientX, y: e.clientY, panX: v.panX, panY: v.panY };
       panning = true;
+      setAutoFit(false);
       return;
     }
     if (e.button !== 0) return;
@@ -300,6 +299,7 @@
 
   function onwheel(e: WheelEvent) {
     e.preventDefault();
+    setAutoFit(false);
     const rect = overlay!.getBoundingClientRect();
     // a line is about 16 pixels when the wheel counts in lines
     const unit = e.deltaMode === 1 ? 16 : 1;
