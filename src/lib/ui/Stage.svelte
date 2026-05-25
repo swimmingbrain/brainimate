@@ -317,14 +317,16 @@
     view.update((v) => ({ ...v, panX: v.panX - dx, panY: v.panY - dy }));
   }
 
-  function typing(target: EventTarget | null): boolean {
-    const el = target as HTMLElement | null;
+  // keys typed into a field or pressed in a menu or a dialog are not for the stage
+  function busy(target: EventTarget | null): boolean {
+    const el = target instanceof HTMLElement ? target : null;
     if (!el) return false;
-    return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+    if (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return true;
+    return el.closest('[role="dialog"], [role="menu"]') !== null;
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (typing(e.target)) return;
+    if (busy(e.target)) return;
     if (e.key === ' ') {
       e.preventDefault();
       spaceHeld = true;
@@ -334,8 +336,11 @@
     overlayDirty = true;
   }
 
+  // space on a focused toolbar button would click it as well, so the stage keeps it
   function onkeyup(e: KeyboardEvent) {
-    if (e.key === ' ') spaceHeld = false;
+    if (e.key !== ' ' || !spaceHeld) return;
+    e.preventDefault();
+    spaceHeld = false;
   }
 
   onMount(() => {
