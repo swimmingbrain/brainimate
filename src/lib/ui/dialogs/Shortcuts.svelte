@@ -21,7 +21,7 @@
       name: 'Timeline',
       items: [
         { keys: ['Enter'], what: 'Play and pause' },
-        { keys: [',', '.'], what: 'One frame back and forward' },
+        { keys: [',/.'], what: 'One frame back and forward' },
         { keys: ['Shift', ',/.'], what: 'First and last frame' },
         { keys: ['F5'], what: 'Insert frame' },
         { keys: ['Shift', 'F5'], what: 'Remove frame' },
