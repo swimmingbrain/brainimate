@@ -1,0 +1,64 @@
+brainIMATE bundles the following libraries. Each keeps its own license; the texts are in
+node_modules/<package>/LICENSE after an install. Versions are the ones this repository
+installs from package.json, checked against the installed packages.
+
+immer 11.1.21: undo and redo as patches of the document
+MIT
+https://github.com/immerjs/immer
+
+bezier-js 6.1.4: curve math, nearest points, lengths and bounds
+MIT
+https://github.com/Pomax/bezierjs
+
+fit-curve 0.2.0: turns the points of a pencil line into smooth curves
+MIT
+https://github.com/soswow/fit-curve
+
+perfect-freehand 1.2.3: the outline of brush and eraser strokes, from the points and the pen pressure
+MIT
+https://github.com/steveruizok/perfect-freehand
+
+bezier-easing 3.2.0: the ease curves of tweens
+MIT
+https://github.com/gre/bezier-easing
+
+gifenc 1.0.3: GIF export
+MIT
+https://github.com/mattdesl/gifenc
+
+mediabunny 1.61.3: WebM and MP4 export
+MPL-2.0
+https://github.com/Vanilagy/mediabunny
+It brings in @types/dom-webcodecs and @types/dom-mediacapture-transform, types only, MIT.
+
+fflate 0.8.3: compressed project files and the zip of an image sequence
+MIT
+https://github.com/101arrowz/fflate
+
+idb-keyval 6.3.0: the autosave and the recent files in IndexedDB
+Apache-2.0
+https://github.com/jakearchibald/idb-keyval
+
+browser-fs-access 0.38.0: the open and save dialogs, with a download where there is none
+Apache-2.0
+https://github.com/GoogleChromeLabs/browser-fs-access
+
+tinykeys 4.0.1: the keyboard shortcuts
+MIT
+https://github.com/jamiebuilds/tinykeys
+
+Two more are build tools rather than runtime dependencies, but what they produce ends up in
+the site, so they belong here too:
+
+svelte 5 and @sveltejs/kit 2: the framework, and the runtime it compiles into every
+component. Both float on a caret range, so the installed version is whatever the lockfile
+last resolved
+MIT
+https://github.com/sveltejs/svelte
+
+tailwindcss 4: the reset the theme is built on, compiled into app.css
+MIT
+https://github.com/tailwindlabs/tailwindcss
+
+Fonts are loaded at runtime from Google Fonts and are not redistributed here:
+Instrument Serif, JetBrains Mono and Inter, all under the SIL Open Font License 1.1.
