@@ -76,23 +76,27 @@
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     background: var(--bg-surface);
     border-right: 1px solid var(--border);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
   }
 
-  .toolbar::-webkit-scrollbar {
-    width: 0;
-  }
-
+  /* the tools scroll on a short window, the color chips stay in view */
   .tools {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 1px;
     padding: 4px 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .tools::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
 
   .tool-btn {
@@ -124,6 +128,7 @@
   }
 
   .colors {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -247,6 +252,8 @@
     .tools {
       flex-direction: row;
       padding: 0 4px;
+      overflow-x: auto;
+      overflow-y: hidden;
     }
 
     .sep {

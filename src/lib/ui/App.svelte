@@ -89,9 +89,10 @@
     overflow: hidden;
   }
 
+  /* the tools run the full height, next to the timeline as well */
   .toolbar-area {
     grid-column: 1;
-    grid-row: 1;
+    grid-row: 1 / 4;
     min-height: 0;
   }
 
@@ -114,7 +115,7 @@
   }
 
   .rz-h {
-    grid-column: 1 / 3;
+    grid-column: 2;
     grid-row: 2;
   }
 
@@ -130,7 +131,7 @@
   }
 
   .timeline-area {
-    grid-column: 1 / 3;
+    grid-column: 2;
     grid-row: 3;
     min-width: 0;
     min-height: 0;
