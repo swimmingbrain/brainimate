@@ -60,13 +60,11 @@ export function equals(a: Vec, b: Vec, eps = 1e-9): boolean {
   return Math.abs(a.x - b.x) <= eps && Math.abs(a.y - b.y) <= eps;
 }
 
-// snaps the direction from origin to p to the nearest multiple of step radians, keeping the length
+// snaps the direction from origin to p to the nearest multiple of step radians,
+// the point is projected onto that direction so it stays close to the cursor
 export function snapAngle(origin: Vec, p: Vec, step = Math.PI / 4): Vec {
   const d = sub(p, origin);
   const a = Math.round(Math.atan2(d.y, d.x) / step) * step;
-  const l = len(d);
-  // project instead of keeping the length, so the point stays under the cursor along the axis
   const along = d.x * Math.cos(a) + d.y * Math.sin(a);
-  const k = Number.isFinite(along) ? along : l;
-  return { x: origin.x + Math.cos(a) * k, y: origin.y + Math.sin(a) * k };
+  return { x: origin.x + Math.cos(a) * along, y: origin.y + Math.sin(a) * along };
 }
