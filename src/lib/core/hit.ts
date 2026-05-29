@@ -49,7 +49,8 @@ function hitPath(item: PathItem, m: Mat, p: Vec, zoom: number, factor: number): 
 // m is the item's world matrix, its own transform included
 export function hitItem(item: Item, m: Mat, p: Vec, zoom: number, factor = 1): boolean {
   if (!item.visible) return false;
-  const pad = (Math.max(4, 12) * factor) / zoom;
+  // cheap box test first, grown by the stroke band so an edge hit is not thrown away
+  const pad = item.type === 'path' ? strokeTolerance(item, m, zoom, factor) / zoom : 0;
   if (item.type !== 'group' && !contains(expand(itemBounds(item, m), pad), p)) return false;
   switch (item.type) {
     case 'path':
@@ -101,18 +102,19 @@ export function hitAnchor(
 ): AnchorHit | null {
   let best: AnchorHit | null = null;
   let bestD = (ANCHOR_TOLERANCE * factor) / zoom;
-  path.anchors.forEach((a, i) => {
-    const w = applyPoint(m, a);
+  for (let i = 0; i < path.anchors.length; i++) {
+    const w = applyPoint(m, path.anchors[i]);
     const d = Math.hypot(w.x - p.x, w.y - p.y);
     if (d <= bestD) {
       bestD = d;
       best = { index: i, part: 'anchor' };
     }
-  });
+  }
   if (best) return best;
   bestD = (HANDLE_TOLERANCE * factor) / zoom;
-  path.anchors.forEach((a, i) => {
-    if (!showHandles(i)) return;
+  for (let i = 0; i < path.anchors.length; i++) {
+    const a = path.anchors[i];
+    if (!showHandles(i)) continue;
     for (const part of ['in', 'out'] as const) {
       const hx = part === 'in' ? a.ix : a.ox;
       const hy = part === 'in' ? a.iy : a.oy;
@@ -124,7 +126,7 @@ export function hitAnchor(
         best = { index: i, part };
       }
     }
-  });
+  }
   return best;
 }
 
