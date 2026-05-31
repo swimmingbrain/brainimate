@@ -61,6 +61,8 @@ export const playing = writable(false);
 
 // item ids
 export const selection = writable<Set<string>>(new Set());
+// anchors picked with the direct selection tool
+export const anchorSelection = writable<{ itemId: string; index: number }[]>([]);
 export const activeLayer = writable<string | null>(null);
 
 // the open document, until the editor owns it
