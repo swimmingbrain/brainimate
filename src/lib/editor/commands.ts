@@ -1,19 +1,21 @@
 import { get } from 'svelte/store';
-import { addToast, colorTarget, fillColor, outlineMode, strokeColor } from '$lib/stores/app';
+import type { Paint } from '$lib/core/types';
+import { clonePaint, solid } from '$lib/core/style';
+import { addToast, colorTarget, fillPaint, outlineMode, strokePaint } from '$lib/stores/app';
 import { preferences, setGroup } from '$lib/stores/preferences';
+import { editor } from './editor';
 
 // menu entries whose work comes later say so instead of doing nothing
 export function notYet(what = 'This') {
   addToast(`${what} is not there yet`);
 }
 
-// there is no document yet, so there is nothing to undo
 export function undo() {
-  addToast('Nothing to undo');
+  if (editor.undo() === null) addToast('Nothing to undo');
 }
 
 export function redo() {
-  addToast('Nothing to redo');
+  if (editor.redo() === null) addToast('Nothing to redo');
 }
 
 export function toggleGrid() {
@@ -45,19 +47,40 @@ export function toggleOutline() {
 }
 
 export function swapColors() {
-  const fill = get(fillColor);
-  fillColor.set(get(strokeColor));
-  strokeColor.set(fill);
+  const fill = get(fillPaint);
+  fillPaint.set(get(strokePaint));
+  strokePaint.set(fill);
 }
 
 // black stroke and white fill, like the other drawing apps
 export function resetColors() {
-  fillColor.set('#ffffff');
-  strokeColor.set('#000000');
+  fillPaint.set(solid('#ffffff'));
+  strokePaint.set(solid('#000000'));
 }
 
 // the active chip gets no color
 export function clearColor() {
-  if (get(colorTarget) === 'fill') fillColor.set(null);
-  else strokeColor.set(null);
+  setPaint(get(colorTarget), null);
+}
+
+export function toggleColorTarget() {
+  colorTarget.update((t) => (t === 'fill' ? 'stroke' : 'fill'));
+}
+
+// sets the current color and gives it to the selected shapes too, like illustrator
+export function setPaint(target: 'fill' | 'stroke', paint: Paint | null) {
+  (target === 'fill' ? fillPaint : strokePaint).set(clonePaint(paint));
+  const ids = editor
+    .selectedItems(false)
+    .filter((it) => it.type === 'path' || it.type === 'text')
+    .map((it) => it.id);
+  if (ids.length === 0) return;
+  editor.updateItems(
+    ids,
+    (item) => {
+      if (item.type === 'path' || item.type === 'text') item.style[target] = clonePaint(paint);
+    },
+    target === 'fill' ? 'Fill color' : 'Stroke color',
+    `paint-${target}`
+  );
 }
