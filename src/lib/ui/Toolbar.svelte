@@ -1,20 +1,33 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
+  import ColorPopover from './ColorPopover.svelte';
   import { TOOL_INFO, selectTool } from '$lib/tools';
-  import { clearColor, notYet, resetColors, swapColors } from '$lib/editor/commands';
-  import { activeTool, colorTarget, fillColor, strokeColor } from '$lib/stores/app';
+  import { clearColor, resetColors, setPaint, swapColors } from '$lib/editor/commands';
+  import { paintColor } from '$lib/core/style';
+  import { activeTool, colorTarget, fillPaint, strokePaint } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
 
   const tools = $derived($preferences.toolbar.tools.map((id) => TOOL_INFO[id]));
+  const fillColor = $derived(paintColor($fillPaint));
+  const strokeColor = $derived(paintColor($strokePaint));
+
+  let picker = $state<{ target: 'fill' | 'stroke'; x: number; y: number } | null>(null);
+  // a click on the chip closes an open picker first, it must not open it again right away
+  let closedAt = 0;
 
   function title(name: string, shortcut: string): string {
     return shortcut ? `${name} (${shortcut})` : name;
   }
 
   // a click on the chip in front opens the picker, on the one behind brings it to the front
-  function pick(target: 'fill' | 'stroke') {
-    if ($colorTarget === target) notYet('The color picker');
-    else colorTarget.set(target);
+  function pick(target: 'fill' | 'stroke', e: MouseEvent) {
+    if ($colorTarget !== target) {
+      colorTarget.set(target);
+      return;
+    }
+    if (performance.now() - closedAt < 250) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    picker = { target, x: rect.right + 8, y: rect.top - 40 };
   }
 </script>
 
@@ -41,25 +54,25 @@
       <button
         class="chip stroke"
         class:front={$colorTarget === 'stroke'}
-        class:none={$strokeColor === null}
-        style={$strokeColor ? `--c: ${$strokeColor}` : ''}
+        class:none={strokeColor === null}
+        style={strokeColor ? `--c: ${strokeColor}` : ''}
         title="Stroke color"
         aria-label="Stroke color"
-        onclick={() => pick('stroke')}></button>
+        onclick={(e) => pick('stroke', e)}></button>
       <button
         class="chip fill"
         class:front={$colorTarget === 'fill'}
-        class:none={$fillColor === null}
-        style={$fillColor ? `--c: ${$fillColor}` : ''}
+        class:none={fillColor === null}
+        style={fillColor ? `--c: ${fillColor}` : ''}
         title="Fill color"
         aria-label="Fill color"
-        onclick={() => pick('fill')}></button>
+        onclick={(e) => pick('fill', e)}></button>
     </div>
     <div class="chip-actions">
       <button class="mini" onclick={resetColors} title="Default colors (D)" aria-label="Default colors">
         <span class="mini-default"></span>
       </button>
-      <button class="mini" onclick={swapColors} title="Swap fill and stroke (X)" aria-label="Swap fill and stroke">
+      <button class="mini" onclick={swapColors} title="Swap fill and stroke (Shift+X)" aria-label="Swap fill and stroke">
         <Icon name="swap" size={11} />
       </button>
       <button class="mini" onclick={clearColor} title="None (/)" aria-label="No color">
@@ -68,6 +81,19 @@
     </div>
   </div>
 </div>
+
+{#if picker}
+  <ColorPopover
+    title={picker.target === 'fill' ? 'Fill' : 'Stroke'}
+    paint={picker.target === 'fill' ? $fillPaint : $strokePaint}
+    x={picker.x}
+    y={picker.y}
+    onchange={(p) => setPaint(picker!.target, p)}
+    onclose={() => {
+      picker = null;
+      closedAt = performance.now();
+    }} />
+{/if}
 
 <style>
   .toolbar {
