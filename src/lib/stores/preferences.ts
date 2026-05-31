@@ -76,7 +76,7 @@ export function defaultPreferences(): Preferences {
       brushPressure: true,
       fill: '#ffffff',
       stroke: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 1.5,
       handleSize: 7,
       hitTolerance: 6
     },

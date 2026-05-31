@@ -1,5 +1,6 @@
 import { get, writable } from 'svelte/store';
 import type { ToolId } from '$lib/tools/tool';
+import type { Paint } from '$lib/core/types';
 import { preferences, setGroup, type DockTab, type Workspace } from './preferences';
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error';
@@ -49,6 +50,10 @@ export interface MenuItem {
 export const contextMenu = writable<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
 export const activeTool = writable<ToolId>('select');
+// the tools change it while hovering, the stage shows it
+export const toolCursor = writable('default');
+// settings the stage bar shows for the drawing tools
+export const toolOptions = writable({ rectRadius: 0 });
 
 // 0 based, the ui shows it 1 based
 export const frame = writable(0);
@@ -62,9 +67,10 @@ export const activeLayer = writable<string | null>(null);
 export const docName = writable('Untitled');
 export const dirty = writable(false);
 
-// current fill and stroke, null is none
-export const fillColor = writable<string | null>(get(preferences).drawing.fill);
-export const strokeColor = writable<string | null>(get(preferences).drawing.stroke);
+// current fill and stroke for new shapes, null is none
+export const fillPaint = writable<Paint | null>({ type: 'solid', color: get(preferences).drawing.fill, alpha: 1 });
+export const strokePaint = writable<Paint | null>({ type: 'solid', color: get(preferences).drawing.stroke, alpha: 1 });
+export const strokeWidth = writable(get(preferences).drawing.strokeWidth);
 // which of the two chips the color panel and the swatches change
 export const colorTarget = writable<'fill' | 'stroke'>('fill');
 
