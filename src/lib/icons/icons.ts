@@ -2,7 +2,9 @@
 export const ICONS: Record<string, string> = {
   select: '<path d="M4 2.5v10l2.6-2.5 1.8 4 1.8-.8-1.8-3.9H12z" fill="currentColor"/>',
   direct: '<path d="M4 2.5v10l2.6-2.5 1.8 4 1.8-.8-1.8-3.9H12z"/>',
+  transform: '<path d="M4.5 3h7M13 4.5v7M11.5 13h-7M3 11.5v-7"/><rect x="1.5" y="1.5" width="3" height="3" rx=".5"/><rect x="11.5" y="1.5" width="3" height="3" rx=".5"/><rect x="11.5" y="11.5" width="3" height="3" rx=".5"/><rect x="1.5" y="11.5" width="3" height="3" rx=".5"/>',
   pen: '<path d="M10.5 14.2 8.5 12.2 12.2 8.5 14.2 10.5z"/><path d="M12 8.6 11 4.3 1.8 1.8 4.3 11 8.6 12"/><path d="M2 2 6.5 6.5"/><circle cx="7.4" cy="7.4" r="1.3"/>',
+  curvature: '<path d="M2.5 13.5C3.2 8.6 6 6 7.4 6.2c1.5.2 1 3.4 2.6 3.4 1.8 0 3-4.2 3.5-7.1"/><circle cx="7.4" cy="6.2" r="1.4" fill="currentColor"/><circle cx="2.5" cy="13.5" r="1"/><circle cx="13.5" cy="2.5" r="1"/>',
   pencil: '<path d="M11.2 2.3a1.77 1.77 0 0 1 2.5 2.5L5 13.5l-3 .9.9-3z"/><path d="m9.7 3.8 2.5 2.5"/>',
   brush: '<path d="M6.6 11.4 14 4a1.42 1.42 0 0 0-2-2L4.6 9.4"/><path d="M4.3 14A2.3 2.3 0 1 0 2 11.7c0 1-.3 1.6-.8 2.3z"/><path d="m7.3 6.7 2 2"/>',
   eraser: '<path d="M9.6 2.5 13.5 6.4 6.4 13.5 2.5 9.6z"/><path d="M5.5 6.6 9.4 10.5"/><path d="M6.4 13.5h7"/>',
