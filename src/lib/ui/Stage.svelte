@@ -1,20 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
-  import { activeTool, outlineMode, stageSize, view, type View } from '$lib/stores/app';
-  import { preferences, type Preferences } from '$lib/stores/preferences';
-  import { fitView, isAutoFit, screenToWorld, setAutoFit, setRedraw, setViewport, zoomAround } from '$lib/editor/view';
-  import { cursorFor, doubleClick, drawToolOverlay, keyDown, pointerDown, pointerMove, pointerUp } from '$lib/tools';
-  import type { ToolEvent } from '$lib/tools/tool';
-
-  // ondraw paints the document in world space, onoverlay draws handles and guides on top of it
-  let {
-    ondraw,
-    onoverlay
-  }: {
-    ondraw?: (ctx: CanvasRenderingContext2D, v: View) => void;
-    onoverlay?: (ctx: CanvasRenderingContext2D, v: View) => void;
-  } = $props();
+  import { activeTool, anchorSelection, outlineMode, stageSize, toolCursor, view, type View } from '$lib/stores/app';
+  import { preferences } from '$lib/stores/preferences';
+  import { fitView, isAutoFit, setAutoFit, setRedraw, setViewport, zoomAround } from '$lib/editor/view';
+  import { editor, hover } from '$lib/editor/editor';
+  import { renderStage, setImageLoaded } from '$lib/render/renderer';
+  import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
+  import { doubleClick, drawToolOverlay, pointerDown, pointerMove, pointerUp } from '$lib/tools';
+  import { coalescedEvents, makeEvent, type ToolEvent } from '$lib/tools/tool';
 
   const RULER = 16;
 
@@ -29,20 +23,24 @@
   let width = 0;
   let height = 0;
   let dpr = 1;
-  let contentDirty = true;
-  let overlayDirty = true;
   let panStart: { x: number; y: number; panX: number; panY: number } | null = null;
 
   // read once from the theme, the canvas cannot use css variables
-  const colors = { pasteboard: '#111113', shadow: 'rgba(0, 0, 0, 0.5)', ruler: '#19191c', tick: '#5a5a62', label: '#85858e', border: '#2e2e33' };
+  const colors = {
+    pasteboard: '#111113',
+    shadow: 'rgba(0, 0, 0, 0.5)',
+    ruler: '#19191c',
+    tick: '#5a5a62',
+    label: '#85858e',
+    border: '#2e2e33',
+    accent: '#d19a66'
+  };
 
-  const cursor = $derived(
-    panning ? 'grabbing' : spaceHeld || $activeTool === 'hand' ? 'grab' : cursorFor($activeTool)
-  );
+  const cursor = $derived(panning ? 'grabbing' : spaceHeld || $activeTool === 'hand' ? 'grab' : $toolCursor);
 
+  // the editor holds the dirty flags, the loop below reads them
   function markDirty() {
-    contentDirty = true;
-    overlayDirty = true;
+    editor.markAll();
   }
 
   function readColors() {
@@ -54,6 +52,7 @@
     colors.tick = read('--stage-ruler-tick', colors.tick);
     colors.label = read('--text-muted', colors.label);
     colors.border = read('--border', colors.border);
+    colors.accent = read('--accent', colors.accent);
   }
 
   function resize() {
@@ -78,86 +77,32 @@
 
   function drawContent(ctx: CanvasRenderingContext2D) {
     const v = get(view);
-    const size = get(stageSize);
     const prefs = get(preferences);
-    const x = v.panX;
-    const y = v.panY;
-    const w = size.width * v.zoom;
-    const h = size.height * v.zoom;
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = colors.pasteboard;
-    ctx.fillRect(0, 0, width, height);
-
-    // shadow sizes are in device pixels, the transform does not scale them
-    ctx.save();
-    ctx.shadowColor = colors.shadow;
-    ctx.shadowBlur = 24 * dpr;
-    ctx.shadowOffsetY = 3 * dpr;
-    ctx.fillStyle = size.background;
-    ctx.fillRect(x, y, w, h);
-    ctx.restore();
-
-    ctx.save();
-    if (!prefs.stage.pasteboard) {
-      ctx.beginPath();
-      ctx.rect(x, y, w, h);
-      ctx.clip();
-    }
-    ctx.translate(v.panX, v.panY);
-    ctx.scale(v.zoom, v.zoom);
-    ondraw?.(ctx, v);
-    ctx.restore();
-
-    if (prefs.grid.show) drawGrid(ctx, v, prefs.grid, x, y, w, h);
-  }
-
-  // one device pixel lines, only the ones inside both the stage and the window
-  function drawGrid(
-    ctx: CanvasRenderingContext2D,
-    v: View,
-    grid: Preferences['grid'],
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ) {
-    const step = grid.size * v.zoom * dpr;
-    if (step < 5) return;
-    const x0 = x * dpr;
-    const y0 = y * dpr;
-    const x1 = Math.min((x + w) * dpr, width * dpr);
-    const y1 = Math.min((y + h) * dpr, height * dpr);
-    const top = Math.max(y0, 0);
-    const left = Math.max(x0, 0);
-
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.strokeStyle = grid.color;
-    ctx.globalAlpha = 0.45;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = Math.max(1, Math.ceil(-x0 / step)); x0 + i * step < x1; i++) {
-      const px = Math.round(x0 + i * step) + 0.5;
-      ctx.moveTo(px, top);
-      ctx.lineTo(px, y1);
-    }
-    for (let i = Math.max(1, Math.ceil(-y0 / step)); y0 + i * step < y1; i++) {
-      const py = Math.round(y0 + i * step) + 0.5;
-      ctx.moveTo(left, py);
-      ctx.lineTo(x1, py);
-    }
-    ctx.stroke();
-    ctx.restore();
+    renderStage(
+      ctx,
+      editor.doc,
+      editor.currentLayers(),
+      { zoom: v.zoom, panX: v.panX, panY: v.panY, dpr, width, height },
+      {
+        frame: editor.frame,
+        outline: get(outlineMode),
+        preview: editor.preview,
+        added: editor.previewAdded,
+        assets: editor.doc.assets,
+        pasteboard: prefs.stage.pasteboard,
+        grid: prefs.grid.show ? { size: prefs.grid.size, color: prefs.grid.color } : null,
+        colors
+      }
+    );
   }
 
   function drawOverlay(ctx: CanvasRenderingContext2D) {
     const v = get(view);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    drawEditorOverlay(ctx, v, dpr, colors);
     ctx.setTransform(dpr * v.zoom, 0, 0, dpr * v.zoom, dpr * v.panX, dpr * v.panY);
     drawToolOverlay(ctx);
-    onoverlay?.(ctx, v);
     if (get(preferences).rulers.show) drawRulers(ctx, v);
   }
 
@@ -232,23 +177,7 @@
   }
 
   function toolEvent(e: PointerEvent | MouseEvent): ToolEvent {
-    const rect = overlay!.getBoundingClientRect();
-    const sx = e.clientX - rect.left;
-    const sy = e.clientY - rect.top;
-    const w = screenToWorld(get(view), sx, sy);
-    const pointer = e instanceof PointerEvent ? e : null;
-    return {
-      x: w.x,
-      y: w.y,
-      sx,
-      sy,
-      shift: e.shiftKey,
-      alt: e.altKey,
-      ctrl: e.ctrlKey || e.metaKey,
-      pressure: pointer && pointer.pointerType === 'pen' ? pointer.pressure : 0.5,
-      button: e.button,
-      pointerType: pointer?.pointerType ?? 'mouse'
-    };
+    return makeEvent(e, overlay!.getBoundingClientRect(), get(view));
   }
 
   function onpointerdown(e: PointerEvent) {
@@ -264,7 +193,7 @@
     }
     if (e.button !== 0) return;
     pointerDown(toolEvent(e));
-    overlayDirty = true;
+    editor.markOverlay();
   }
 
   function onpointermove(e: PointerEvent) {
@@ -273,11 +202,8 @@
       view.update((v) => ({ ...v, panX: start.panX + e.clientX - start.x, panY: start.panY + e.clientY - start.y }));
       return;
     }
-    // a pen sends more points than frames, the tools get all of them
-    const events = e.getCoalescedEvents?.() ?? [];
-    if (events.length > 0) for (const ev of events) pointerMove(toolEvent(ev));
-    else pointerMove(toolEvent(e));
-    overlayDirty = true;
+    for (const ev of coalescedEvents(e)) pointerMove(toolEvent(ev));
+    editor.markOverlay();
   }
 
   function onpointerup(e: PointerEvent) {
@@ -289,12 +215,12 @@
     }
     if (e.button !== 0) return;
     pointerUp(toolEvent(e));
-    overlayDirty = true;
+    editor.markOverlay();
   }
 
   function ondblclick(e: MouseEvent) {
     doubleClick(toolEvent(e));
-    overlayDirty = true;
+    editor.markOverlay();
   }
 
   function onwheel(e: WheelEvent) {
@@ -325,15 +251,13 @@
     return el.closest('[role="dialog"], [role="menu"]') !== null;
   }
 
+  // only space lives here, every other key goes through the shortcuts
   function onkeydown(e: KeyboardEvent) {
     if (busy(e.target)) return;
     if (e.key === ' ') {
       e.preventDefault();
       spaceHeld = true;
-      return;
     }
-    keyDown(e);
-    overlayDirty = true;
   }
 
   // space on a focused toolbar button would click it as well, so the stage keeps it
@@ -345,8 +269,9 @@
 
   onMount(() => {
     readColors();
-    contentCtx = content!.getContext('2d');
-    overlayCtx = overlay!.getContext('2d');
+    // desynchronized cuts the pen latency where the browser supports it
+    contentCtx = content!.getContext('2d', { desynchronized: true });
+    overlayCtx = overlay!.getContext('2d', { desynchronized: true });
 
     const observer = new ResizeObserver(resize);
     observer.observe(host!);
@@ -360,19 +285,21 @@
       preferences.subscribe(markDirty),
       stageSize.subscribe(markDirty),
       outlineMode.subscribe(markDirty),
-      activeTool.subscribe(() => (overlayDirty = true))
+      activeTool.subscribe(() => editor.markOverlay()),
+      anchorSelection.subscribe(() => editor.markOverlay())
     ];
     setRedraw(markDirty);
+    setImageLoaded(markDirty);
 
     let raf = 0;
     const loop = () => {
       raf = requestAnimationFrame(loop);
-      if (contentDirty && contentCtx) {
-        contentDirty = false;
+      if (editor.contentDirty && contentCtx) {
+        editor.contentDirty = false;
         drawContent(contentCtx);
       }
-      if (overlayDirty && overlayCtx) {
-        overlayDirty = false;
+      if (editor.overlayDirty && overlayCtx) {
+        editor.overlayDirty = false;
         drawOverlay(overlayCtx);
       }
     };
@@ -384,6 +311,7 @@
       canvas.removeEventListener('wheel', onwheel);
       for (const off of unsubscribe) off();
       setRedraw(null);
+      setImageLoaded(null);
     };
   });
 </script>
@@ -399,6 +327,9 @@
     {onpointermove}
     {onpointerup}
     onpointercancel={onpointerup}
+    onpointerleave={() => {
+      if (!panStart) hover.set(null);
+    }}
     {ondblclick}
     onmousedown={(e) => {
       // the middle button pans, it must not start the browser's autoscroll
