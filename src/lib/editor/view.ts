@@ -68,14 +68,36 @@ export function zoomTo(zoom: number) {
   view.update((v) => zoomAround(v, zoom, viewport.width / 2, viewport.height / 2));
 }
 
+function stepUp(z: number): number {
+  return ZOOM_STEPS.find((s) => s > z * 1.001) ?? ZOOM_MAX;
+}
+
+function stepDown(z: number): number {
+  return [...ZOOM_STEPS].reverse().find((s) => s < z / 1.001) ?? ZOOM_MIN;
+}
+
 export function zoomIn() {
-  const z = get(view).zoom;
-  zoomTo(ZOOM_STEPS.find((s) => s > z * 1.001) ?? ZOOM_MAX);
+  zoomTo(stepUp(get(view).zoom));
 }
 
 export function zoomOut() {
-  const z = get(view).zoom;
-  zoomTo([...ZOOM_STEPS].reverse().find((s) => s < z / 1.001) ?? ZOOM_MIN);
+  zoomTo(stepDown(get(view).zoom));
+}
+
+// the zoom tool, around the clicked point instead of the middle
+export function zoomStepAt(sx: number, sy: number, out: boolean) {
+  autoFit = false;
+  view.update((v) => zoomAround(v, out ? stepDown(v.zoom) : stepUp(v.zoom), sx, sy));
+}
+
+// fits a world rect into the window
+export function zoomToRect(minX: number, minY: number, maxX: number, maxY: number) {
+  const w = maxX - minX;
+  const h = maxY - minY;
+  if (w <= 0 || h <= 0 || viewport.width === 0) return;
+  autoFit = false;
+  view.set(fitView(viewport.width, viewport.height, w, h, 16));
+  view.update((v) => ({ ...v, panX: v.panX - minX * v.zoom, panY: v.panY - minY * v.zoom }));
 }
 
 export function zoomActual() {
