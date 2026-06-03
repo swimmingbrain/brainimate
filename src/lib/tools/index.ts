@@ -3,6 +3,7 @@ import { activeTool, addToast, toolCursor } from '$lib/stores/app';
 import { TOOL_IDS, TOOL_INFO, getTool, registerTool, toolBase, type Tool, type ToolEvent, type ToolId } from './tool';
 import { handTool } from './hand';
 import { zoomTool } from './zoom';
+import { rectTool } from './rect';
 
 export { TOOL_INFO, type ToolInfo } from './tool';
 
@@ -22,7 +23,7 @@ function placeholder(id: ToolId): Tool {
   };
 }
 
-for (const tool of [handTool, zoomTool]) registerTool(tool);
+for (const tool of [handTool, zoomTool, rectTool]) registerTool(tool);
 for (const id of TOOL_IDS) if (!getTool(id)) registerTool(placeholder(id));
 
 export function currentTool(): Tool | undefined {
