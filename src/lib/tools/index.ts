@@ -5,6 +5,7 @@ import { handTool } from './hand';
 import { zoomTool } from './zoom';
 import { rectTool } from './rect';
 import { ellipseTool } from './ellipse';
+import { lineTool } from './line';
 
 export { TOOL_INFO, type ToolInfo } from './tool';
 
@@ -24,7 +25,7 @@ function placeholder(id: ToolId): Tool {
   };
 }
 
-for (const tool of [handTool, zoomTool, rectTool, ellipseTool]) registerTool(tool);
+for (const tool of [handTool, zoomTool, rectTool, ellipseTool, lineTool]) registerTool(tool);
 for (const id of TOOL_IDS) if (!getTool(id)) registerTool(placeholder(id));
 
 export function currentTool(): Tool | undefined {
