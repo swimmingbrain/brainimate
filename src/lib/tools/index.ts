@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import { activeTool, addToast, toolCursor } from '$lib/stores/app';
 import { TOOL_IDS, TOOL_INFO, getTool, registerTool, toolBase, type Tool, type ToolEvent, type ToolId } from './tool';
+import { selectionTool, transformTool } from './select';
 import { handTool } from './hand';
 import { zoomTool } from './zoom';
 import { rectTool } from './rect';
@@ -25,7 +26,8 @@ function placeholder(id: ToolId): Tool {
   };
 }
 
-for (const tool of [handTool, zoomTool, rectTool, ellipseTool, lineTool]) registerTool(tool);
+const TOOLS = [selectionTool, transformTool, handTool, zoomTool, rectTool, ellipseTool, lineTool];
+for (const tool of TOOLS) registerTool(tool);
 for (const id of TOOL_IDS) if (!getTool(id)) registerTool(placeholder(id));
 
 export function currentTool(): Tool | undefined {
