@@ -1,8 +1,15 @@
 import { dialog, setWorkspace, togglePanel, WORKSPACES, type MenuItem } from '$lib/stores/app';
 import { setGroup, type DockTab, type Preferences, type Workspace } from '$lib/stores/preferences';
 import {
+  closeSelectedPaths,
+  flipSelection,
+  insertKeyframeHere,
   notYet,
   redo,
+  removeTransform,
+  reverseSelectedPaths,
+  rotateSelection,
+  showDocumentSettings,
   toggleGrid,
   toggleGuides,
   toggleOnion,
@@ -13,6 +20,10 @@ import {
   undo
 } from './commands';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
+import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
+import { clearSelection, deleteSelection, selectAll } from './selection';
+import { addLayer } from './layers';
+import type { HistoryState } from './history';
 
 export interface TopMenu {
   label: string;
@@ -36,7 +47,15 @@ const PANELS: { id: DockTab; label: string }[] = [
   { id: 'rig', label: 'Rig' }
 ];
 
-export function buildMenus(p: Preferences, outline: boolean, workspace: Workspace): TopMenu[] {
+// what the edit menu needs to know to grey out entries
+export interface MenuContext {
+  history: HistoryState;
+  hasSelection: boolean;
+  hasClipboard: boolean;
+}
+
+export function buildMenus(p: Preferences, outline: boolean, workspace: Workspace, ctx: MenuContext): TopMenu[] {
+  const none = !ctx.hasSelection;
   return [
     {
       label: 'File',
@@ -51,23 +70,34 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         { label: 'Import', children: [soon('SVG...'), soon('Image...'), soon('Font...')] },
         { label: 'Export...', shortcut: 'Ctrl+Shift+E', action: () => dialog.set({ kind: 'export' }) },
         SEP,
-        { label: 'Document settings...', shortcut: 'Ctrl+J', action: () => dialog.set({ kind: 'doc-settings' }) }
+        { label: 'Document settings...', action: showDocumentSettings }
       ]
     },
     {
       label: 'Edit',
       items: [
-        { label: 'Undo', shortcut: 'Ctrl+Z', action: undo },
-        { label: 'Redo', shortcut: 'Ctrl+Shift+Z', action: redo },
+        {
+          label: ctx.history.undoLabel ? `Undo ${ctx.history.undoLabel.toLowerCase()}` : 'Undo',
+          shortcut: 'Ctrl+Z',
+          disabled: !ctx.history.canUndo,
+          action: undo
+        },
+        {
+          label: ctx.history.redoLabel ? `Redo ${ctx.history.redoLabel.toLowerCase()}` : 'Redo',
+          shortcut: 'Ctrl+Shift+Z',
+          disabled: !ctx.history.canRedo,
+          action: redo
+        },
         SEP,
-        soon('Cut', 'Ctrl+X'),
-        soon('Copy', 'Ctrl+C'),
-        soon('Paste', 'Ctrl+V'),
-        soon('Paste in place', 'Ctrl+Shift+V'),
-        soon('Duplicate', 'Ctrl+D'),
+        { label: 'Cut', shortcut: 'Ctrl+X', disabled: none, action: cut },
+        { label: 'Copy', shortcut: 'Ctrl+C', disabled: none, action: copy },
+        { label: 'Paste', shortcut: 'Ctrl+V', disabled: !ctx.hasClipboard, action: paste },
+        { label: 'Paste in place', shortcut: 'Ctrl+Shift+V', disabled: !ctx.hasClipboard, action: pasteInPlace },
+        { label: 'Duplicate', shortcut: 'Ctrl+D', disabled: none, action: duplicate },
+        { label: 'Delete', shortcut: 'Delete', disabled: none, action: deleteSelection },
         SEP,
-        soon('Select all', 'Ctrl+A'),
-        soon('Deselect', 'Ctrl+Shift+A'),
+        { label: 'Select all', shortcut: 'Ctrl+A', action: selectAll },
+        { label: 'Deselect', shortcut: 'Ctrl+Shift+A', disabled: none, action: clearSelection },
         SEP,
         { label: 'Preferences...', shortcut: 'Ctrl+,', action: () => dialog.set({ kind: 'preferences' }) },
         { label: 'Keyboard shortcuts', shortcut: '?', action: () => dialog.set({ kind: 'shortcuts' }) }
@@ -114,7 +144,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
           ]
         },
         SEP,
-        { label: 'Outline mode', shortcut: 'Ctrl+Y', checked: outline, action: toggleOutline },
+        { label: 'Outline mode', checked: outline, action: toggleOutline },
         { label: 'Onion skin', shortcut: 'Alt+O', checked: p.timeline.onion, action: toggleOnion },
         { label: 'Pasteboard', checked: p.stage.pasteboard, action: togglePasteboard }
       ]
@@ -122,12 +152,12 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
     {
       label: 'Insert',
       items: [
-        soon('Layer'),
+        { label: 'Layer', action: addLayer },
         soon('Layer folder'),
         soon('Rig layer'),
         SEP,
         soon('Frame', 'F5'),
-        soon('Keyframe', 'F6'),
+        { label: 'Keyframe', shortcut: 'F6', action: insertKeyframeHere },
         soon('Blank keyframe', 'F7'),
         SEP,
         soon('Symbol...', 'Ctrl+F8'),
@@ -169,21 +199,21 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         {
           label: 'Transform',
           children: [
-            soon('Flip horizontal'),
-            soon('Flip vertical'),
+            { label: 'Flip horizontal', disabled: none, action: () => flipSelection(true) },
+            { label: 'Flip vertical', disabled: none, action: () => flipSelection(false) },
             SEP,
-            soon('Rotate 90° clockwise', 'Ctrl+Shift+9'),
-            soon('Rotate 90° counterclockwise', 'Ctrl+Shift+7'),
+            { label: 'Rotate 90° clockwise', disabled: none, action: () => rotateSelection(90) },
+            { label: 'Rotate 90° counterclockwise', disabled: none, action: () => rotateSelection(-90) },
             SEP,
-            soon('Remove transform')
+            { label: 'Remove transform', disabled: none, action: removeTransform }
           ]
         },
         {
           label: 'Path',
           children: [
             soon('Join'),
-            soon('Close'),
-            soon('Reverse direction'),
+            { label: 'Close', disabled: none, action: closeSelectedPaths },
+            { label: 'Reverse direction', disabled: none, action: reverseSelectedPaths },
             soon('Simplify'),
             soon('Smooth'),
             soon('Outline stroke'),

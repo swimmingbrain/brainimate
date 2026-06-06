@@ -1,10 +1,18 @@
 <script lang="ts">
   import Menu from './Menu.svelte';
   import { buildMenus } from '$lib/editor/menus';
-  import { outlineMode, workspace } from '$lib/stores/app';
+  import { outlineMode, selection, workspace } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
+  import { historyState } from '$lib/editor/editor';
+  import { hasClipboard } from '$lib/editor/clipboard';
 
-  const menus = $derived(buildMenus($preferences, $outlineMode, $workspace));
+  const menus = $derived(
+    buildMenus($preferences, $outlineMode, $workspace, {
+      history: $historyState,
+      hasSelection: $selection.size > 0,
+      hasClipboard: $hasClipboard
+    })
+  );
 
   let open = $state(-1);
   let at = $state({ x: 0, y: 0 });
