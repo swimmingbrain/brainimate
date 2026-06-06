@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import TopBar from './TopBar.svelte';
   import MenuBar from './MenuBar.svelte';
   import Toolbar from './Toolbar.svelte';
@@ -11,6 +12,7 @@
   import Dialogs from './Dialogs.svelte';
   import Timeline from './timeline/Timeline.svelte';
   import { MAX_DOCK, MAX_TIMELINE, MIN_DOCK, MIN_TIMELINE, preferences, setGroup } from '$lib/stores/preferences';
+  import { installShortcuts } from '$lib/editor/shortcuts';
 
   // what the stage keeps at the least when the dock or the timeline grow
   const MIN_STAGE_W = 320;
@@ -30,6 +32,8 @@
     const limit = Math.min(MAX_TIMELINE, mainHeight - MIN_STAGE_H);
     setGroup('panels', { timelineHeight: Math.max(MIN_TIMELINE, Math.min(panels.timelineHeight - delta, limit)) });
   }
+
+  onMount(() => installShortcuts());
 </script>
 
 <div class="editor-app">
