@@ -3,12 +3,16 @@
   import Menu from './Menu.svelte';
   import NumberField from './NumberField.svelte';
   import { TOOL_INFO } from '$lib/tools';
+  import { getTool } from '$lib/tools/tool';
   import { toggleGrid, toggleOnion, toggleOutline, toggleRulers, toggleSnapping } from '$lib/editor/commands';
   import { zoomFit, zoomTo } from '$lib/editor/view';
   import { activeTool, outlineMode, view, type MenuItem } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
 
   const ZOOMS = [25, 50, 100, 200, 400, 800];
+
+  // the active tool's settings, or just its name when it has none
+  const Options = $derived(getTool($activeTool)?.options);
 
   const zoomItems: MenuItem[] = [
     ...ZOOMS.map((z) => ({ label: `${z}%`, action: () => zoomTo(z / 100) })),
@@ -33,9 +37,12 @@
     </span>
   </div>
 
-  <!-- the active tool puts its options here once it has some -->
   <div class="options">
     <span class="tool-name">{TOOL_INFO[$activeTool].name}</span>
+    {#if Options}
+      <span class="opt-sep"></span>
+      <Options />
+    {/if}
   </div>
 
   <div class="controls">
@@ -115,6 +122,12 @@
     font-size: 11px;
     color: var(--text-muted);
     white-space: nowrap;
+  }
+
+  .opt-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--border);
   }
 
   .controls {
