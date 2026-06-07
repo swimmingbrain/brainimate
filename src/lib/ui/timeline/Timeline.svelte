@@ -2,25 +2,27 @@
   import Icon from '$lib/icons/Icon.svelte';
   import Ruler from './Ruler.svelte';
   import TimelineBar from './TimelineBar.svelte';
+  import LayerRow from './LayerRow.svelte';
   import { notYet } from '$lib/editor/commands';
-  import { frame } from '$lib/stores/app';
+  import { docVersion, editor } from '$lib/editor/editor';
+  import { addLayer, deleteLayer, renameLayer, setActiveLayer, setLayerFlag } from '$lib/editor/layers';
+  import { activeLayer, frame } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
 
   const fw = $derived($preferences.timeline.frameWidth);
 
-  // one sample row until layers exist: a hold, a tween and a hold, keyed at 1, 13 and 25
-  const spans = [
-    { from: 0, to: 12, kind: 'hold' },
-    { from: 12, to: 24, kind: 'tween' },
-    { from: 24, to: 30, kind: 'hold' }
-  ];
+  // the top layer is drawn last, so it is listed first
+  const layers = $derived.by(() => {
+    void $docVersion;
+    return [...editor.currentLayers()].reverse();
+  });
 </script>
 
 <section class="timeline" style="--fw: {fw}px">
   <div class="head">
     <div class="layer-head">
       <div class="actions">
-        <button class="mini-btn" onclick={() => notYet('New layer')} title="New layer" aria-label="New layer">
+        <button class="mini-btn" onclick={addLayer} title="New layer" aria-label="New layer">
           <Icon name="plus" size={13} />
         </button>
         <button class="mini-btn" onclick={() => notYet('New folder')} title="New folder" aria-label="New folder">
@@ -29,7 +31,11 @@
         <button class="mini-btn" onclick={() => notYet('New rig layer')} title="New rig layer" aria-label="New rig layer">
           <Icon name="rig" size={13} />
         </button>
-        <button class="mini-btn" onclick={() => notYet('Delete layer')} title="Delete layer" aria-label="Delete layer">
+        <button
+          class="mini-btn"
+          onclick={() => $activeLayer && deleteLayer($activeLayer)}
+          title="Delete layer"
+          aria-label="Delete layer">
           <Icon name="trash" size={13} />
         </button>
       </div>
@@ -45,30 +51,19 @@
   </div>
 
   <div class="body">
-    <div class="row active">
-      <div class="layer">
-        <span class="swatch" style="background: var(--label-blue)"></span>
-        <Icon name="layer" size={12} />
-        <span class="name">Layer 1</span>
-        <span class="toggles">
-          <Icon name="eye" size={12} />
-          <Icon name="unlock" size={12} />
-          <span class="outline-box" style="border-color: var(--label-blue)"></span>
-        </span>
+    <div class="rows">
+      {#each layers as layer (layer.id)}
+        <LayerRow
+          {layer}
+          active={$activeLayer === layer.id}
+          onactivate={() => setActiveLayer(layer.id)}
+          onrename={(name) => renameLayer(layer.id, name)}
+          ontoggle={(key, value) => setLayerFlag(layer.id, key, value)} />
+      {/each}
+      <div class="filler">
+        <div class="layer"></div>
+        <div class="frames"></div>
       </div>
-      <div class="frames">
-        {#each spans as span (span.from)}
-          <div class="span {span.kind}" style="left: calc(var(--fw) * {span.from}); width: calc(var(--fw) * {span.to - span.from})">
-            {#if span.kind === 'tween'}<span class="arrow"></span>{/if}
-          </div>
-          <span class="key" style="left: calc(var(--fw) * {span.from})"></span>
-        {/each}
-        <span class="end" style="left: calc(var(--fw) * 29)"></span>
-      </div>
-    </div>
-    <div class="filler">
-      <div class="layer"></div>
-      <div class="frames"></div>
     </div>
     <div class="playhead" style="left: calc(var(--layer-header-w) + var(--fw) * {$frame} + var(--fw) / 2)"></div>
   </div>
@@ -122,8 +117,7 @@
     color: var(--text-primary);
   }
 
-  .columns,
-  .toggles {
+  .columns {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -144,130 +138,31 @@
     overflow: hidden;
   }
 
-  .row,
-  .filler {
+  .rows {
+    flex: 1;
+    min-height: 0;
     display: flex;
-    flex-shrink: 0;
-  }
-
-  .row {
-    height: var(--layer-row-h);
-    border-bottom: 1px solid var(--border);
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .filler {
     flex: 1;
+    display: flex;
+    min-height: 12px;
   }
 
-  .layer {
+  .filler .layer {
     width: var(--layer-header-w);
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 4px 0 6px;
     border-right: 1px solid var(--border);
-    color: var(--text-muted);
-  }
-
-  .row.active .layer {
-    background: var(--bg-hover);
-    color: var(--text-secondary);
-  }
-
-  .swatch {
-    width: 3px;
-    align-self: stretch;
-    margin: 4px 0;
-    flex-shrink: 0;
-  }
-
-  .name {
-    flex: 1;
-    min-width: 0;
-    font-size: 11.5px;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .outline-box {
-    width: 10px;
-    height: 10px;
-    margin: 0 1px;
-    border: 1.5px solid;
-  }
-
-  /* a line on every frame and a lighter cell every fifth, like the classic timelines */
-  .frames {
-    position: relative;
-    flex: 1;
-    min-width: 0;
-    background:
-      repeating-linear-gradient(to right, transparent 0 calc(var(--fw) - 1px), var(--frame-line) calc(var(--fw) - 1px) var(--fw)),
-      repeating-linear-gradient(to right, transparent 0 calc(var(--fw) * 4), var(--frame-line-major) calc(var(--fw) * 4) calc(var(--fw) * 5));
-  }
-
-  .span {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    border-right: 1px solid var(--frame-hold-edge);
-  }
-
-  .span.hold {
-    background: var(--frame-hold);
-  }
-
-  .span.tween {
-    background: var(--tween);
-    border-right-color: var(--tween-edge);
-  }
-
-  /* the tween arrow runs from the key dot to the next key */
-  .arrow {
-    position: absolute;
-    left: calc(var(--fw) / 2 + 5px);
-    right: 6px;
-    top: 50%;
-    height: 1px;
-    background: var(--tween-edge);
-  }
-
-  .arrow::after {
-    content: '';
-    position: absolute;
-    right: -1px;
-    top: -3px;
-    border-left: 5px solid var(--tween-edge);
-    border-top: 3.5px solid transparent;
-    border-bottom: 3.5px solid transparent;
-  }
-
-  .key {
-    position: absolute;
-    top: 50%;
-    width: 7px;
-    height: 7px;
-    margin-left: calc(var(--fw) / 2 - 3.5px);
-    margin-top: -3.5px;
-    border-radius: 50%;
-    background: var(--keyframe);
-  }
-
-  /* the end of a span, a small hollow box in the last frame */
-  .end {
-    position: absolute;
-    top: 50%;
-    width: 6px;
-    height: 8px;
-    margin-left: calc(var(--fw) / 2 - 3px);
-    margin-top: -4px;
-    border: 1px solid var(--text-muted);
   }
 
   .filler .frames {
+    position: relative;
+    flex: 1;
+    min-width: 0;
     background: repeating-linear-gradient(
       to right,
       transparent 0 calc(var(--fw) * 4),
