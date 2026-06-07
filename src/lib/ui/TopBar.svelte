@@ -3,6 +3,7 @@
   import Icon from '$lib/icons/Icon.svelte';
   import { notYet, redo, undo } from '$lib/editor/commands';
   import { dialog, dirty, docName, setWorkspace, workspace, WORKSPACES } from '$lib/stores/app';
+  import { historyState } from '$lib/editor/editor';
 </script>
 
 <div class="topbar">
@@ -36,10 +37,20 @@
       <span>Save</span>
     </button>
     <span class="separator"></span>
-    <button class="action-btn icon-only" onclick={undo} title="Undo (Ctrl+Z)" aria-label="Undo">
+    <button
+      class="action-btn icon-only"
+      onclick={undo}
+      disabled={!$historyState.canUndo}
+      title={$historyState.undoLabel ? `Undo ${$historyState.undoLabel.toLowerCase()} (Ctrl+Z)` : 'Undo (Ctrl+Z)'}
+      aria-label="Undo">
       <Icon name="undo" size={14} />
     </button>
-    <button class="action-btn icon-only" onclick={redo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+    <button
+      class="action-btn icon-only"
+      onclick={redo}
+      disabled={!$historyState.canRedo}
+      title={$historyState.redoLabel ? `Redo ${$historyState.redoLabel.toLowerCase()} (Ctrl+Shift+Z)` : 'Redo (Ctrl+Shift+Z)'}
+      aria-label="Redo">
       <Icon name="redo" size={14} />
     </button>
     <span class="separator"></span>
@@ -189,9 +200,14 @@
     text-decoration: none;
   }
 
-  .action-btn:hover {
+  .action-btn:hover:not(:disabled) {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .action-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
 
   .action-btn.accent {
