@@ -3,9 +3,29 @@
   import NumberField from '../NumberField.svelte';
   import { frame, playing } from '$lib/stores/app';
   import { preferences, setGroup } from '$lib/stores/preferences';
+  import { docVersion, editor } from '$lib/editor/editor';
 
   const timeline = $derived($preferences.timeline);
-  const seconds = $derived(($frame / timeline.fps).toFixed(2));
+  // the frame rate belongs to the document, the preference is only the default for new ones
+  const fps = $derived.by(() => {
+    void $docVersion;
+    return editor.doc.fps;
+  });
+  const last = $derived.by(() => {
+    void $docVersion;
+    return Math.max(0, ...editor.doc.layers.map((l) => l.length - 1));
+  });
+  const seconds = $derived(($frame / fps).toFixed(2));
+
+  function setFps(v: number) {
+    editor.commit(
+      'Frame rate',
+      (d) => {
+        d.fps = Math.round(v);
+      },
+      'doc-fps'
+    );
+  }
 </script>
 
 <div class="bar">
@@ -41,15 +61,27 @@
 
   <span class="sep"></span>
 
-  <!-- playback arrives with the timeline work, the buttons are here for the layout -->
+  <!-- playback arrives with the timeline work -->
   <div class="group transport">
-    <button class="icon-btn" title="First frame (Shift+,)" aria-label="First frame"><Icon name="first" size={13} /></button>
-    <button class="icon-btn" title="Previous frame (,)" aria-label="Previous frame"><Icon name="prev" size={13} /></button>
+    <button class="icon-btn" title="First frame (Shift+,)" aria-label="First frame" onclick={() => frame.set(0)}>
+      <Icon name="first" size={13} />
+    </button>
+    <button
+      class="icon-btn"
+      title="Previous frame (,)"
+      aria-label="Previous frame"
+      onclick={() => frame.update((f) => Math.max(0, f - 1))}>
+      <Icon name="prev" size={13} />
+    </button>
     <button class="icon-btn play" title="Play (Enter)" aria-label="Play">
       <Icon name={$playing ? 'pause' : 'play'} size={13} />
     </button>
-    <button class="icon-btn" title="Next frame (.)" aria-label="Next frame"><Icon name="next" size={13} /></button>
-    <button class="icon-btn" title="Last frame (Shift+.)" aria-label="Last frame"><Icon name="last" size={13} /></button>
+    <button class="icon-btn" title="Next frame (.)" aria-label="Next frame" onclick={() => frame.update((f) => f + 1)}>
+      <Icon name="next" size={13} />
+    </button>
+    <button class="icon-btn" title="Last frame (Shift+.)" aria-label="Last frame" onclick={() => frame.set(last)}>
+      <Icon name="last" size={13} />
+    </button>
   </div>
 
   <span class="sep"></span>
@@ -59,14 +91,7 @@
       <NumberField value={$frame + 1} min={1} max={99999} precision={0} label="Current frame" onchange={(v) => frame.set(v - 1)} />
     </div>
     <div class="field fps" title="Frames per second">
-      <NumberField
-        value={timeline.fps}
-        min={1}
-        max={120}
-        precision={0}
-        unit=" fps"
-        label="Frames per second"
-        onchange={(v) => setGroup('timeline', { fps: v })} />
+      <NumberField value={fps} min={1} max={120} precision={0} unit=" fps" label="Frames per second" onchange={setFps} />
     </div>
     <span class="time">{seconds}s</span>
   </div>
