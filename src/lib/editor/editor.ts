@@ -8,7 +8,7 @@ import { cloneItem, findItem, itemBounds, parentMatrix, type Found } from '$lib/
 import { emptyBox, union, type Box } from '$lib/core/bbox';
 import { itemsAt } from '$lib/render/frame';
 import { keyframeForEdit } from '$lib/anim/timeline';
-import { activeLayer, dirty, docName, frame, selection, stageSize } from '$lib/stores/app';
+import { activeLayer, anchorSelection, dirty, docName, frame, selection, stageSize } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 
 // outline and highlight colors, a new layer takes the next one
@@ -75,7 +75,10 @@ class Editor {
       this.pruneSelection();
       this.markAll();
     });
-    selection.subscribe(() => this.markOverlay());
+    selection.subscribe(() => {
+      this.pruneAnchors();
+      this.markOverlay();
+    });
     hover.subscribe(() => this.markOverlay());
     this.sync();
   }
@@ -160,6 +163,19 @@ class Editor {
     }
     const h = get(hover);
     if (h && !this.locate(h)) hover.set(null);
+    this.pruneAnchors();
+  }
+
+  // picked anchors only make sense on selected paths that still have them
+  pruneAnchors() {
+    const anchors = get(anchorSelection);
+    if (anchors.length === 0) return;
+    const sel = get(selection);
+    const kept = anchors.filter((a) => {
+      const item = this.locate(a.itemId)?.found.item;
+      return item?.type === 'path' && a.index < item.path.anchors.length && sel.has(a.itemId);
+    });
+    if (kept.length !== anchors.length) anchorSelection.set(kept);
   }
 
   clearPreview() {
