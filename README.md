@@ -30,12 +30,13 @@ It is early. The editor shell is there, the drawing tools, the timeline and the 
 
 | Key | What it does |
 |-----|--------------|
-| `V` `A` | Selection, direct selection |
-| `P` `N` `B` `E` | Pen, pencil, brush, eraser |
-| `M` `L` `\` `T` | Rectangle, ellipse, line, text |
+| `V` `A` `Q` | Selection, direct selection, free transform |
+| `P` `Shift+P` `Y` `B` `E` | Pen, curvature, pencil, brush, eraser |
+| `R` `O` `N` `T` | Rectangle, ellipse, line, text |
 | `K` `I` `G` | Paint bucket, eyedropper, gradient |
-| `X` `Y` | Bone, pose |
-| `Space` | Hand while held |
+| `M` `Shift+M` | Bone, bind |
+| `Z` `H` `Space` | Zoom, hand, hand while held |
+| `X` `Shift+X` `D` | Fill or stroke in front, swap them, default colors |
 | `F5` `F6` `F7` | Insert frame, keyframe, blank keyframe |
 | `,` `.` `Enter` | Previous frame, next frame, play |
 | `Ctrl+Z` `Ctrl+Shift+Z` | Undo, redo |
