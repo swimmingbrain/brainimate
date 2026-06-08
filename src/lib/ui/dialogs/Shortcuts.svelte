@@ -18,6 +18,15 @@
   const groups: { name: string; items: Shortcut[] }[] = [
     { name: 'Tools', items: [...tools, { keys: ['Space'], what: 'Hand while held' }] },
     {
+      name: 'Colors',
+      items: [
+        { keys: ['X'], what: 'Fill or stroke in front' },
+        { keys: ['Shift', 'X'], what: 'Swap fill and stroke' },
+        { keys: ['D'], what: 'Black stroke and white fill' },
+        { keys: ['/'], what: 'No color for the chip in front' }
+      ]
+    },
+    {
       name: 'Timeline',
       items: [
         { keys: ['Enter'], what: 'Play and pause' },
@@ -42,7 +51,9 @@
         { keys: ['Ctrl', 'G'], what: 'Group' },
         { keys: ['Ctrl', 'Shift', 'G'], what: 'Ungroup' },
         { keys: ['F8'], what: 'Convert to symbol' },
-        { keys: ['Delete'], what: 'Delete the selection' }
+        { keys: ['Delete'], what: 'Delete the selection' },
+        { keys: ['Arrows'], what: 'Nudge 1 px, with Shift 10 px' },
+        { keys: ['Esc'], what: 'Deselect' }
       ]
     },
     {
