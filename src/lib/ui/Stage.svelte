@@ -202,7 +202,9 @@
       view.update((v) => ({ ...v, panX: start.panX + e.clientX - start.x, panY: start.panY + e.clientY - start.y }));
       return;
     }
-    for (const ev of coalescedEvents(e)) pointerMove(toolEvent(ev));
+    // a hover only needs the latest position, a drag gets every point in between
+    if (e.buttons === 0) pointerMove(toolEvent(e));
+    else for (const ev of coalescedEvents(e)) pointerMove(toolEvent(ev));
     editor.markOverlay();
   }
 
