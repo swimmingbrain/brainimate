@@ -124,8 +124,11 @@ function drawAnchors(ctx: CanvasRenderingContext2D, v: View, item: PathItem, wor
     const p = applyPoint(m, a);
     ctx.fillStyle = picked.has(i) ? color : '#ffffff';
     ctx.beginPath();
-    if (a.kind === 'corner') ctx.rect(Math.round(p.x - half) + 0.5, Math.round(p.y - half) + 0.5, ANCHOR_SIZE - 1, ANCHOR_SIZE - 1);
-    else ctx.arc(p.x, p.y, half, 0, Math.PI * 2);
+    if (a.kind === 'corner') {
+      ctx.rect(Math.round(p.x - half) + 0.5, Math.round(p.y - half) + 0.5, ANCHOR_SIZE - 1, ANCHOR_SIZE - 1);
+    } else {
+      ctx.arc(p.x, p.y, half, 0, Math.PI * 2);
+    }
     ctx.fill();
     ctx.stroke();
   });

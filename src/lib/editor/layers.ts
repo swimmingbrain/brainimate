@@ -51,7 +51,12 @@ export function renameLayer(id: string, name: string) {
 }
 
 export function setLayerFlag(id: string, key: 'visible' | 'locked' | 'outline', value: boolean) {
-  const label = key === 'visible' ? (value ? 'Show layer' : 'Hide layer') : key === 'locked' ? (value ? 'Lock layer' : 'Unlock layer') : 'Outline layer';
+  const labels = {
+    visible: value ? 'Show layer' : 'Hide layer',
+    locked: value ? 'Lock layer' : 'Unlock layer',
+    outline: value ? 'Show layer as outlines' : 'Show layer filled'
+  };
+  const label = labels[key];
   editor.commit(label, (draft) => {
     const layer = draft.layers.find((l) => l.id === id);
     if (layer) layer[key] = value;

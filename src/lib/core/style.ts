@@ -25,7 +25,11 @@ export function solid(color: string, alpha = 1): Paint {
   return { type: 'solid', color, alpha };
 }
 
-export function defaultStyle(fill: Paint | null = solid('#ffffff'), stroke: Paint | null = solid('#000000'), width = 1.5): Style {
+export function defaultStyle(
+  fill: Paint | null = solid('#ffffff'),
+  stroke: Paint | null = solid('#000000'),
+  width = 1.5
+): Style {
   return { fill, stroke, width, cap: 'round', join: 'round', dash: [], scaleStroke: false };
 }
 

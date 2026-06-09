@@ -275,7 +275,10 @@ export function createSelectTool(id: ToolId): Tool {
         const end = e.shift ? snapAngle(start, e) : e;
         const m = translate(end.x - start.x, end.y - start.y);
         if (copies) {
-          editor.previewAdded = copies.map((c) => ({ layerId: c.layerId, item: { ...c.item, transform: multiply(m, c.item.transform) } }));
+          editor.previewAdded = copies.map((c) => ({
+            layerId: c.layerId,
+            item: { ...c.item, transform: multiply(m, c.item.transform) }
+          }));
         } else {
           editor.preview = transformedSelection(m, base);
         }

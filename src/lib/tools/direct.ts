@@ -122,7 +122,8 @@ function down(e: ToolEvent) {
       const one = { itemId: item.id, index: hit.index };
       if (e.shift) {
         const list = get(anchorSelection);
-        anchorSelection.set(isPicked(item.id, hit.index) ? list.filter((a) => a.itemId !== item.id || a.index !== hit.index) : [...list, one]);
+        const rest = list.filter((a) => a.itemId !== item.id || a.index !== hit.index);
+        anchorSelection.set(isPicked(item.id, hit.index) ? rest : [...list, one]);
       } else if (!isPicked(item.id, hit.index)) {
         anchorSelection.set([one]);
       }
