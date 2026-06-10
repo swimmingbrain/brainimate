@@ -37,6 +37,7 @@
     "idb-keyval": "^6.3.0",
     "immer": "^11.1.21",
     "mediabunny": "^1.61.3",
+    "paper": "^0.12.18",
     "perfect-freehand": "^1.2.3",
     "tinykeys": "^4.0.1"
   }

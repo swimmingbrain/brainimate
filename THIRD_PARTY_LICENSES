@@ -47,6 +47,10 @@ tinykeys 4.0.1: the keyboard shortcuts
 MIT
 https://github.com/jamiebuilds/tinykeys
 
+paper 0.12.18: boolean operations on paths (unite, subtract, intersect, exclude, divide), loaded only when one runs
+MIT
+https://github.com/paperjs/paper.js
+
 Two more are build tools rather than runtime dependencies, but what they produce ends up in
 the site, so they belong here too:
 
