@@ -1,7 +1,8 @@
 import type { Anchor, Mat, PathData, Vec } from './types';
 import { applyPoint, applyVector } from './mat';
-import { bbox as cubicBox, nearest, pointAt, split, type Cubic } from './bezier';
+import { bbox as cubicBox, flatten, nearest, pointAt, split, type Cubic } from './bezier';
 import { addPoint, emptyBox, union, type Box } from './bbox';
+import { polygonArea } from './polygon';
 
 // the editing helpers below change the path they get, use copyPath first on anything shared
 
@@ -210,4 +211,32 @@ export function bendSegment(path: PathData, index: number, t: number, p1: Vec, p
     a.kind = 'corner';
     b.kind = 'corner';
   }
+}
+
+// the kind the handles describe: in line is smooth, in line and the same length is symmetric
+export function kindOf(a: Pick<Anchor, 'ix' | 'iy' | 'ox' | 'oy'>): Anchor['kind'] {
+  const li = Math.hypot(a.ix, a.iy);
+  const lo = Math.hypot(a.ox, a.oy);
+  if (li < 1e-9 || lo < 1e-9) return 'corner';
+  if ((a.ix * a.ox + a.iy * a.oy) / (li * lo) > -0.9995) return 'corner';
+  return Math.abs(li - lo) <= 1e-6 * Math.max(li, lo) ? 'symmetric' : 'smooth';
+}
+
+// points along the whole path, a closed path does not repeat its first point at the end
+export function flattenPath(path: PathData, tolerance = 0.5): Vec[] {
+  const count = segmentCount(path);
+  if (count === 0) return path.anchors.map((a) => ({ x: a.x, y: a.y }));
+  const out: Vec[] = [];
+  for (let i = 0; i < count; i++) {
+    const pts = flatten(segmentCubic(path, i), tolerance);
+    if (i > 0) pts.shift();
+    out.push(...pts);
+  }
+  if (path.closed) out.pop();
+  return out;
+}
+
+// signed, positive for a clockwise path on screen, an open path counts as closed
+export function pathArea(path: PathData): number {
+  return polygonArea(flattenPath(path, 0.25));
 }
