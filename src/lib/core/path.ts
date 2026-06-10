@@ -200,12 +200,12 @@ export function bendSegment(path: PathData, index: number, t: number, p1: Vec, p
   b.ix = p2.x + d.x * k2 - b.x;
   b.iy = p2.y + d.y * k2 - b.y;
   if (keepSmooth) {
-    const ai = mirrorInto(a.ix, a.iy, { x: a.ox, y: a.oy });
-    a.ix = ai.x;
-    a.iy = ai.y;
-    const bo = mirrorInto(b.ox, b.oy, { x: b.ix, y: b.iy });
-    b.ox = bo.x;
-    b.oy = bo.y;
+    const before = mirrorInto(a.ix, a.iy, { x: a.ox, y: a.oy });
+    a.ix = before.x;
+    a.iy = before.y;
+    const after = mirrorInto(b.ox, b.oy, { x: b.ix, y: b.iy });
+    b.ox = after.x;
+    b.oy = after.y;
   } else {
     a.kind = 'corner';
     b.kind = 'corner';
