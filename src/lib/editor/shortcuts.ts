@@ -4,7 +4,18 @@ import { anchorSelection, contextMenu, dialog, frame } from '$lib/stores/app';
 import { TOOL_IDS, TOOL_INFO } from '$lib/tools/tool';
 import { keyDown, selectTool } from '$lib/tools';
 import { editor } from './editor';
-import { clearColor, redo, resetColors, swapColors, toggleColorTarget, toggleGrid, toggleGuides, undo } from './commands';
+import {
+  clearColor,
+  insertKeyframeHere,
+  redo,
+  resetColors,
+  swapColors,
+  toggleColorTarget,
+  toggleGrid,
+  toggleGuides,
+  toggleRulers,
+  undo
+} from './commands';
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, nudge, selectAll } from './selection';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
@@ -79,6 +90,9 @@ function bindings(): KeybindingsMap {
     '$mod+0': run(zoomFit),
     "$mod+'": run(toggleGrid),
     '$mod+;': run(toggleGuides),
+    // the browser would reload, the rulers win
+    '$mod+r': run(toggleRulers),
+    F6: run(insertKeyframeHere),
 
     x: run(toggleColorTarget),
     'Shift+x': run(swapColors),
