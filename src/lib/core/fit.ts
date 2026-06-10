@@ -52,7 +52,7 @@ export function closeChain(anchors: Anchor[]): Anchor[] {
   if (anchors.length < 3) return anchors;
   const last = anchors[anchors.length - 1];
   const first = anchors[0];
-  if (!samePoint(first, last) && Math.hypot(first.x - last.x, first.y - last.y) > 1e-6) return anchors;
+  if (Math.hypot(first.x - last.x, first.y - last.y) > 1e-6) return anchors;
   const out = anchors.slice(0, -1);
   out[0] = { ...first, ix: last.ix, iy: last.iy };
   out[0].kind = kindOf(out[0]);
