@@ -127,7 +127,8 @@ export function splitBridges(path: PathData): PathData[] {
 // every island of the result becomes one path, holes are bridged into the island around them
 function fromPaper(item: PaperItem): PathData[] {
   const list = children(item).filter((c) => c.segments.length > 1 && Math.abs(c.area) > MIN_AREA);
-  const points = list.map((c) => c.interiorPoint);
+  // a point on the outline itself, the middle of a ring can sit inside one of its holes
+  const points = list.map((c) => c.curves[0].getPointAtTime(0.5));
   const depth = list.map((_, i) => list.filter((o, k) => k !== i && o.contains(points[i])).length);
   const out = new Map<number, PathData>();
   list.forEach((c, i) => {
