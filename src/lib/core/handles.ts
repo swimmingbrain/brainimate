@@ -11,8 +11,7 @@ export function pullHandles(a: Anchor, to: Vec, broken = false, shift = false) {
     a.ix = -a.ox;
     a.iy = -a.oy;
   }
-  const none = a.ox === 0 && a.oy === 0 && (broken ? true : a.ix === 0 && a.iy === 0);
-  a.kind = broken || none ? 'corner' : 'symmetric';
+  a.kind = broken || (a.ox === 0 && a.oy === 0) ? 'corner' : 'symmetric';
 }
 
 // the next segment leaves this anchor straight
