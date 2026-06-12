@@ -29,3 +29,28 @@ export function resizeCursor(angle: number): string {
   if (a < 112.5) return 'ns-resize';
   return 'nesw-resize';
 }
+
+// a pen nib with its tip on the hot spot, the small mark next to it says what a click does
+const NIB =
+  "<path d='M2 2l8.5 3.5 3 7-7-3z' fill='black' stroke='white' stroke-width='1' stroke-linejoin='round'/>" +
+  "<path d='M2 2l5.6 5.6' stroke='white' stroke-width='1'/>" +
+  "<path d='M13.5 12.5l2.2 2.2-2 2-2.2-2.2' fill='black' stroke='white' stroke-width='1' stroke-linejoin='round'/>";
+
+function pen(mark: string): string {
+  return svgCursor(NIB + (mark ? glyph(mark) : ''), 2, 2, 'crosshair');
+}
+
+export const PEN_CURSORS = {
+  // a new path starts here
+  start: pen('M17.5 17.5l4 4M21.5 17.5l-4 4'),
+  // the next anchor of the path being drawn
+  draw: pen(''),
+  // goes on from the end of a selected open path
+  continue: pen('M17.5 21.5l4-4'),
+  close: pen('M19.5 17.5a2 2 0 1 1 0 4a2 2 0 1 1 0-4'),
+  add: pen('M19.5 16.5v6M16.5 19.5h6'),
+  remove: pen('M16.5 19.5h6'),
+  convert: pen('M16.5 21.5l3-4.5 3 4.5'),
+  // the curvature tool, a pen with a small wave
+  curve: pen('M16 20.5q1.8-3 3.5 0t3.5 0')
+};
