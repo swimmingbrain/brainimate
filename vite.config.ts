@@ -8,6 +8,10 @@ export default defineConfig({
   worker: {
     format: 'es'
   },
+  // paper only loads on the first boolean, found that late vite would reload the page in dev
+  optimizeDeps: {
+    include: ['paper/dist/paper-core']
+  },
   server: {
     watch: {
       // projects and exports kept next to the checkout must not trigger reloads
