@@ -142,6 +142,8 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
   const tool = get(activeTool);
   const sel = get(selection);
   const direct = tool === 'direct';
+  // the path tools show anchors too, so you can see where to add, remove or go on
+  const anchors = direct || tool === 'pen' || tool === 'curvature';
 
   const h = get(hover);
   if (h && !sel.has(h)) {
@@ -161,7 +163,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     outlineItem(ctx, item, screenMatrix(v, world));
-    if (direct && item.type === 'path') drawAnchors(ctx, v, item, world, color);
+    if (anchors && item.type === 'path') drawAnchors(ctx, v, item, world, color);
   }
 
   if (!direct && !overlayState.hideFrame && sel.size > 0 && (tool === 'select' || tool === 'transform')) {
@@ -181,4 +183,31 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
     ctx.setLineDash([]);
   }
   ctx.restore();
+}
+
+// tool overlays draw in world space, so screen sizes are divided by the zoom
+export function worldAnchor(ctx: CanvasRenderingContext2D, p: Vec, corner: boolean, filled: boolean, color: string, zoom: number) {
+  const half = ANCHOR_SIZE / 2 / zoom;
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = filled ? color : '#ffffff';
+  ctx.beginPath();
+  if (corner) ctx.rect(p.x - half, p.y - half, half * 2, half * 2);
+  else ctx.arc(p.x, p.y, half, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
+export function worldHandle(ctx: CanvasRenderingContext2D, from: Vec, to: Vec, color: string, zoom: number) {
+  if (from.x === to.x && from.y === to.y) return;
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(to.x, to.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(to.x, to.y, HANDLE_DOT / 2 / zoom, 0, Math.PI * 2);
+  ctx.fill();
 }
