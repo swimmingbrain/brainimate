@@ -5,6 +5,9 @@ import { TOOL_IDS, isToolId, type ToolId } from '$lib/tools/tool';
 export type Workspace = 'essentials' | 'illustrate' | 'animate' | 'rig';
 export type DockTab = 'properties' | 'color' | 'swatches' | 'library' | 'align' | 'transform' | 'rig';
 
+export type PencilMode = 'smooth' | 'ink' | 'straighten';
+export type EraserMode = 'normal' | 'fills' | 'strokes';
+
 export const WORKSPACE_IDS: Workspace[] = ['essentials', 'illustrate', 'animate', 'rig'];
 export const DOCK_TABS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig'];
 
@@ -20,8 +23,19 @@ export interface Preferences {
   drawing: {
     // 0 to 100, the pencil maps it to a fit tolerance
     pencilSmoothing: number;
+    pencilMode: PencilMode;
+    // ends closer than a few pixels make a closed path
+    pencilClose: boolean;
     brushSize: number;
     brushPressure: boolean;
+    brushSmoothing: number;
+    brushMode: 'normal' | 'behind';
+    eraserSize: number;
+    eraserMode: EraserMode;
+    polygonSides: number;
+    polygonStar: boolean;
+    // inner radius of a star, percent of the outer one
+    polygonInner: number;
     fill: string;
     stroke: string;
     strokeWidth: number;
@@ -72,8 +86,17 @@ export function defaultPreferences(): Preferences {
     stage: { pasteboard: true },
     drawing: {
       pencilSmoothing: 50,
+      pencilMode: 'smooth',
+      pencilClose: true,
       brushSize: 8,
       brushPressure: true,
+      brushSmoothing: 50,
+      brushMode: 'normal',
+      eraserSize: 20,
+      eraserMode: 'normal',
+      polygonSides: 5,
+      polygonStar: false,
+      polygonInner: 50,
       fill: '#ffffff',
       stroke: '#000000',
       strokeWidth: 1.5,
@@ -147,7 +170,14 @@ export function mergePreferences(stored: unknown): Preferences {
 
   const d = p.drawing;
   d.pencilSmoothing = clamp(d.pencilSmoothing, 0, 100);
+  d.pencilMode = oneOf(d.pencilMode, ['smooth', 'ink', 'straighten'], 'smooth');
   d.brushSize = clamp(d.brushSize, 1, 500);
+  d.brushSmoothing = clamp(d.brushSmoothing, 0, 100);
+  d.brushMode = oneOf(d.brushMode, ['normal', 'behind'], 'normal');
+  d.eraserSize = clamp(d.eraserSize, 1, 500);
+  d.eraserMode = oneOf(d.eraserMode, ['normal', 'fills', 'strokes'], 'normal');
+  d.polygonSides = clamp(Math.round(d.polygonSides), 3, 12);
+  d.polygonInner = clamp(d.polygonInner, 5, 95);
   d.strokeWidth = clamp(d.strokeWidth, 0, 500);
   d.handleSize = clamp(d.handleSize, 3, 20);
   d.hitTolerance = clamp(d.hitTolerance, 1, 30);
