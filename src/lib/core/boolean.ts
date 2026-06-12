@@ -178,7 +178,8 @@ export function exclude(a: Shape, b: Shape): Promise<PathData[]> {
 }
 
 function isEmpty(item: PaperItem): boolean {
-  return item.isEmpty() || Math.abs(item.area) < MIN_AREA;
+  // paths and compound paths both have an area, the shared type does not say so
+  return item.isEmpty() || Math.abs((item as paper.Path).area) < MIN_AREA;
 }
 
 // cuts the shapes along the edges of each other, source is the shape whose style a piece keeps,
