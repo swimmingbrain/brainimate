@@ -34,7 +34,7 @@
       max={100}
       precision={0}
       label="Smoothing"
-      disabled={d.pencilMode !== 'smooth'}
+      disabled={d.pencilMode === 'ink'}
       onchange={(v) => setGroup('drawing', { pencilSmoothing: v })} />
   </span>
 </div>
