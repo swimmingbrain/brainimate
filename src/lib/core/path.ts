@@ -240,3 +240,8 @@ export function flattenPath(path: PathData, tolerance = 0.5): Vec[] {
 export function pathArea(path: PathData): number {
   return polygonArea(flattenPath(path, 0.25));
 }
+
+// straight segments through the points, corners all the way
+export function polylineToPath(points: Vec[], closed: boolean): PathData {
+  return { closed, anchors: points.map((p) => makeAnchor(p.x, p.y)) };
+}

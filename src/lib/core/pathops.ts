@@ -1,6 +1,6 @@
 import { Bezier } from 'bezier-js';
 import type { Anchor, PathData, Style, Vec } from './types';
-import { copyPath, joinPaths, kindOf, reversePath, segmentCount, segmentCubic } from './path';
+import { copyPath, joinPaths, kindOf, polylineToPath, reversePath, segmentCount, segmentCubic } from './path';
 import { derivativeAt, flatten, isLine, type Cubic } from './bezier';
 import { closeChain, cubicsToAnchors, fitCubics } from './fit';
 import { ellipsePath } from './shapes';
@@ -131,10 +131,7 @@ export function simplifyPath(path: PathData, tolerance: number): PathData {
 }
 
 function polygon(points: Vec[]): PathData {
-  return {
-    closed: true,
-    anchors: points.map((p) => ({ x: p.x, y: p.y, ix: 0, iy: 0, ox: 0, oy: 0, kind: 'corner' }))
-  };
+  return polylineToPath(points, true);
 }
 
 // a closed chain from bezier-js curves, lines come back as quadratics and are raised to cubics
