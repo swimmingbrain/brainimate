@@ -10,6 +10,7 @@ import { ellipseTool } from './ellipse';
 import { lineTool } from './line';
 import { penTool } from './pen';
 import { curvatureTool } from './curvature';
+import { pencilTool } from './pencil';
 
 export { TOOL_INFO, type ToolInfo } from './tool';
 
@@ -29,7 +30,7 @@ function placeholder(id: ToolId): Tool {
   };
 }
 
-const TOOLS = [selectionTool, directTool, transformTool, penTool, curvatureTool, handTool, zoomTool, rectTool, ellipseTool, lineTool];
+const TOOLS = [selectionTool, directTool, transformTool, penTool, curvatureTool, pencilTool, handTool, zoomTool, rectTool, ellipseTool, lineTool];
 for (const tool of TOOLS) registerTool(tool);
 for (const id of TOOL_IDS) if (!getTool(id)) registerTool(placeholder(id));
 
