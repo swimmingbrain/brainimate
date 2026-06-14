@@ -12,6 +12,7 @@ import { penTool } from './pen';
 import { curvatureTool } from './curvature';
 import { pencilTool } from './pencil';
 import { brushTool } from './brush';
+import { eraserTool } from './eraser';
 
 export { TOOL_INFO, type ToolInfo } from './tool';
 
@@ -31,7 +32,7 @@ function placeholder(id: ToolId): Tool {
   };
 }
 
-const TOOLS = [selectionTool, directTool, transformTool, penTool, curvatureTool, pencilTool, brushTool, handTool, zoomTool, rectTool, ellipseTool, lineTool];
+const TOOLS = [selectionTool, directTool, transformTool, penTool, curvatureTool, pencilTool, brushTool, eraserTool, handTool, zoomTool, rectTool, ellipseTool, lineTool];
 for (const tool of TOOLS) registerTool(tool);
 for (const id of TOOL_IDS) if (!getTool(id)) registerTool(placeholder(id));
 
