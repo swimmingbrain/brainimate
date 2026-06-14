@@ -12,6 +12,8 @@ const MIN_SIZE = 2;
 export interface ShapeBuild {
   path: PathData;
   transform: Mat;
+  // a tool that draws more than one kind of shape names each one
+  name?: string;
 }
 
 // a drag from start to the pointer, build turns the two points into a path around the local origin
@@ -56,9 +58,9 @@ export function shapeTool(
         // a line has no inside, so it takes the stroke color and falls back to black
         const stroke = clonePaint(get(strokePaint)) ?? (filled ? null : solid('#000000'));
         const style = defaultStyle(filled ? clonePaint(get(fillPaint)) : null, stroke, get(strokeWidth));
-        item = makePathItem(name, shape.path, style, shape.transform);
+        item = makePathItem(shape.name ?? name, shape.path, style, shape.transform);
       } else {
-        item = { ...item, path: shape.path, transform: shape.transform };
+        item = { ...item, name: shape.name ?? name, path: shape.path, transform: shape.transform };
       }
       editor.previewAdded = [{ layerId, item }];
       editor.markAll();
@@ -68,7 +70,7 @@ export function shapeTool(
       if (start && layerId && item && size >= MIN_SIZE) {
         const done = item;
         editor.previewAdded = [];
-        editor.insertItem(layerId, done, `Draw ${name.toLowerCase()}`);
+        editor.insertItem(layerId, done, `Draw ${done.name.toLowerCase()}`);
       }
       cancel();
     },
