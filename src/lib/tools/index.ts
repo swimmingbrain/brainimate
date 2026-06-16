@@ -33,7 +33,22 @@ function placeholder(id: ToolId): Tool {
   };
 }
 
-const TOOLS = [selectionTool, directTool, transformTool, penTool, curvatureTool, pencilTool, brushTool, eraserTool, handTool, zoomTool, rectTool, ellipseTool, lineTool, polygonTool];
+const TOOLS = [
+  selectionTool,
+  directTool,
+  transformTool,
+  penTool,
+  curvatureTool,
+  pencilTool,
+  brushTool,
+  eraserTool,
+  lineTool,
+  rectTool,
+  ellipseTool,
+  polygonTool,
+  zoomTool,
+  handTool
+];
 for (const tool of TOOLS) registerTool(tool);
 for (const id of TOOL_IDS) if (!getTool(id)) registerTool(placeholder(id));
 
