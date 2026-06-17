@@ -81,5 +81,15 @@ export const ICONS: Record<string, string> = {
   back: '<path d="M9 7h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V9h2z" fill="currentColor"/><rect x="2" y="2" width="7" height="7" rx="1"/>',
   forward: '<path d="M8 10.5V2.5M5 5.5l3-3 3 3"/><path d="M3 13.5h10"/>',
   backward: '<path d="M8 2.5v8M5 7.5l3 3 3-3"/><path d="M3 13.5h10"/>',
-  image: '<rect x="1.8" y="3" width="12.4" height="10" rx="1"/><circle cx="5.6" cy="6.4" r="1.2"/><path d="M2 11.2 5.8 7.6l3 2.6 2.4-2 2.9 2.7"/>'
+  image: '<rect x="1.8" y="3" width="12.4" height="10" rx="1"/><circle cx="5.6" cy="6.4" r="1.2"/><path d="M2 11.2 5.8 7.6l3 2.6 2.4-2 2.9 2.7"/>',
+  unite: '<path d="M2.5 2.5h7v4h4v7h-7v-4h-4z" fill="currentColor"/>',
+  subtract: '<path d="M2.5 2.5h7v4h-3v3h-4z" fill="currentColor"/><path d="M6.5 6.5h7v7h-7z"/>',
+  intersect: '<path d="M2.5 2.5h7v7h-7zM6.5 6.5h7v7h-7z"/><path d="M6.5 6.5h3v3h-3z" fill="currentColor"/>',
+  exclude: '<path d="M2.5 2.5h7v4h-3v3h-4zM9.5 6.5h4v7h-7v-4h3z" fill="currentColor"/><path d="M6.5 6.5h3v3h-3z"/>',
+  divide: '<path d="M2.5 2.5h7v2.5M2.5 2.5v7H5M6.5 6.5h3v3h-3zM13.5 13.5h-7V11M13.5 13.5v-7H11"/>',
+  join: '<path d="M2 13 6.5 8.5M14 13 9.5 8.5"/><circle cx="8" cy="6.5" r="1.6" fill="currentColor"/>',
+  simplify: '<path d="M2 12 4 8.5 6 10 8 5.5l2 2.5 2-3.5 2 2" opacity=".45"/><path d="M2 13.5C6 12.5 8 5 14 5"/>',
+  smooth: '<path d="M2 12.5C6 12.5 5 3.5 14 3.5"/><path d="M3.8 10.8 10.2 5.2"/><circle cx="7" cy="8" r="1.4" fill="currentColor"/>',
+  reverse: '<path d="M13 5.5H3.5M5.8 3.2 3.5 5.5l2.3 2.3M3 10.5h9.5M10.2 8.2l2.3 2.3-2.3 2.3"/>',
+  'outline-stroke': '<path d="M2.8 11.6 11.6 2.8l1.6 1.6-8.8 8.8z"/><path d="M2.2 13.8h3"/>'
 };
