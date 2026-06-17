@@ -1,5 +1,4 @@
-import type { Item, Vec } from '$lib/core/types';
-import type { Mat } from '$lib/core/types';
+import type { Item, Mat, Vec } from '$lib/core/types';
 import { identity, multiply } from '$lib/core/mat';
 import { hitItem, hitTest } from '$lib/core/hit';
 import { intersects, type Box } from '$lib/core/bbox';
