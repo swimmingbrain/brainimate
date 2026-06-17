@@ -5,7 +5,7 @@ import { snapAngle } from '$lib/core/vec';
 import { fromPoints } from '$lib/core/bbox';
 import { withNewIds } from '$lib/core/items';
 import { bendSegment, copyPath, insertAnchor, segmentCubic } from '$lib/core/path';
-import { hitAnchor, hitSegment, hitTest, pointerFactor, strokeTolerance } from '$lib/core/hit';
+import { hitAnchor, hitSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
 import { editor, hover } from '$lib/editor/editor';
 import {
   HANDLE_UNITS,
@@ -23,7 +23,7 @@ import {
 } from '$lib/editor/selection';
 import { HANDLE_SIZE, overlayState } from '$lib/render/overlay';
 import { selection, toolCursor } from '$lib/stores/app';
-import { itemsInBox, pickItem } from './pick';
+import { itemsInBox, pickChain, pickForSelect } from './pick';
 import { BEND_CURSOR, CORNER_CURSOR, ROTATE_CURSOR, resizeCursor } from './cursors';
 import { toolBase, type Tool, type ToolEvent, type ToolId } from './tool';
 
@@ -154,7 +154,7 @@ export function createSelectTool(id: ToolId): Tool {
         return;
       }
     }
-    const hit = pickItem(e, e.zoom, factor);
+    const hit = pickForSelect(e, e.zoom, factor);
     if (get(hover) !== (hit?.id ?? null)) hover.set(hit?.id ?? null);
     if (!hit) return setCursor('default');
     if (isSelected(hit.id) || hit.type !== 'path') return setCursor('move');
@@ -185,7 +185,7 @@ export function createSelectTool(id: ToolId): Tool {
       }
     }
 
-    const hit = pickItem(e, e.zoom, factor);
+    const hit = pickForSelect(e, e.zoom, factor);
     if (!hit) {
       action = { kind: 'marquee', add: e.shift };
       if (!e.shift) clearSelection();
@@ -378,13 +378,16 @@ export function createSelectTool(id: ToolId): Tool {
       editor.markAll();
     },
 
-    // a double click on a group picks the item inside it, entering groups comes later
+    // a double click enters a group one level, the item inside it under the pointer gets selected
     dblclick(e) {
-      const factor = pointerFactor(e.pointerType);
-      const hit = pickItem(e, e.zoom, factor);
-      if (!hit || hit.type !== 'group') return;
-      const child = hitTest(hit.children, editor.worldMatrixOf(hit.id), e, e.zoom, factor);
-      if (child) select([child.id]);
+      const chain = pickChain(e, e.zoom, pointerFactor(e.pointerType));
+      const sel = get(selection);
+      let deepest = -1;
+      chain.forEach((item, i) => {
+        if (sel.has(item.id)) deepest = i;
+      });
+      const next = chain[deepest + 1];
+      if (next && deepest >= 0) select([next.id]);
     },
 
     key(e) {
