@@ -5,8 +5,13 @@ import { TOOL_IDS, TOOL_INFO } from '$lib/tools/tool';
 import { keyDown, selectTool } from '$lib/tools';
 import { editor } from './editor';
 import {
+  arrangeSelection,
+  breakApart,
   clearColor,
+  groupSelection,
   insertKeyframeHere,
+  joinSelectedPaths,
+  ungroupSelection,
   redo,
   resetColors,
   swapColors,
@@ -68,6 +73,14 @@ function bindings(): KeybindingsMap {
     '$mod+d': run(duplicate),
     '$mod+a': run(selectAll),
     '$mod+Shift+a': run(clearSelection),
+    '$mod+g': run(groupSelection),
+    '$mod+Shift+g': run(ungroupSelection),
+    '$mod+b': run(breakApart),
+    '$mod+j': run(joinSelectedPaths),
+    '$mod+ArrowUp': run(() => arrangeSelection('forward')),
+    '$mod+ArrowDown': run(() => arrangeSelection('backward')),
+    '$mod+Shift+ArrowUp': run(() => arrangeSelection('front')),
+    '$mod+Shift+ArrowDown': run(() => arrangeSelection('back')),
     Delete: run(deleteSelection),
     Backspace: run(deleteSelection),
     Escape: run(escape),
