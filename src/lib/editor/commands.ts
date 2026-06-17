@@ -1,10 +1,13 @@
 import { get } from 'svelte/store';
-import type { GroupItem, Item, Paint } from '$lib/core/types';
-import { clonePaint, solid } from '$lib/core/style';
-import { around, compose, decompose, identity, invert, multiply, rotate, scale } from '$lib/core/mat';
+import type { Doc, GroupItem, Item, Paint, PathData, PathItem } from '$lib/core/types';
+import { clonePaint, cloneStyle, solid } from '$lib/core/style';
+import { around, compose, decompose, identity, invert, multiply, rotate, scale, scaleFactor } from '$lib/core/mat';
 import { boxCenter, isEmpty } from '$lib/core/bbox';
-import { closePath, reversePath } from '$lib/core/path';
-import { cloneItem, parentMatrix } from '$lib/core/items';
+import { closePath, copyPath, reversePath, transformPath } from '$lib/core/path';
+import { cloneItem, makePathItem, parentMatrix } from '$lib/core/items';
+import { combine, divide, splitBridges, type BooleanOp } from '$lib/core/boolean';
+import { joinTwo, simplifyPath, strokePieces } from '$lib/core/pathops';
+import { smoothPath } from '$lib/core/smooth';
 import { newId } from '$lib/core/ids';
 import { insertKeyframe } from '$lib/anim/timeline';
 import { addToast, colorTarget, fillPaint, outlineMode, selection, showDockTab, strokePaint } from '$lib/stores/app';
@@ -193,22 +196,32 @@ export function groupSelection() {
   });
   const group = makeGroup(children);
   editor.commit('Group', (draft) => {
-    const target = editor.draftFind(draft, top.id);
-    if (!target) return;
-    const list = target.list;
-    // the slot of the topmost item once the ones below it in the same list are gone
-    let index = target.index;
-    for (const it of items) {
-      const found = editor.draftFind(draft, it.id);
-      if (found && found.list === list && found.index < target.index) index--;
-    }
-    for (const it of items) {
-      const found = editor.draftFind(draft, it.id);
-      if (found) found.list.splice(found.index, 1);
-    }
-    list.splice(index, 0, group);
+    replaceInDraft(
+      draft,
+      items.map((it) => it.id),
+      top.id,
+      [group]
+    );
   });
   select([group.id]);
+}
+
+// inside a commit: the items go and the new ones take the slot of slotId, which is one of them
+function replaceInDraft(draft: Doc, ids: string[], slotId: string, added: Item[]) {
+  const target = editor.draftFind(draft, slotId);
+  if (!target) return;
+  const list = target.list;
+  // the slot moves down by every item below it in the same list that goes too
+  let index = target.index;
+  for (const id of ids) {
+    const found = editor.draftFind(draft, id);
+    if (found && found.list === list && found.index < target.index) index--;
+  }
+  for (const id of ids) {
+    const found = editor.draftFind(draft, id);
+    if (found) found.list.splice(found.index, 1);
+  }
+  list.splice(index, 0, ...added);
 }
 
 // the children take the group transform, opacity and blend so nothing moves
@@ -220,19 +233,22 @@ export function ungroupSelection() {
     for (const g of groups) {
       const found = editor.draftFind(draft, g.id);
       if (!found || found.item.type !== 'group') continue;
-      const group = found.item;
-      const kids = group.children.map((child) => {
-        const k = cloneItem(child);
-        k.transform = multiply(group.transform, child.transform);
-        k.opacity = child.opacity * group.opacity;
-        if (k.blend === 'normal') k.blend = group.blend;
-        return k;
-      });
-      found.list.splice(found.index, 1, ...kids);
-      ids.push(...kids.map((k) => k.id));
+      ids.push(...ungroupInDraft(found.item, found.list, found.index));
     }
   });
   selection.set(new Set(ids));
+}
+
+function ungroupInDraft(group: GroupItem, list: Item[], index: number): string[] {
+  const kids = group.children.map((child) => {
+    const k = cloneItem(child);
+    k.transform = multiply(group.transform, child.transform);
+    k.opacity = child.opacity * group.opacity;
+    if (k.blend === 'normal') k.blend = group.blend;
+    return k;
+  });
+  list.splice(index, 1, ...kids);
+  return kids.map((k) => k.id);
 }
 
 export type Arrange = 'front' | 'forward' | 'backward' | 'back';
@@ -272,4 +288,199 @@ export function arrangeSelection(how: Arrange) {
     }
     for (const list of lists) reorder(list, ids, how);
   });
+}
+
+// breaks groups into their children and paths with bridged holes into their outlines
+export function breakApart() {
+  const items = editor.selectedItems(false);
+  const ids: string[] = [];
+  let changed = false;
+  editor.commit('Break apart', (draft) => {
+    for (const it of items) {
+      const found = editor.draftFind(draft, it.id);
+      if (!found) continue;
+      if (found.item.type === 'group') {
+        ids.push(...ungroupInDraft(found.item, found.list, found.index));
+        changed = true;
+        continue;
+      }
+      if (found.item.type !== 'path') continue;
+      const parts = splitBridges(found.item.path);
+      if (parts.length < 2) {
+        ids.push(it.id);
+        continue;
+      }
+      const base = cloneItem(found.item);
+      const pieces = parts.map((path, i) => ({ ...cloneItem(base), id: i === 0 ? base.id : newId(), path }));
+      found.list.splice(found.index, 1, ...pieces);
+      ids.push(...pieces.map((p) => p.id));
+      changed = true;
+    }
+  });
+  if (!changed) addToast('There is nothing to break apart');
+  else selection.set(new Set(ids));
+}
+
+function selectedPaths(): PathItem[] {
+  return editor.selectedItems(false).filter((it): it is PathItem => it.type === 'path');
+}
+
+// the path of item in the local space of base, so both can be combined there
+function inSpaceOf(base: PathItem, item: PathItem): PathData {
+  if (base.id === item.id) return copyPath(item.path);
+  const m = multiply(invert(editor.worldMatrixOf(base.id)), editor.worldMatrixOf(item.id));
+  return transformPath(item.path, m);
+}
+
+// two open paths become one at their closest ends, a single open path is closed
+export function joinSelectedPaths() {
+  const paths = selectedPaths().filter((p) => !p.path.closed && p.path.anchors.length > 1);
+  if (paths.length === 0) {
+    addToast('Select one or two open paths');
+    return;
+  }
+  const base = paths[0];
+  if (paths.length === 1) {
+    editor.updateItem(
+      base.id,
+      (item) => {
+        if (item.type === 'path') closePath(item.path);
+      },
+      'Join'
+    );
+    return;
+  }
+  let joined = copyPath(base.path);
+  for (const other of paths.slice(1)) joined = joinTwo(joined, inSpaceOf(base, other));
+  editor.commit('Join', (draft) => {
+    const found = editor.draftFind(draft, base.id);
+    if (found && found.item.type === 'path') found.item.path = joined;
+    for (const other of paths.slice(1)) {
+      const gone = editor.draftFind(draft, other.id);
+      if (gone) gone.list.splice(gone.index, 1);
+    }
+  });
+  select([base.id]);
+}
+
+export function setSelectedPathsClosed(closed: boolean) {
+  editor.updateItems(
+    selectedPaths().map((p) => p.id),
+    (item) => {
+      if (item.type !== 'path') return;
+      if (closed) closePath(item.path);
+      else item.path.closed = false;
+    },
+    closed ? 'Close path' : 'Open path'
+  );
+}
+
+// fewer anchors within one screen pixel at 100 percent
+export function simplifySelectedPaths() {
+  const paths = selectedPaths();
+  const out = new Map<string, PathData>();
+  for (const p of paths) {
+    const tolerance = 1 / Math.max(scaleFactor(editor.worldMatrixOf(p.id)), 1e-6);
+    out.set(p.id, simplifyPath(p.path, tolerance));
+  }
+  editor.updateItems(
+    paths.map((p) => p.id),
+    (item) => {
+      const path = out.get(item.id);
+      if (item.type === 'path' && path) item.path = path;
+    },
+    'Simplify'
+  );
+}
+
+export function smoothSelectedPaths() {
+  editor.updateItems(
+    selectedPaths().map((p) => p.id),
+    (item) => {
+      if (item.type === 'path') smoothPath(item.path);
+    },
+    'Smooth'
+  );
+}
+
+// the stroke becomes a filled shape in the stroke color, a fill stays underneath as its own path
+export async function outlineSelectedStrokes() {
+  const paths = selectedPaths().filter((p) => p.style.stroke && p.style.width > 0);
+  if (paths.length === 0) {
+    addToast('Select a path with a stroke');
+    return;
+  }
+  const results = new Map<string, PathData[]>();
+  try {
+    for (const p of paths) {
+      const world = editor.worldMatrixOf(p.id);
+      const width = p.style.scaleStroke ? p.style.width : p.style.width / Math.max(scaleFactor(world), 1e-9);
+      const pieces = strokePieces(p.path, width, p.style.cap, p.style.join);
+      if (pieces.length > 0) results.set(p.id, await combine('unite', pieces.map((q) => [q])));
+    }
+  } catch {
+    addToast('The stroke could not be outlined', 'error');
+    return;
+  }
+  const ids: string[] = [];
+  editor.commit('Outline stroke', (draft) => {
+    for (const [id, list] of results) {
+      const found = editor.draftFind(draft, id);
+      if (!found || found.item.type !== 'path') continue;
+      const base = cloneItem(found.item);
+      const style = { ...cloneStyle(base.style), fill: clonePaint(base.style.stroke), stroke: null };
+      const shapes = list.map((path) => ({ ...cloneItem(base), id: newId(), path, style: cloneStyle(style) }));
+      if (base.style.fill) {
+        found.item.style.stroke = null;
+        found.list.splice(found.index + 1, 0, ...shapes);
+      } else {
+        found.list.splice(found.index, 1, ...shapes);
+      }
+      ids.push(...shapes.map((sh) => sh.id));
+    }
+  });
+  selection.set(new Set(ids));
+}
+
+const BOOLEAN_LABELS: Record<BooleanOp | 'divide', string> = {
+  unite: 'Unite',
+  subtract: 'Subtract',
+  intersect: 'Intersect',
+  exclude: 'Exclude',
+  divide: 'Divide'
+};
+
+// the selected paths, bottom first, become new paths in the place of the bottom one with its style.
+// subtract takes everything above from the bottom path, divide keeps each piece in the style it came from
+export async function booleanSelection(op: BooleanOp | 'divide') {
+  const paths = selectedPaths();
+  if (paths.length < 2) {
+    addToast('Select two or more paths');
+    return;
+  }
+  const base = paths[0];
+  const shapes = paths.map((p) => [inSpaceOf(base, p)]);
+  let pieces: { path: PathData; source: number }[];
+  try {
+    if (op === 'divide') pieces = await divide(shapes);
+    else pieces = (await combine(op, shapes)).map((path) => ({ path, source: 0 }));
+  } catch {
+    addToast('The paths could not be combined', 'error');
+    return;
+  }
+  const added = pieces.map(({ path, source }) => {
+    const from = paths[source];
+    const item = makePathItem(from.name, path, cloneStyle(from.style), [...base.transform]);
+    return { ...item, opacity: from.opacity, blend: from.blend };
+  });
+  editor.commit(BOOLEAN_LABELS[op], (draft) => {
+    replaceInDraft(
+      draft,
+      paths.map((p) => p.id),
+      base.id,
+      added
+    );
+  });
+  selection.set(new Set(added.map((it) => it.id)));
+  if (added.length === 0) addToast('Nothing is left of the shapes');
 }
