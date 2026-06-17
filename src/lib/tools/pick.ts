@@ -1,9 +1,11 @@
+import { get } from 'svelte/store';
 import type { Item, Mat, Vec } from '$lib/core/types';
 import { identity, multiply } from '$lib/core/mat';
 import { hitItem, hitTest } from '$lib/core/hit';
 import { intersects, type Box } from '$lib/core/bbox';
 import { itemBounds } from '$lib/core/items';
 import { editor } from '$lib/editor/editor';
+import { selection } from '$lib/stores/app';
 
 // the topmost item under p on the layers that can be edited, a group counts as one item
 export function pickItem(p: Vec, zoom: number, factor: number): Item | null {
@@ -55,4 +57,34 @@ export function pickDeep(p: Vec, zoom: number, factor: number): Item | null {
     if (hit) return hit;
   }
   return null;
+}
+
+// the items under p from the top level one down through its groups to the innermost
+export function pickChain(p: Vec, zoom: number, factor: number): Item[] {
+  const top = pickItem(p, zoom, factor);
+  if (!top) return [];
+  const chain = [top];
+  let current: Item = top;
+  let m = editor.worldMatrixOf(top.id);
+  while (current.type === 'group') {
+    const child = hitTest(current.children, m, p, zoom, factor);
+    if (!child) break;
+    chain.push(child);
+    m = multiply(m, child.transform);
+    current = child;
+  }
+  return chain;
+}
+
+// a group counts as one item, until a double click entered it: then its children are picked one by one
+export function pickForSelect(p: Vec, zoom: number, factor: number): Item | null {
+  const chain = pickChain(p, zoom, factor);
+  if (chain.length === 0) return null;
+  const sel = get(selection);
+  for (let i = chain.length - 1; i >= 0; i--) if (sel.has(chain[i].id)) return chain[i];
+  for (let i = chain.length - 2; i >= 0; i--) {
+    const g = chain[i];
+    if (g.type === 'group' && g.children.some((c) => sel.has(c.id))) return chain[i + 1];
+  }
+  return chain[0];
 }
