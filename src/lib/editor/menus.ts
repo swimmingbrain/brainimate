@@ -1,8 +1,17 @@
 import { dialog, setWorkspace, togglePanel, WORKSPACES, type MenuItem } from '$lib/stores/app';
 import { setGroup, type DockTab, type Preferences, type Workspace } from '$lib/stores/preferences';
 import {
+  arrangeSelection,
+  booleanSelection,
+  breakApart,
   closeSelectedPaths,
   flipSelection,
+  groupSelection,
+  joinSelectedPaths,
+  outlineSelectedStrokes,
+  simplifySelectedPaths,
+  smoothSelectedPaths,
+  ungroupSelection,
   insertKeyframeHere,
   notYet,
   redo,
@@ -167,18 +176,38 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
     {
       label: 'Modify',
       items: [
-        soon('Group', 'Ctrl+G'),
-        soon('Ungroup', 'Ctrl+Shift+G'),
+        { label: 'Group', shortcut: 'Ctrl+G', disabled: none, action: groupSelection },
+        { label: 'Ungroup', shortcut: 'Ctrl+Shift+G', disabled: none, action: ungroupSelection },
         soon('Convert to symbol...', 'F8'),
-        soon('Break apart', 'Ctrl+B'),
+        { label: 'Break apart', shortcut: 'Ctrl+B', disabled: none, action: breakApart },
         SEP,
         {
           label: 'Arrange',
           children: [
-            soon('Bring to front', 'Ctrl+Shift+]'),
-            soon('Bring forward', 'Ctrl+]'),
-            soon('Send backward', 'Ctrl+['),
-            soon('Send to back', 'Ctrl+Shift+[')
+            {
+              label: 'Bring to front',
+              shortcut: 'Ctrl+Shift+Up',
+              disabled: none,
+              action: () => arrangeSelection('front')
+            },
+            {
+              label: 'Bring forward',
+              shortcut: 'Ctrl+Up',
+              disabled: none,
+              action: () => arrangeSelection('forward')
+            },
+            {
+              label: 'Send backward',
+              shortcut: 'Ctrl+Down',
+              disabled: none,
+              action: () => arrangeSelection('backward')
+            },
+            {
+              label: 'Send to back',
+              shortcut: 'Ctrl+Shift+Down',
+              disabled: none,
+              action: () => arrangeSelection('back')
+            }
           ]
         },
         {
@@ -211,17 +240,18 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         {
           label: 'Path',
           children: [
-            soon('Join'),
+            { label: 'Join', shortcut: 'Ctrl+J', disabled: none, action: joinSelectedPaths },
             { label: 'Close', disabled: none, action: closeSelectedPaths },
             { label: 'Reverse direction', disabled: none, action: reverseSelectedPaths },
-            soon('Simplify'),
-            soon('Smooth'),
-            soon('Outline stroke'),
+            { label: 'Simplify', disabled: none, action: simplifySelectedPaths },
+            { label: 'Smooth', disabled: none, action: smoothSelectedPaths },
+            { label: 'Outline stroke', disabled: none, action: outlineSelectedStrokes },
             SEP,
-            soon('Unite'),
-            soon('Subtract'),
-            soon('Intersect'),
-            soon('Exclude'),
+            { label: 'Unite', disabled: none, action: () => booleanSelection('unite') },
+            { label: 'Subtract', disabled: none, action: () => booleanSelection('subtract') },
+            { label: 'Intersect', disabled: none, action: () => booleanSelection('intersect') },
+            { label: 'Exclude', disabled: none, action: () => booleanSelection('exclude') },
+            { label: 'Divide', disabled: none, action: () => booleanSelection('divide') },
             SEP,
             soon('Create outlines', 'Ctrl+Shift+O')
           ]
