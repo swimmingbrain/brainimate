@@ -50,10 +50,16 @@
         { keys: ['Ctrl', 'A'], what: 'Select all' },
         { keys: ['Ctrl', 'G'], what: 'Group' },
         { keys: ['Ctrl', 'Shift', 'G'], what: 'Ungroup' },
+        { keys: ['Ctrl', 'B'], what: 'Break apart' },
+        { keys: ['Ctrl', 'J'], what: 'Join paths' },
+        { keys: ['Ctrl', 'Up/Down'], what: 'Bring forward, send backward' },
+        { keys: ['Ctrl', 'Shift', 'Up/Down'], what: 'Bring to front, send to back' },
         { keys: ['F8'], what: 'Convert to symbol' },
         { keys: ['Delete'], what: 'Delete the selection' },
         { keys: ['Arrows'], what: 'Nudge 1 px, with Shift 10 px' },
-        { keys: ['Esc'], what: 'Deselect' }
+        { keys: ['Esc'], what: 'Deselect, or end the path being drawn' },
+        { keys: ['Enter'], what: 'End the path being drawn' },
+        { keys: ['Backspace'], what: 'Remove the last anchor while drawing' }
       ]
     },
     {
