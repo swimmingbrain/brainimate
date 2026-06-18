@@ -186,7 +186,14 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
 }
 
 // tool overlays draw in world space, so screen sizes are divided by the zoom
-export function worldAnchor(ctx: CanvasRenderingContext2D, p: Vec, corner: boolean, filled: boolean, color: string, zoom: number) {
+export function worldAnchor(
+  ctx: CanvasRenderingContext2D,
+  p: Vec,
+  corner: boolean,
+  filled: boolean,
+  color: string,
+  zoom: number
+) {
   const half = ANCHOR_SIZE / 2 / zoom;
   ctx.lineWidth = 1 / zoom;
   ctx.strokeStyle = color;

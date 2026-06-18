@@ -1,7 +1,7 @@
 import fitCurve from 'fit-curve';
 import type { Anchor, PathData, Vec } from './types';
 import type { Cubic } from './bezier';
-import { kindOf } from './path';
+import { kindOf, makeAnchor } from './path';
 
 function samePoint(a: Vec, b: Vec): boolean {
   return Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9;
@@ -43,7 +43,8 @@ export function cubicsToAnchors(cubics: Cubic[]): Anchor[] {
     out.push(a);
   }
   const last = cubics[cubics.length - 1];
-  out.push({ x: last[3].x, y: last[3].y, ix: last[2].x - last[3].x, iy: last[2].y - last[3].y, ox: 0, oy: 0, kind: 'corner' });
+  const end = last[3];
+  out.push({ x: end.x, y: end.y, ix: last[2].x - end.x, iy: last[2].y - end.y, ox: 0, oy: 0, kind: 'corner' });
   return out;
 }
 
@@ -64,7 +65,7 @@ export function fitPath(points: Vec[], tolerance: number, closed = false): PathD
   if (points.length === 0) return { anchors: [], closed: false };
   const pts = closed && !samePoint(points[0], points[points.length - 1]) ? [...points, points[0]] : points;
   const anchors = cubicsToAnchors(fitCubics(pts, tolerance));
-  if (anchors.length === 0) return { anchors: [{ ...points[0], ix: 0, iy: 0, ox: 0, oy: 0, kind: 'corner' }], closed: false };
+  if (anchors.length === 0) return { anchors: [makeAnchor(points[0].x, points[0].y)], closed: false };
   if (!closed) return { anchors, closed: false };
   const ring = closeChain(anchors);
   return { anchors: ring, closed: ring.length > 2 };

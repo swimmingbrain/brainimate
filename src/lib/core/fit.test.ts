@@ -33,7 +33,10 @@ describe('fit', () => {
 
   it('closes a ring and joins its seam', () => {
     const pts = [];
-    for (let i = 0; i < 40; i++) pts.push({ x: Math.cos((i / 40) * Math.PI * 2) * 50, y: Math.sin((i / 40) * Math.PI * 2) * 50 });
+    for (let i = 0; i < 40; i++) {
+      const a = (i / 40) * Math.PI * 2;
+      pts.push({ x: Math.cos(a) * 50, y: Math.sin(a) * 50 });
+    }
     const path = fitPath(pts, 0.5, true);
     expect(path.closed).toBe(true);
     expect(Math.abs(pathArea(path))).toBeGreaterThan(Math.PI * 2500 * 0.97);

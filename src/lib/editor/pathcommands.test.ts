@@ -70,7 +70,10 @@ describe('path commands', () => {
   });
 
   it('joins two open paths and closes a single one', () => {
-    add(makePathItem('a', linePath(0, 0, 10, 0), defaultStyle()), makePathItem('b', linePath(10, 0, 10, 10), defaultStyle()));
+    add(
+      makePathItem('a', linePath(0, 0, 10, 0), defaultStyle()),
+      makePathItem('b', linePath(10, 0, 10, 10), defaultStyle())
+    );
     joinSelectedPaths();
     expect(items()).toHaveLength(1);
     expect(items()[0].path.anchors).toHaveLength(3);

@@ -41,7 +41,9 @@ function build(e: ToolEvent): { path: PathData; transform: Mat; name: string } |
   const end = points[points.length - 1];
   if (e.shift) return { path: linePath(first.x, first.y, end.x, end.y), transform: identity(), name: 'Line' };
   const gap = Math.hypot(end.x - first.x, end.y - first.y) * e.zoom;
-  const closed = points.length > 2 && (e.alt || (d.pencilClose && gap <= CLOSE_GAP && polylineLength(points) * e.zoom > CLOSE_GAP * 3));
+  // a short scribble whose ends happen to meet stays open
+  const long = polylineLength(points) * e.zoom > CLOSE_GAP * 3;
+  const closed = points.length > 2 && (e.alt || (d.pencilClose && gap <= CLOSE_GAP && long));
   if (d.pencilMode === 'straighten') {
     const eps = (2 + d.pencilSmoothing / 10) / e.zoom;
     return straightenStroke(points, eps, closed);
