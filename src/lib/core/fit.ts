@@ -60,13 +60,60 @@ export function closeChain(anchors: Anchor[]): Anchor[] {
   return out;
 }
 
-// a smooth path through freehand points, closed paths get their seam joined
+// handles that almost line up at a joint are turned to line up, each keeps its length
+function alignJoint(a: Anchor) {
+  const li = Math.hypot(a.ix, a.iy);
+  const lo = Math.hypot(a.ox, a.oy);
+  if (li < 1e-9 || lo < 1e-9) return;
+  const dx = a.ox / lo - a.ix / li;
+  const dy = a.oy / lo - a.iy / li;
+  const d = Math.hypot(dx, dy);
+  // 2 means the handles point exactly away from each other, about 1.9 is 35 degrees off
+  if (d < 1.9) return;
+  a.ix = (-dx / d) * li;
+  a.iy = (-dy / d) * li;
+  a.ox = (dx / d) * lo;
+  a.oy = (dy / d) * lo;
+  a.kind = kindOf(a);
+}
+
+function farthest(points: Vec[], from: Vec): number {
+  let best = 0;
+  let bestD = -1;
+  points.forEach((p, i) => {
+    const d = Math.hypot(p.x - from.x, p.y - from.y);
+    if (d > bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+// a ring is fitted in two halves, split at the point farthest from the start, so a loose
+// tolerance can not fold the whole ring into one cubic that starts and ends on the same point
+function fitRing(points: Vec[], tolerance: number): Anchor[] {
+  const ring = samePoint(points[0], points[points.length - 1]) ? points.slice(0, -1) : points;
+  if (ring.length < 3) return [];
+  const mid = farthest(ring, ring[0]);
+  const one = cubicsToAnchors(fitCubics(ring.slice(0, mid + 1), tolerance));
+  const two = cubicsToAnchors(fitCubics([...ring.slice(mid), ring[0]], tolerance));
+  if (one.length < 2 || two.length < 2) return [];
+  const joint = { ...one[one.length - 1], ox: two[0].ox, oy: two[0].oy };
+  const start = { ...one[0], ix: two[two.length - 1].ix, iy: two[two.length - 1].iy };
+  alignJoint(joint);
+  alignJoint(start);
+  return [start, ...one.slice(1, -1), joint, ...two.slice(1, -1)];
+}
+
+// a smooth path through freehand points, a closed one is a ring with its seams lined up
 export function fitPath(points: Vec[], tolerance: number, closed = false): PathData {
   if (points.length === 0) return { anchors: [], closed: false };
-  const pts = closed && !samePoint(points[0], points[points.length - 1]) ? [...points, points[0]] : points;
-  const anchors = cubicsToAnchors(fitCubics(pts, tolerance));
+  if (closed) {
+    const ring = fitRing(points, tolerance);
+    if (ring.length >= 2) return { anchors: ring, closed: true };
+  }
+  const anchors = cubicsToAnchors(fitCubics(points, tolerance));
   if (anchors.length === 0) return { anchors: [makeAnchor(points[0].x, points[0].y)], closed: false };
-  if (!closed) return { anchors, closed: false };
-  const ring = closeChain(anchors);
-  return { anchors: ring, closed: ring.length > 2 };
+  return { anchors, closed: false };
 }
