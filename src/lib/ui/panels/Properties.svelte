@@ -13,7 +13,17 @@
   import { boxCenter, isEmpty } from '$lib/core/bbox';
   import { docVersion, editor } from '$lib/editor/editor';
   import { selectionFrame, transformSelection } from '$lib/editor/selection';
-  import { setPaint } from '$lib/editor/commands';
+  import {
+    booleanSelection,
+    joinSelectedPaths,
+    outlineSelectedStrokes,
+    reverseSelectedPaths,
+    setPaint,
+    setSelectedPathsClosed,
+    simplifySelectedPaths,
+    smoothSelectedPaths
+  } from '$lib/editor/commands';
+  import Icon from '$lib/icons/Icon.svelte';
   import { frame, selection } from '$lib/stores/app';
 
   type Target = 'fill' | 'stroke' | 'bg';
@@ -52,6 +62,25 @@
     if (items.length !== 1) return multiRotation;
     return (decompose(editor.worldMatrixOf(items[0].id)).rotation * 180) / Math.PI;
   });
+
+  const anchorCount = $derived(paths.reduce((sum, p) => sum + p.path.anchors.length, 0));
+  const allClosed = $derived(paths.length > 0 && paths.every((p) => p.path.closed));
+
+  // the path operations, the ones that combine shapes need two paths or more
+  const pathOps = [
+    { icon: 'join', label: 'Join', run: joinSelectedPaths },
+    { icon: 'reverse', label: 'Reverse direction', run: reverseSelectedPaths },
+    { icon: 'simplify', label: 'Simplify', run: simplifySelectedPaths },
+    { icon: 'smooth', label: 'Smooth', run: smoothSelectedPaths },
+    { icon: 'outline-stroke', label: 'Outline stroke', run: outlineSelectedStrokes }
+  ];
+  const combineOps = [
+    { icon: 'unite', label: 'Unite', op: 'unite' },
+    { icon: 'subtract', label: 'Subtract', op: 'subtract' },
+    { icon: 'intersect', label: 'Intersect', op: 'intersect' },
+    { icon: 'exclude', label: 'Exclude', op: 'exclude' },
+    { icon: 'divide', label: 'Divide', op: 'divide' }
+  ] as const;
 
   const doc = $derived.by(() => {
     void $docVersion;
@@ -256,6 +285,34 @@
       </Field>
     {/if}
 
+    {#if paths.length > 0}
+      <h3 class="section">Path</h3>
+      <Field label="Anchors">
+        <span class="value">{anchorCount}{paths.length > 1 ? ` in ${paths.length} paths` : ''}</span>
+      </Field>
+      <Field label="Closed">
+        <ToggleField value={allClosed} label="Closed" onchange={(on) => setSelectedPathsClosed(on)} />
+      </Field>
+      <div class="ops">
+        {#each pathOps as op (op.icon)}
+          <button class="op" title={op.label} aria-label={op.label} onclick={() => op.run()}>
+            <Icon name={op.icon} size={15} />
+          </button>
+        {/each}
+        <span class="op-sep"></span>
+        {#each combineOps as op (op.icon)}
+          <button
+            class="op"
+            title={op.label}
+            aria-label={op.label}
+            disabled={paths.length < 2}
+            onclick={() => booleanSelection(op.op)}>
+            <Icon name={op.icon} size={15} />
+          </button>
+        {/each}
+      </div>
+    {/if}
+
     {#if !isEmpty(bounds)}
       <h3 class="section">Transform</h3>
       <Field label="X">
@@ -339,5 +396,45 @@
 
   .text:focus {
     border-color: var(--accent);
+  }
+
+  .value {
+    font-family: var(--font-editor);
+    font-size: 11.5px;
+    color: var(--text-primary);
+  }
+
+  .ops {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1px;
+    padding: 4px 8px;
+  }
+
+  .op {
+    width: 26px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+  }
+
+  .op:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .op:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .op-sep {
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background: var(--border);
   }
 </style>
