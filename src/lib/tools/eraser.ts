@@ -4,10 +4,10 @@ import { applyPoint, identity, invert, multiply } from '$lib/core/mat';
 import { fromPoints, intersects } from '$lib/core/bbox';
 import { cloneItem, itemBounds } from '$lib/core/items';
 import { newId } from '$lib/core/ids';
-import { pathArea, polylineToPath } from '$lib/core/path';
+import { pathArea, transformPath } from '$lib/core/path';
 import { subtract } from '$lib/core/boolean';
 import { cutPath } from '$lib/core/erase';
-import { strokeOutline, type FreehandOptions, type InkPoint } from '$lib/core/freehand';
+import { outlineToPath, strokeOutline, type FreehandOptions, type InkPoint } from '$lib/core/freehand';
 import { editor } from '$lib/editor/editor';
 import { addToast, view } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
@@ -62,8 +62,9 @@ function totalArea(list: PathData[]): number {
   return list.reduce((sum, p) => sum + Math.abs(pathArea(p)), 0);
 }
 
-// filled paths lose the area under the trail, stroke only paths are cut where the trail crosses them
-async function erase(target: string, polygon: Vec[]) {
+// filled paths lose the area under the trail, stroke only paths are cut where the trail crosses them.
+// the fills are cut with the trail fitted to curves, so a notch gets a few smooth anchors
+async function erase(target: string, polygon: Vec[], trailPath: PathData) {
   const layer = editor.layerById(target);
   if (!layer || polygon.length < 3) return;
   const mode = get(preferences).drawing.eraserMode;
@@ -75,7 +76,7 @@ async function erase(target: string, polygon: Vec[]) {
     const local = polygon.map((p) => applyPoint(inv, p));
     if (item.style.fill) {
       if (mode === 'strokes') continue;
-      const out = await subtract([item.path], [polylineToPath(local, true)]);
+      const out = await subtract([item.path], [transformPath(trailPath, inv)]);
       const before = Math.abs(pathArea(item.path));
       if (Math.abs(before - totalArea(out)) <= 1e-3 * Math.max(1, before)) continue;
       changes.set(item.id, out);
@@ -130,10 +131,12 @@ export const eraserTool: Tool = {
   up(e) {
     if (!last || !layerId) return;
     pointer = e;
-    const polygon = strokeOutline(points, options(true));
+    const o = options(true);
+    const polygon = strokeOutline(points, o);
+    const trailPath = outlineToPath(polygon, points, o.size, 0.5 / zoom);
     const target = layerId;
     busy = true;
-    erase(target, polygon)
+    erase(target, polygon, trailPath)
       .catch(() => addToast('The eraser could not cut this shape', 'error'))
       .finally(() => {
         busy = false;
