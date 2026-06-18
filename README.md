@@ -15,11 +15,12 @@
 
 brainIMATE is an open source app for drawing and animating, like Adobe Animate and Illustrator, but in a browser tab. It is made for illustrators and for people who never animated before. There is no account and no server, everything stays in your browser.
 
-It is early. The editor shell is there, the drawing tools, the timeline and the rig come next.
+It is early. The drawing tools work, the timeline and the rig come next.
 
 ## Features
 
-- Pen, pencil, brush, eraser and shapes, every line stays an editable curve
+- Pen, curvature, pencil, brush, eraser, polygons and stars, every line stays an editable curve
+- Unite, subtract, intersect, exclude and divide shapes, outline strokes, simplify and smooth paths
 - A timeline with layers, keyframes, tweens with easing and onion skin
 - Bones for characters, bound to the drawing and posed with inverse kinematics
 - Symbols you draw once and reuse, edited in place
@@ -36,6 +37,9 @@ It is early. The editor shell is there, the drawing tools, the timeline and the 
 | `K` `I` `G` | Paint bucket, eyedropper, gradient |
 | `M` `Shift+M` | Bone, bind |
 | `Z` `H` `Space` | Zoom, hand, hand while held |
+| `Ctrl+G` `Ctrl+Shift+G` `Ctrl+B` `Ctrl+J` | Group, ungroup, break apart, join paths |
+| `Ctrl+Up` `Ctrl+Down` | Bring forward, send backward, with `Shift` to the front or back |
+| `Enter` `Esc` `Backspace` | End the pen path, or take back its last anchor |
 | `X` `Shift+X` `D` | Fill or stroke in front, swap them, default colors |
 | `F5` `F6` `F7` | Insert frame, keyframe, blank keyframe |
 | `,` `.` `Enter` | Previous frame, next frame, play |
@@ -65,6 +69,7 @@ Open `http://localhost:5173`. `pnpm test` runs the tests, `pnpm check` the type 
 |------|---------|
 | Framework | Svelte 5 + SvelteKit (static adapter) |
 | Curves | bezier-js, fit-curve |
+| Shape booleans | paper, loaded when first used |
 | Brush | perfect-freehand |
 | Undo | immer |
 | Easing | bezier-easing |
