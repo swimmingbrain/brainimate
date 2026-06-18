@@ -42,6 +42,18 @@ describe('fit', () => {
     expect(Math.abs(pathArea(path))).toBeGreaterThan(Math.PI * 2500 * 0.97);
   });
 
+  it('keeps a ring a ring even with a loose tolerance', () => {
+    const pts = [];
+    for (let i = 0; i <= 40; i++) {
+      const a = (i / 40) * Math.PI * 2;
+      pts.push({ x: Math.cos(a) * 50, y: Math.sin(a) * 50 });
+    }
+    const path = fitPath(pts, 40, true);
+    expect(path.closed).toBe(true);
+    expect(path.anchors.length).toBeGreaterThanOrEqual(2);
+    expect(Math.abs(pathArea(path))).toBeGreaterThan(Math.PI * 2500 * 0.8);
+  });
+
   it('copes with two points and repeated points', () => {
     expect(fitCubics([{ x: 0, y: 0 }, { x: 0, y: 0 }], 1)).toHaveLength(0);
     const line = cubicsToAnchors(fitCubics([{ x: 0, y: 0 }, { x: 10, y: 0 }], 1));
