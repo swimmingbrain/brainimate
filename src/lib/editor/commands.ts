@@ -5,7 +5,8 @@ import { around, compose, decompose, identity, invert, multiply, rotate, scale, 
 import { boxCenter, isEmpty } from '$lib/core/bbox';
 import { closePath, copyPath, reversePath, transformPath } from '$lib/core/path';
 import { cloneItem, makePathItem, parentMatrix } from '$lib/core/items';
-import { combine, divide, splitBridges, type BooleanOp } from '$lib/core/boolean';
+import { combine, divide, type BooleanOp } from '$lib/core/boolean';
+import { splitBridges } from '$lib/core/bridge';
 import { joinTwo, simplifyPath, strokePieces } from '$lib/core/pathops';
 import { smoothPath } from '$lib/core/smooth';
 import { newId } from '$lib/core/ids';

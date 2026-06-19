@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { bridgeHole, combine, divide, intersect, splitBridges, subtract, unite } from './boolean';
+import { combine, divide, intersect, subtract, unite } from './boolean';
+import { bridgeHole, splitBridges } from './bridge';
 import { rectPath } from './shapes';
 import { pathArea, pathBounds } from './path';
 
