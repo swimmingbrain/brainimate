@@ -1,7 +1,9 @@
 import type { PathData } from '$lib/core/types';
+import { splitBridges } from '$lib/core/bridge';
 
 // keyed by the path object itself: an edit makes a new path object, so a stale entry is never read
 const cache = new WeakMap<PathData, Path2D>();
+const strokes = new WeakMap<PathData, Path2D>();
 
 export function buildPath2D(path: PathData): Path2D {
   const p = new Path2D();
@@ -25,6 +27,22 @@ export function path2D(path: PathData): Path2D {
   if (!p) {
     p = buildPath2D(path);
     cache.set(path, p);
+  }
+  return p;
+}
+
+// a path with holes is stroked ring by ring, so the bridges that join the holes to the outline stay hidden
+export function strokePath2D(path: PathData): Path2D {
+  let p = strokes.get(path);
+  if (!p) {
+    const rings = path.closed && path.anchors.length >= 6 ? splitBridges(path) : [path];
+    if (rings.length === 1) {
+      p = path2D(path);
+    } else {
+      p = new Path2D();
+      for (const ring of rings) p.addPath(buildPath2D(ring));
+    }
+    strokes.set(path, p);
   }
   return p;
 }

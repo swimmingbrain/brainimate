@@ -3,7 +3,7 @@ import type { Item, Mat, PathItem, Vec } from '$lib/core/types';
 import { applyPoint, multiply } from '$lib/core/mat';
 import { corners, isEmpty, type Box } from '$lib/core/bbox';
 import { localBounds } from '$lib/core/items';
-import { path2D } from './pathcache';
+import { strokePath2D } from './pathcache';
 import { editor, hover } from '$lib/editor/editor';
 import { frameHandles, framePoint, selectionFrame } from '$lib/editor/selection';
 import { activeTool, anchorSelection, selection, type View } from '$lib/stores/app';
@@ -35,7 +35,7 @@ function toScreen(v: View, p: Vec): Vec {
 
 function screenPath(item: PathItem, m: Mat): Path2D {
   const p = new Path2D();
-  p.addPath(path2D(item.path), { a: m[0], b: m[1], c: m[2], d: m[3], e: m[4], f: m[5] });
+  p.addPath(strokePath2D(item.path), { a: m[0], b: m[1], c: m[2], d: m[3], e: m[4], f: m[5] });
   return p;
 }
 

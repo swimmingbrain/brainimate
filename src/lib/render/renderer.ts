@@ -1,7 +1,7 @@
 import type { Asset, Doc, ImageItem, Item, Layer, Mat, PathItem, TextItem } from '$lib/core/types';
 import { multiply, scaleFactor } from '$lib/core/mat';
 import { canvasPaint, compositeOp, type Ctx2D } from '$lib/core/style';
-import { path2D } from './pathcache';
+import { path2D, strokePath2D } from './pathcache';
 import { itemsAt } from './frame';
 
 // css pixels of the canvas, dpr turns them into device pixels
@@ -72,7 +72,7 @@ function drawPath(ctx: Ctx2D, item: PathItem, m: Mat, outline: string | null, s:
     ctx.strokeStyle = outline;
     ctx.lineWidth = 1 / scale;
     ctx.setLineDash([]);
-    ctx.stroke(shape);
+    ctx.stroke(strokePath2D(item.path));
     return;
   }
   const style = item.style;
@@ -89,7 +89,7 @@ function drawPath(ctx: Ctx2D, item: PathItem, m: Mat, outline: string | null, s:
     ctx.lineJoin = style.join;
     ctx.miterLimit = 10;
     ctx.setLineDash(style.dash.length > 0 ? style.dash.map((d) => d * k) : []);
-    ctx.stroke(shape);
+    ctx.stroke(strokePath2D(item.path));
   }
 }
 

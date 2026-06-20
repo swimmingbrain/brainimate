@@ -4,7 +4,7 @@ import { applyPoint, invert, multiply, scaleFactor } from './mat';
 import { contains, expand } from './bbox';
 import { itemBounds, localBounds } from './items';
 import { nearestSegment, transformPath } from './path';
-import { path2D } from '$lib/render/pathcache';
+import { path2D, strokePath2D } from '$lib/render/pathcache';
 
 // screen pixels, doubled for fingers and pens
 export const ANCHOR_TOLERANCE = 6;
@@ -43,7 +43,7 @@ function hitPath(item: PathItem, m: Mat, p: Vec, zoom: number, factor: number): 
   ctx.lineWidth = (2 * strokeTolerance(item, m, zoom, factor)) / (zoom * s);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  return ctx.isPointInStroke(shape, local.x, local.y);
+  return ctx.isPointInStroke(strokePath2D(item.path), local.x, local.y);
 }
 
 // m is the item's world matrix, its own transform included
