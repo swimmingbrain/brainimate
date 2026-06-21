@@ -4,7 +4,13 @@ import { newId } from './ids';
 import { pathBounds, transformPath } from './path';
 import { emptyBox, fromRect, transformBox, union, type Box } from './bbox';
 
-export function makePathItem(name: string, path: PathData, style: Style, transform: Mat = identity()): PathItem {
+export function makePathItem(
+  name: string,
+  path: PathData,
+  style: Style,
+  transform: Mat = identity(),
+  subpaths: PathData[] = []
+): PathItem {
   return {
     id: newId(),
     name,
@@ -15,6 +21,7 @@ export function makePathItem(name: string, path: PathData, style: Style, transfo
     opacity: 1,
     blend: 'normal',
     path,
+    subpaths,
     style,
     skin: null
   };

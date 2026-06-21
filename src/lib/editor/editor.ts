@@ -47,7 +47,8 @@ export function makeDoc(width: number, height: number, fps: number): Doc {
     layers: [makeLayer('Layer 1', LAYER_COLORS[0])],
     symbols: {},
     assets: {},
-    swatches: []
+    swatches: [],
+    guides: { h: [], v: [] }
   };
 }
 

@@ -61,7 +61,10 @@ interface ItemBase {
 
 export interface PathItem extends ItemBase {
   type: 'path';
+  // the outline, for a compound path the outer ring
   path: PathData;
+  // more closed contours filled together with path, holes run the other way round
+  subpaths: PathData[];
   style: Style;
   skin: Skin | null;
 }
@@ -184,4 +187,11 @@ export interface Doc {
   symbols: Record<string, Symbol>;
   assets: Record<string, Asset>;
   swatches: string[];
+  // h holds the y of each horizontal guide, v the x of each vertical one
+  guides: Guides;
+}
+
+export interface Guides {
+  h: number[];
+  v: number[];
 }
