@@ -413,7 +413,7 @@
   }
 
   .op {
-    width: 26px;
+    width: 24px;
     height: 24px;
     display: flex;
     align-items: center;
@@ -434,7 +434,7 @@
   .op-sep {
     width: 1px;
     height: 16px;
-    margin: 0 4px;
+    margin: 0 3px;
     background: var(--border);
   }
 </style>
