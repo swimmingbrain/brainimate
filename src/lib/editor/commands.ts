@@ -451,7 +451,7 @@ const BOOLEAN_LABELS: Record<BooleanOp | 'divide', string> = {
   divide: 'Divide'
 };
 
-// the selected paths, bottom first, become new paths in the place of the bottom one with its style.
+// the selected paths, bottom first, become new paths in the place of the bottom one with its style,
 // subtract takes everything above from the bottom path, divide keeps each piece in the style it came from
 export async function booleanSelection(op: BooleanOp | 'divide') {
   const paths = selectedPaths();

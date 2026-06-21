@@ -1,7 +1,7 @@
 import type { Anchor, PathData } from './types';
 import { copyAnchor, kindOf, pathArea, reversePath } from './path';
 
-// our paths have one anchor list, so a hole is joined to its outline by a straight bridge there and back.
+// our paths have one anchor list, so a hole is joined to its outline by a straight bridge there and back,
 // the hole runs the other way round, so the nonzero fill leaves it empty, and the stroke skips the bridge
 
 function nearestPair(outer: PathData, hole: PathData): [number, number] {

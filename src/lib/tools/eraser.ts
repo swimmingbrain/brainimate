@@ -62,7 +62,7 @@ function totalArea(list: PathData[]): number {
   return list.reduce((sum, p) => sum + Math.abs(pathArea(p)), 0);
 }
 
-// filled paths lose the area under the trail, stroke only paths are cut where the trail crosses them.
+// filled paths lose the area under the trail, stroke only paths are cut where the trail crosses them,
 // the fills are cut with the trail fitted to curves, so a notch gets a few smooth anchors
 async function erase(target: string, polygon: Vec[], trailPath: PathData) {
   const layer = editor.layerById(target);

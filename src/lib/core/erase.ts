@@ -45,7 +45,7 @@ function runLength(run: Cubic[]): number {
   return run.reduce((sum, c) => sum + Math.hypot(c[3].x - c[0].x, c[3].y - c[0].y), 0);
 }
 
-// cuts a stroked path with a closed polygon: the parts inside go, the rest come back as open paths.
+// cuts a stroked path with a closed polygon: the parts inside go, the rest come back as open paths,
 // null means the polygon does not touch the path at all
 export function cutPath(path: PathData, polygon: Vec[]): PathData[] | null {
   const count = segmentCount(path);
