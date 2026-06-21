@@ -3,6 +3,7 @@ import {
   bendSegment,
   bendWeight,
   closePath,
+  compoundBounds,
   copyPath,
   inPoint,
   insertAnchor,
@@ -11,6 +12,7 @@ import {
   nearestSegment,
   outPoint,
   pathBounds,
+  pathToD,
   removeAnchor,
   reversePath,
   segmentCount,
@@ -160,5 +162,18 @@ describe('path', () => {
     expect(a.ix * a.oy - a.iy * a.ox).toBeCloseTo(0);
     expect(Math.hypot(a.ix, a.iy)).toBeCloseTo(50 * 0.5523);
     expect(a.kind).toBe('symmetric');
+  });
+
+  it('writes an svg d string with lines, curves and one ring per contour', () => {
+    expect(pathToD(rectPath(0, 0, 10, 5))).toBe('M0 0L10 0L10 5L0 5Z');
+    expect(pathToD(curve())).toBe('M0 0C0 100 100 100 100 0');
+    const hole = rectPath(2, 2, 1.25, 1);
+    expect(pathToD(rectPath(0, 0, 10, 10), [hole], 1)).toBe('M0 0L10 0L10 10L0 10Z M2 2L3.3 2L3.3 3L2 3Z');
+    expect(pathToD({ anchors: [], closed: false })).toBe('');
+  });
+
+  it('bounds a compound path around every contour', () => {
+    const b = compoundBounds(rectPath(0, 0, 10, 10), [rectPath(20, -5, 2, 2)]);
+    expect(b).toEqual({ minX: 0, minY: -5, maxX: 22, maxY: 10 });
   });
 });

@@ -245,3 +245,43 @@ export function pathArea(path: PathData): number {
 export function polylineToPath(points: Vec[], closed: boolean): PathData {
   return { closed, anchors: points.map((p) => makeAnchor(p.x, p.y)) };
 }
+
+function num(n: number, precision: number): string {
+  const s = n.toFixed(precision);
+  const out = precision > 0 ? s.replace(/\.?0+$/, '') : s;
+  return out === '-0' ? '0' : out;
+}
+
+function contourD(path: PathData, precision: number): string {
+  const a = path.anchors;
+  if (a.length === 0) return '';
+  const f = (n: number) => num(n, precision);
+  const parts = [`M${f(a[0].x)} ${f(a[0].y)}`];
+  const count = segmentCount(path);
+  for (let i = 0; i < count; i++) {
+    const p = a[i];
+    const q = a[(i + 1) % a.length];
+    const straight = p.ox === 0 && p.oy === 0 && q.ix === 0 && q.iy === 0;
+    // z draws the straight way back to the start by itself
+    if (straight && path.closed && i === count - 1) break;
+    if (straight) parts.push(`L${f(q.x)} ${f(q.y)}`);
+    else parts.push(`C${f(p.x + p.ox)} ${f(p.y + p.oy)} ${f(q.x + q.ix)} ${f(q.y + q.iy)} ${f(q.x)} ${f(q.y)}`);
+  }
+  if (path.closed) parts.push('Z');
+  return parts.join('');
+}
+
+// an svg path d string for the outline and its subpaths, only M, L, C and Z
+export function pathToD(path: PathData, subpaths: PathData[] = [], precision = 2): string {
+  return [path, ...subpaths]
+    .map((p) => contourD(p, precision))
+    .filter((d) => d.length > 0)
+    .join(' ');
+}
+
+// the box around the outline and every subpath
+export function compoundBounds(path: PathData, subpaths: PathData[]): Box {
+  let b = pathBounds(path);
+  for (const sub of subpaths) b = union(b, pathBounds(sub));
+  return b;
+}

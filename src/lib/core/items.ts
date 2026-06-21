@@ -60,8 +60,11 @@ function textBox(item: Extract<Item, { type: 'text' }>): Box {
 // bounds in the space m maps the item's local space to, tight for paths
 export function itemBounds(item: Item, m: Mat): Box {
   switch (item.type) {
-    case 'path':
-      return pathBounds(transformPath(item.path, m));
+    case 'path': {
+      let b = pathBounds(transformPath(item.path, m));
+      for (const sub of item.subpaths) b = union(b, pathBounds(transformPath(sub, m)));
+      return b;
+    }
     case 'group': {
       let b = emptyBox();
       for (const child of item.children) b = union(b, itemBounds(child, multiply(m, child.transform)));
@@ -100,6 +103,29 @@ export function findItem(items: Item[], id: string, parents: GroupItem[] = []): 
     }
   }
   return null;
+}
+
+// the outline is contour 0, subpath k is contour k + 1
+export function contours(item: PathItem): PathData[] {
+  return [item.path, ...item.subpaths];
+}
+
+export function contourOf(item: PathItem, sub: number): PathData | null {
+  return sub === 0 ? item.path : (item.subpaths[sub - 1] ?? null);
+}
+
+// a shallow copy of the item with one contour swapped, for previews
+export function withContour(item: PathItem, sub: number, path: PathData): PathItem {
+  if (sub === 0) return { ...item, path };
+  const subpaths = item.subpaths.slice();
+  subpaths[sub - 1] = path;
+  return { ...item, subpaths };
+}
+
+// writes a contour into an item in place, inside a commit
+export function setContour(item: PathItem, sub: number, path: PathData) {
+  if (sub === 0) item.path = path;
+  else if (item.subpaths[sub - 1]) item.subpaths[sub - 1] = path;
 }
 
 // the product of the group transforms around an item
