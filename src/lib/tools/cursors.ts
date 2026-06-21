@@ -32,9 +32,10 @@ export function resizeCursor(angle: number): string {
 
 // a pen nib with its tip on the hot spot, the small mark next to it says what a click does
 const NIB =
-  "<path d='M2 2l8.5 3.5 3 7-7-3z' fill='black' stroke='white' stroke-width='1' stroke-linejoin='round'/>" +
-  "<path d='M2 2l5.6 5.6' stroke='white' stroke-width='1'/>" +
-  "<path d='M13.5 12.5l2.2 2.2-2 2-2.2-2.2' fill='black' stroke='white' stroke-width='1' stroke-linejoin='round'/>";
+  "<path d='M2 2l9 4 3.5 3.5-5 5L6 11z' fill='black' stroke='white' stroke-width='1' stroke-linejoin='round'/>" +
+  "<path d='M2.6 2.6l4.6 4.6' stroke='white' stroke-width='1'/>" +
+  "<circle cx='8' cy='8' r='1.2' fill='white'/>" +
+  "<path d='M10.4 15.4l5-5 1.6 1.6-5 5z' fill='black' stroke='white' stroke-width='1' stroke-linejoin='round'/>";
 
 function pen(mark: string): string {
   return svgCursor(NIB + (mark ? glyph(mark) : ''), 2, 2, 'crosshair');
