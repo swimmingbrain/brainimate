@@ -4,7 +4,7 @@ import { applyPoint, invert, multiply, scaleFactor } from './mat';
 import { contains, expand } from './bbox';
 import { itemBounds, localBounds } from './items';
 import { nearestSegment, transformPath } from './path';
-import { path2D, strokePath2D } from '$lib/render/pathcache';
+import { shapePath2D } from '$lib/render/pathcache';
 
 // screen pixels, doubled for fingers and pens
 export const ANCHOR_TOLERANCE = 6;
@@ -35,7 +35,7 @@ function hitPath(item: PathItem, m: Mat, p: Vec, zoom: number, factor: number): 
   const ctx = hitContext();
   if (!ctx || item.path.anchors.length === 0) return false;
   const local = applyPoint(invert(m), p);
-  const shape = path2D(item.path);
+  const shape = shapePath2D(item.path, item.subpaths);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (item.style.fill && ctx.isPointInPath(shape, local.x, local.y)) return true;
   // the band is measured on screen, so it is converted back into local units
@@ -43,7 +43,7 @@ function hitPath(item: PathItem, m: Mat, p: Vec, zoom: number, factor: number): 
   ctx.lineWidth = (2 * strokeTolerance(item, m, zoom, factor)) / (zoom * s);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  return ctx.isPointInStroke(strokePath2D(item.path), local.x, local.y);
+  return ctx.isPointInStroke(shape, local.x, local.y);
 }
 
 // m is the item's world matrix, its own transform included
