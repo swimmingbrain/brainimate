@@ -2,9 +2,9 @@ import { get } from 'svelte/store';
 import type { Item, Mat, PathData, PathItem, Vec } from '$lib/core/types';
 import { applyPoint, identity, invert, multiply } from '$lib/core/mat';
 import { fromPoints, intersects } from '$lib/core/bbox';
-import { cloneItem, itemBounds } from '$lib/core/items';
+import { cloneItem, contours, itemBounds } from '$lib/core/items';
 import { newId } from '$lib/core/ids';
-import { pathArea, transformPath } from '$lib/core/path';
+import { pathArea, transformPath, type Compound } from '$lib/core/path';
 import { subtract } from '$lib/core/boolean';
 import { cutPath } from '$lib/core/erase';
 import { outlineToPath, strokeOutline, type FreehandOptions, type InkPoint } from '$lib/core/freehand';
@@ -58,8 +58,13 @@ function paths(items: Item[], parent: Mat, out: { item: PathItem; world: Mat }[]
   return out;
 }
 
-function totalArea(list: PathData[]): number {
-  return list.reduce((sum, p) => sum + Math.abs(pathArea(p)), 0);
+// the filled area, holes taken off
+function shapeArea(list: PathData[]): number {
+  return Math.abs(list.reduce((sum, p) => sum + pathArea(p), 0));
+}
+
+function totalArea(list: Compound[]): number {
+  return list.reduce((sum, c) => sum + shapeArea([c.path, ...c.subpaths]), 0);
 }
 
 // filled paths lose the area under the trail, stroke only paths are cut where the trail crosses them,
@@ -69,21 +74,24 @@ async function erase(target: string, polygon: Vec[], trailPath: PathData) {
   if (!layer || polygon.length < 3) return;
   const mode = get(preferences).drawing.eraserMode;
   const box = fromPoints(polygon);
-  const changes = new Map<string, PathData[]>();
+  const changes = new Map<string, Compound[]>();
   for (const { item, world } of paths(editor.layerItems(layer), identity())) {
     if (!intersects(itemBounds(item, world), box)) continue;
     const inv = invert(world);
     const local = polygon.map((p) => applyPoint(inv, p));
     if (item.style.fill) {
       if (mode === 'strokes') continue;
-      const out = await subtract([item.path], [transformPath(trailPath, inv)]);
-      const before = Math.abs(pathArea(item.path));
+      const out = await subtract(contours(item), [transformPath(trailPath, inv)]);
+      const before = shapeArea(contours(item));
       if (Math.abs(before - totalArea(out)) <= 1e-3 * Math.max(1, before)) continue;
       changes.set(item.id, out);
     } else if (item.style.stroke) {
       if (mode === 'fills') continue;
-      const out = cutPath(item.path, local);
-      if (out) changes.set(item.id, out);
+      // every contour is cut on its own, the pieces are open strokes
+      const cut = contours(item).map((c) => cutPath(c, local));
+      if (cut.every((c) => c === null)) continue;
+      const pieces = cut.flatMap((c, i) => c ?? [contours(item)[i]]);
+      changes.set(item.id, pieces.map((path) => ({ path, subpaths: [] })));
     }
   }
   if (changes.size === 0) return;
@@ -93,7 +101,12 @@ async function erase(target: string, polygon: Vec[], trailPath: PathData) {
       if (!found || found.item.type !== 'path') continue;
       // the first piece keeps the id, so a tween can still match it
       const base = cloneItem(found.item);
-      const pieces = list.map((path, i) => ({ ...cloneItem(base), id: i === 0 ? base.id : newId(), path }));
+      const pieces = list.map((c, i) => ({
+        ...cloneItem(base),
+        id: i === 0 ? base.id : newId(),
+        path: c.path,
+        subpaths: c.subpaths
+      }));
       found.list.splice(found.index, 1, ...pieces);
     }
   });
