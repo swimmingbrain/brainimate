@@ -6,6 +6,12 @@ import { polygonArea } from './polygon';
 
 // the editing helpers below change the path they get, use copyPath first on anything shared
 
+// a closed outline with holes, or more islands, that fill as one shape
+export interface Compound {
+  path: PathData;
+  subpaths: PathData[];
+}
+
 export interface Segment {
   // the segment runs from anchors[index] to anchors[next]
   index: number;
@@ -284,4 +290,11 @@ export function compoundBounds(path: PathData, subpaths: PathData[]): Box {
   let b = pathBounds(path);
   for (const sub of subpaths) b = union(b, pathBounds(sub));
   return b;
+}
+
+// every subpath runs against the outline, so the nonzero fill keeps it empty
+export function orientHoles(c: Compound): Compound {
+  const sign = Math.sign(pathArea(c.path));
+  for (const sub of c.subpaths) if (sign !== 0 && Math.sign(pathArea(sub)) === sign) reversePath(sub);
+  return c;
 }

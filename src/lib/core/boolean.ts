@@ -1,6 +1,5 @@
 import type { Anchor, PathData } from './types';
-import { kindOf } from './path';
-import { bridgeHole } from './bridge';
+import { kindOf, orientHoles, type Compound } from './path';
 
 export type BooleanOp = 'unite' | 'subtract' | 'intersect' | 'exclude';
 
@@ -67,24 +66,24 @@ function children(item: PaperItem): paper.Path[] {
   return [item as paper.Path];
 }
 
-// every island of the result becomes one path, holes are bridged into the island around them
-function fromPaper(item: PaperItem): PathData[] {
+// every island of the result becomes one compound, its outline the path and its holes the subpaths,
+// an island inside a hole is an island of its own
+function fromPaper(item: PaperItem): Compound[] {
   const list = children(item).filter((c) => c.segments.length > 1 && Math.abs(c.area) > MIN_AREA);
   // a point on the outline itself, the middle of a ring can sit inside one of its holes
   const points = list.map((c) => c.curves[0].getPointAtTime(0.5));
   const depth = list.map((_, i) => list.filter((o, k) => k !== i && o.contains(points[i])).length);
-  const out = new Map<number, PathData>();
+  const out = new Map<number, Compound>();
   list.forEach((c, i) => {
-    if (depth[i] % 2 === 0) out.set(i, fromPaperPath(c));
+    if (depth[i] % 2 === 0) out.set(i, { path: fromPaperPath(c), subpaths: [] });
   });
   list.forEach((c, i) => {
     if (depth[i] % 2 === 0) return;
     // the island right around the hole is the container one level up
     const parent = list.findIndex((o, k) => k !== i && depth[k] === depth[i] - 1 && o.contains(points[i]));
-    const base = out.get(parent);
-    if (base) out.set(parent, bridgeHole(base, fromPaperPath(c)));
+    out.get(parent)?.subpaths.push(fromPaperPath(c));
   });
-  return [...out.values()];
+  return [...out.values()].map(orientHoles);
 }
 
 function apply(op: BooleanOp, a: PaperItem, b: PaperItem): PaperItem {
@@ -96,7 +95,7 @@ function apply(op: BooleanOp, a: PaperItem, b: PaperItem): PaperItem {
 }
 
 // bottom shape first, each next one is united, subtracted, intersected or excluded in turn
-export async function combine(op: BooleanOp, shapes: Shape[]): Promise<PathData[]> {
+export async function combine(op: BooleanOp, shapes: Shape[]): Promise<Compound[]> {
   if (shapes.length === 0) return [];
   const scope = await loadPaper();
   let acc = toPaper(scope, shapes[0]);
@@ -104,19 +103,19 @@ export async function combine(op: BooleanOp, shapes: Shape[]): Promise<PathData[
   return fromPaper(acc);
 }
 
-export function unite(a: Shape, b: Shape): Promise<PathData[]> {
+export function unite(a: Shape, b: Shape): Promise<Compound[]> {
   return combine('unite', [a, b]);
 }
 
-export function subtract(a: Shape, b: Shape): Promise<PathData[]> {
+export function subtract(a: Shape, b: Shape): Promise<Compound[]> {
   return combine('subtract', [a, b]);
 }
 
-export function intersect(a: Shape, b: Shape): Promise<PathData[]> {
+export function intersect(a: Shape, b: Shape): Promise<Compound[]> {
   return combine('intersect', [a, b]);
 }
 
-export function exclude(a: Shape, b: Shape): Promise<PathData[]> {
+export function exclude(a: Shape, b: Shape): Promise<Compound[]> {
   return combine('exclude', [a, b]);
 }
 
@@ -127,7 +126,7 @@ function isEmpty(item: PaperItem): boolean {
 
 // cuts the shapes along the edges of each other, source is the shape whose style a piece keeps,
 // where shapes overlap the upper one wins like divide in illustrator
-export async function divide(shapes: Shape[]): Promise<{ path: PathData; source: number }[]> {
+export async function divide(shapes: Shape[]): Promise<{ shape: Compound; source: number }[]> {
   if (shapes.length === 0) return [];
   const scope = await loadPaper();
   let pieces: { item: PaperItem; source: number }[] = [{ item: toPaper(scope, shapes[0]), source: 0 }];
@@ -145,5 +144,5 @@ export async function divide(shapes: Shape[]): Promise<{ path: PathData; source:
     if (!isEmpty(rest)) out.push({ item: rest, source: k });
     pieces = out;
   }
-  return pieces.flatMap((p) => fromPaper(p.item).map((path) => ({ path, source: p.source })));
+  return pieces.flatMap((p) => fromPaper(p.item).map((shape) => ({ shape, source: p.source })));
 }
