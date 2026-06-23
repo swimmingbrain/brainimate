@@ -3,10 +3,9 @@ import type { Doc, GroupItem, Item, Paint, PathData, PathItem } from '$lib/core/
 import { clonePaint, cloneStyle, solid } from '$lib/core/style';
 import { around, compose, decompose, identity, invert, multiply, rotate, scale, scaleFactor } from '$lib/core/mat';
 import { boxCenter, isEmpty } from '$lib/core/bbox';
-import { closePath, copyPath, reversePath, transformPath } from '$lib/core/path';
-import { cloneItem, makePathItem, parentMatrix } from '$lib/core/items';
-import { combine, divide, type BooleanOp } from '$lib/core/boolean';
-import { splitBridges } from '$lib/core/bridge';
+import { closePath, copyPath, reversePath, transformPath, type Compound } from '$lib/core/path';
+import { cloneItem, contours, makePathItem, parentMatrix } from '$lib/core/items';
+import { combine, divide, type BooleanOp, type Shape } from '$lib/core/boolean';
 import { joinTwo, simplifyPath, strokePieces } from '$lib/core/pathops';
 import { smoothPath } from '$lib/core/smooth';
 import { newId } from '$lib/core/ids';
@@ -134,7 +133,7 @@ export function reverseSelectedPaths() {
   editor.updateItems(
     selectedPathIds(),
     (item) => {
-      if (item.type === 'path') reversePath(item.path);
+      if (item.type === 'path') for (const c of contours(item)) reversePath(c);
     },
     'Reverse path'
   );
@@ -291,7 +290,7 @@ export function arrangeSelection(how: Arrange) {
   });
 }
 
-// breaks groups into their children and paths with bridged holes into their outlines
+// breaks groups into their children and a path with holes into one path per contour
 export function breakApart() {
   const items = editor.selectedItems(false);
   const ids: string[] = [];
@@ -306,13 +305,18 @@ export function breakApart() {
         continue;
       }
       if (found.item.type !== 'path') continue;
-      const parts = splitBridges(found.item.path);
+      const parts = contours(found.item);
       if (parts.length < 2) {
         ids.push(it.id);
         continue;
       }
       const base = cloneItem(found.item);
-      const pieces = parts.map((path, i) => ({ ...cloneItem(base), id: i === 0 ? base.id : newId(), path }));
+      const pieces = parts.map((path, i) => ({
+        ...cloneItem(base),
+        id: i === 0 ? base.id : newId(),
+        path: copyPath(path),
+        subpaths: []
+      }));
       found.list.splice(found.index, 1, ...pieces);
       ids.push(...pieces.map((p) => p.id));
       changed = true;
@@ -326,11 +330,22 @@ function selectedPaths(): PathItem[] {
   return editor.selectedItems(false).filter((it): it is PathItem => it.type === 'path');
 }
 
+// the matrix from the local space of item to the one of base
+function spaceOf(base: PathItem, item: PathItem) {
+  return multiply(invert(editor.worldMatrixOf(base.id)), editor.worldMatrixOf(item.id));
+}
+
 // the path of item in the local space of base, so both can be combined there
 function inSpaceOf(base: PathItem, item: PathItem): PathData {
   if (base.id === item.id) return copyPath(item.path);
-  const m = multiply(invert(editor.worldMatrixOf(base.id)), editor.worldMatrixOf(item.id));
-  return transformPath(item.path, m);
+  return transformPath(item.path, spaceOf(base, item));
+}
+
+// every contour of item in the local space of base
+function shapeInSpaceOf(base: PathItem, item: PathItem): Shape {
+  if (base.id === item.id) return contours(item).map(copyPath);
+  const m = spaceOf(base, item);
+  return contours(item).map((c) => transformPath(c, m));
 }
 
 // two open paths become one at their closest ends, a single open path is closed
@@ -379,16 +394,19 @@ export function setSelectedPathsClosed(closed: boolean) {
 // fewer anchors within one screen pixel at 100 percent
 export function simplifySelectedPaths() {
   const paths = selectedPaths();
-  const out = new Map<string, PathData>();
+  const out = new Map<string, PathData[]>();
   for (const p of paths) {
     const tolerance = 1 / Math.max(scaleFactor(editor.worldMatrixOf(p.id)), 1e-6);
-    out.set(p.id, simplifyPath(p.path, tolerance));
+    out.set(p.id, contours(p).map((c) => simplifyPath(c, tolerance)));
   }
   editor.updateItems(
     paths.map((p) => p.id),
     (item) => {
-      const path = out.get(item.id);
-      if (item.type === 'path' && path) item.path = path;
+      const list = out.get(item.id);
+      if (item.type !== 'path' || !list) return;
+      item.path = list[0];
+      // a hole simplified down to nothing is dropped
+      item.subpaths = list.slice(1).filter((c) => c.closed && c.anchors.length > 2);
     },
     'Simplify'
   );
@@ -398,7 +416,7 @@ export function smoothSelectedPaths() {
   editor.updateItems(
     selectedPaths().map((p) => p.id),
     (item) => {
-      if (item.type === 'path') smoothPath(item.path);
+      if (item.type === 'path') for (const c of contours(item)) smoothPath(c);
     },
     'Smooth'
   );
@@ -411,12 +429,12 @@ export async function outlineSelectedStrokes() {
     addToast('Select a path with a stroke');
     return;
   }
-  const results = new Map<string, PathData[]>();
+  const results = new Map<string, Compound[]>();
   try {
     for (const p of paths) {
       const world = editor.worldMatrixOf(p.id);
       const width = p.style.scaleStroke ? p.style.width : p.style.width / Math.max(scaleFactor(world), 1e-9);
-      const pieces = strokePieces(p.path, width, p.style.cap, p.style.join);
+      const pieces = contours(p).flatMap((c) => strokePieces(c, width, p.style.cap, p.style.join));
       if (pieces.length > 0) results.set(p.id, await combine('unite', pieces.map((q) => [q])));
     }
   } catch {
@@ -430,7 +448,13 @@ export async function outlineSelectedStrokes() {
       if (!found || found.item.type !== 'path') continue;
       const base = cloneItem(found.item);
       const style = { ...cloneStyle(base.style), fill: clonePaint(base.style.stroke), stroke: null };
-      const shapes = list.map((path) => ({ ...cloneItem(base), id: newId(), path, style: cloneStyle(style) }));
+      const shapes = list.map((c) => ({
+        ...cloneItem(base),
+        id: newId(),
+        path: c.path,
+        subpaths: c.subpaths,
+        style: cloneStyle(style)
+      }));
       if (base.style.fill) {
         found.item.style.stroke = null;
         found.list.splice(found.index + 1, 0, ...shapes);
@@ -460,18 +484,18 @@ export async function booleanSelection(op: BooleanOp | 'divide') {
     return;
   }
   const base = paths[0];
-  const shapes = paths.map((p) => [inSpaceOf(base, p)]);
-  let pieces: { path: PathData; source: number }[];
+  const shapes = paths.map((p) => shapeInSpaceOf(base, p));
+  let pieces: { shape: Compound; source: number }[];
   try {
     if (op === 'divide') pieces = await divide(shapes);
-    else pieces = (await combine(op, shapes)).map((path) => ({ path, source: 0 }));
+    else pieces = (await combine(op, shapes)).map((shape) => ({ shape, source: 0 }));
   } catch {
     addToast('The paths could not be combined', 'error');
     return;
   }
-  const added = pieces.map(({ path, source }) => {
+  const added = pieces.map(({ shape, source }) => {
     const from = paths[source];
-    const item = makePathItem(from.name, path, cloneStyle(from.style), [...base.transform]);
+    const item = makePathItem(from.name, shape.path, cloneStyle(from.style), [...base.transform], shape.subpaths);
     return { ...item, opacity: from.opacity, blend: from.blend };
   });
   editor.commit(BOOLEAN_LABELS[op], (draft) => {
