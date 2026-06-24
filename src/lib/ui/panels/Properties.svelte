@@ -63,7 +63,10 @@
     return (decompose(editor.worldMatrixOf(items[0].id)).rotation * 180) / Math.PI;
   });
 
-  const anchorCount = $derived(paths.reduce((sum, p) => sum + p.path.anchors.length, 0));
+  const anchorCount = $derived(
+    paths.reduce((sum, p) => sum + p.path.anchors.length + p.subpaths.reduce((n, c) => n + c.anchors.length, 0), 0)
+  );
+  const holes = $derived(paths.reduce((sum, p) => sum + p.subpaths.length, 0));
   const allClosed = $derived(paths.length > 0 && paths.every((p) => p.path.closed));
 
   // the path operations, the ones that combine shapes need two paths or more
@@ -290,6 +293,11 @@
       <Field label="Anchors">
         <span class="value">{anchorCount}{paths.length > 1 ? ` in ${paths.length} paths` : ''}</span>
       </Field>
+      {#if holes > 0}
+        <Field label="Holes">
+          <span class="value">{holes}</span>
+        </Field>
+      {/if}
       <Field label="Closed">
         <ToggleField value={allClosed} label="Closed" onchange={(on) => setSelectedPathsClosed(on)} />
       </Field>
