@@ -48,4 +48,16 @@ describe('clipboard', () => {
     editor.undo();
     expect(items()).toHaveLength(1);
   });
+
+  it('copies the holes of a path with the path and keeps them apart from the original', () => {
+    const ring = makePathItem('Ring', rectPath(0, 0, 50, 50), defaultStyle(), undefined, [rectPath(20, 20, 10, 10)]);
+    editor.insertItem(editor.activeLayer()!.id, ring);
+    selection.set(new Set([ring.id]));
+    duplicate();
+    const all = items();
+    const copy = all[all.length - 1];
+    expect(copy.type === 'path' && copy.subpaths).toHaveLength(1);
+    const original = all.find((it) => it.id === ring.id)!;
+    expect(copy.type === 'path' && original.type === 'path' && copy.subpaths[0] !== original.subpaths[0]).toBe(true);
+  });
 });
