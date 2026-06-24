@@ -104,7 +104,7 @@ describe('outline', () => {
       pieces.map((p) => [p])
     );
     expect(out).toHaveLength(1);
-    expect(Math.abs(pathArea(out[0]))).toBeCloseTo(1000, 0);
+    expect(Math.abs(pathArea(out[0].path))).toBeCloseTo(1000, 0);
   });
 
   it('adds round caps and joins', async () => {
@@ -123,7 +123,7 @@ describe('outline', () => {
       pieces.map((p) => [p])
     );
     expect(out).toHaveLength(1);
-    const area = Math.abs(pathArea(out[0]));
+    const area = Math.abs(pathArea(out[0].path));
     expect(area).toBeGreaterThan(2000);
     expect(area).toBeLessThan(2000 + Math.PI * 25 + 1);
   });
