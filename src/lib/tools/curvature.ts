@@ -4,8 +4,8 @@ import { applyPoint, invert } from '$lib/core/mat';
 import { copyPath, inPoint, makeAnchor, outPoint, removeAnchor, segmentCubic } from '$lib/core/path';
 import { pointAt } from '$lib/core/bezier';
 import { setSmoothHandles } from '$lib/core/smooth';
-import { hitAnchor, hitSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
-import { makePathItem } from '$lib/core/items';
+import { hitContours, hitItemSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
+import { contourOf, makePathItem, setContour, withContour } from '$lib/core/items';
 import { editor, hover } from '$lib/editor/editor';
 import { select } from '$lib/editor/selection';
 import { worldAnchor } from '$lib/render/overlay';
@@ -21,12 +21,14 @@ type Target =
   | { kind: 'start' }
   | { kind: 'draw' }
   | { kind: 'close' }
-  | { kind: 'point'; id: string; index: number }
-  | { kind: 'insert'; id: string; index: number; t: number };
+  | { kind: 'point'; id: string; sub: number; index: number }
+  | { kind: 'insert'; id: string; sub: number; index: number; t: number };
 
 interface Gesture {
   item: PathItem;
   layerId: string | null;
+  // the contour being changed, 0 is the outline
+  sub: number;
   path: PathData;
   index: number;
   label: string;
@@ -72,15 +74,18 @@ function targetAt(e: ToolEvent): Target {
   const drawing = drawingItem();
   const paths = selectedPaths();
   for (const item of paths) {
-    const hit = hitAnchor(item.path, editor.worldMatrixOf(item.id), e, e.zoom, factor);
+    const hit = hitContours(item, editor.worldMatrixOf(item.id), e, e.zoom, factor);
     if (!hit) continue;
-    if (item.id === drawing?.id && hit.index === 0 && item.path.anchors.length > 2) return { kind: 'close' };
-    return { kind: 'point', id: item.id, index: hit.index };
+    const first = hit.sub === 0 && hit.index === 0;
+    if (item.id === drawing?.id && first && item.path.anchors.length > 2) return { kind: 'close' };
+    return { kind: 'point', id: item.id, sub: hit.sub, index: hit.index };
   }
   for (const item of paths) {
     const world = editor.worldMatrixOf(item.id);
-    const seg = hitSegment(item.path, world, e, e.zoom, strokeTolerance(item, world, e.zoom, factor));
-    if (seg && seg.t > END_T && seg.t < 1 - END_T) return { kind: 'insert', id: item.id, index: seg.index, t: seg.t };
+    const seg = hitItemSegment(item, world, e, e.zoom, strokeTolerance(item, world, e.zoom, factor));
+    if (seg && seg.t > END_T && seg.t < 1 - END_T) {
+      return { kind: 'insert', id: item.id, sub: seg.sub, index: seg.index, t: seg.t };
+    }
   }
   return drawing ? { kind: 'draw' } : { kind: 'start' };
 }
@@ -101,15 +106,24 @@ function showGesture() {
   const g = gesture;
   if (!g) return;
   if (g.layerId) editor.previewAdded = [{ layerId: g.layerId, item: { ...g.item, path: g.path } }];
-  else editor.preview.set(g.item.id, { ...g.item, path: g.path });
+  else editor.preview.set(g.item.id, withContour(g.item, g.sub, g.path));
   editor.markAll();
 }
 
-function begin(e: ToolEvent, item: PathItem, path: PathData, index: number, label: string, changed: boolean) {
+function begin(
+  e: ToolEvent,
+  item: PathItem,
+  path: PathData,
+  index: number,
+  label: string,
+  changed: boolean,
+  sub = 0
+) {
   const a = path.anchors[index];
   gesture = {
     item,
     layerId: null,
+    sub,
     path,
     index,
     label,
@@ -117,9 +131,9 @@ function begin(e: ToolEvent, item: PathItem, path: PathData, index: number, labe
     origin: { x: a.x, y: a.y },
     changed,
     dragging: false,
-    drawing: item.id === drawingId
+    drawing: item.id === drawingId && sub === 0
   };
-  anchorSelection.set([{ itemId: item.id, index }]);
+  anchorSelection.set([{ itemId: item.id, sub, index }]);
   showGesture();
 }
 
@@ -127,11 +141,11 @@ function toLocal(id: string, p: Vec): Vec {
   return applyPoint(invert(editor.worldMatrixOf(id)), p);
 }
 
-function commitPath(id: string, path: PathData, label: string) {
+function commitPath(id: string, path: PathData, label: string, sub = 0) {
   editor.updateItem(
     id,
     (item) => {
-      if (item.type === 'path') item.path = path;
+      if (item.type === 'path') setContour(item, sub, path);
     },
     label
   );
@@ -171,16 +185,18 @@ function down(e: ToolEvent) {
     return;
   }
   const item = editor.itemById(t.id, false) as PathItem;
-  const path = copyPath(item.path);
+  const contour = contourOf(item, t.sub);
+  if (!contour) return;
+  const path = copyPath(contour);
   if (t.kind === 'point') {
-    begin(e, item, path, t.index, 'Move point', false);
+    begin(e, item, path, t.index, 'Move point', false, t.sub);
     return;
   }
   // a point on the segment, smooth, and the curve is rebuilt around it
   const at = pointAt(segmentCubic(path, t.index), t.t);
   path.anchors.splice(t.index + 1, 0, makeAnchor(at.x, at.y, 'smooth'));
   refresh(path, t.index + 1);
-  begin(e, item, path, t.index + 1, 'Add point', true);
+  begin(e, item, path, t.index + 1, 'Add point', true, t.sub);
 }
 
 function drag(e: ToolEvent) {
@@ -214,14 +230,14 @@ function up(e: ToolEvent) {
     editor.insertItem(g.layerId, { ...g.item, path: g.path }, g.label);
   } else {
     editor.preview.delete(g.item.id);
-    commitPath(g.item.id, g.path, g.label);
+    commitPath(g.item.id, g.path, g.label, g.sub);
   }
   editor.clearPreview();
   if (g.drawing) {
     drawingId = g.item.id;
     select([g.item.id]);
   }
-  anchorSelection.set([{ itemId: g.item.id, index: g.index }]);
+  anchorSelection.set([{ itemId: g.item.id, sub: g.sub, index: g.index }]);
 }
 
 function endPath() {
@@ -237,11 +253,13 @@ function dblclick(e: ToolEvent) {
   const t = targetAt(e);
   if (t.kind !== 'point') return;
   const item = editor.itemById(t.id, false) as PathItem;
-  const path = copyPath(item.path);
+  const contour = contourOf(item, t.sub);
+  if (!contour) return;
+  const path = copyPath(contour);
   const a = path.anchors[t.index];
   a.kind = a.kind === 'corner' ? 'smooth' : 'corner';
   refresh(path, t.index);
-  commitPath(item.id, path, 'Convert point');
+  commitPath(item.id, path, 'Convert point', t.sub);
 }
 
 function removeLast() {
