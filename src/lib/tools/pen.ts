@@ -3,8 +3,8 @@ import type { PathData, PathItem, Vec } from '$lib/core/types';
 import { applyPoint, applyVector, invert } from '$lib/core/mat';
 import { copyPath, hasHandles, inPoint, insertAnchor, makeAnchor, outPoint, removeAnchor } from '$lib/core/path';
 import { continueFrom, nextPoint, pullHandles, retractHandles, retractOut } from '$lib/core/handles';
-import { hitAnchor, hitSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
-import { makePathItem } from '$lib/core/items';
+import { hitAnchor, hitContours, hitItemSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
+import { contourOf, makePathItem, setContour, withContour } from '$lib/core/items';
 import { editor, hover } from '$lib/editor/editor';
 import { select } from '$lib/editor/selection';
 import { worldAnchor, worldHandle } from '$lib/render/overlay';
@@ -24,15 +24,17 @@ type Target =
   | { kind: 'draw' }
   | { kind: 'close' }
   | { kind: 'continue'; id: string; index: number }
-  | { kind: 'add'; id: string; index: number; t: number }
-  | { kind: 'remove'; id: string; index: number }
-  | { kind: 'convert'; id: string; index: number };
+  | { kind: 'add'; id: string; sub: number; index: number; t: number }
+  | { kind: 'remove'; id: string; sub: number; index: number }
+  | { kind: 'convert'; id: string; sub: number; index: number };
 
 // one press of the pen: the working copy of the path and the anchor whose handles a drag pulls
 interface Gesture {
   item: PathItem;
   // set while the path is new and not in the document yet
   layerId: string | null;
+  // the contour being changed, 0 is the outline
+  sub: number;
   path: PathData;
   index: number;
   // out: only the out handle follows the pointer, the in handle stays as it is
@@ -82,26 +84,27 @@ function targetAt(e: ToolEvent): Target {
     const hit = hitAnchor(drawing.path, editor.worldMatrixOf(drawing.id), e, e.zoom, factor);
     if (hit) {
       if (hit.index === 0 && n > 1) return { kind: 'close' };
-      if (hit.index === n - 1 || e.alt) return { kind: 'convert', id: drawing.id, index: hit.index };
-      return { kind: 'remove', id: drawing.id, index: hit.index };
+      if (hit.index === n - 1 || e.alt) return { kind: 'convert', id: drawing.id, sub: 0, index: hit.index };
+      return { kind: 'remove', id: drawing.id, sub: 0, index: hit.index };
     }
   }
   const paths = selectedPaths();
   for (const item of paths) {
     if (item.id === drawing?.id) continue;
-    const hit = hitAnchor(item.path, editor.worldMatrixOf(item.id), e, e.zoom, factor);
+    const hit = hitContours(item, editor.worldMatrixOf(item.id), e, e.zoom, factor);
     if (!hit) continue;
     const n = item.path.anchors.length;
-    if (!drawing && !item.path.closed && (hit.index === 0 || hit.index === n - 1)) {
-      return { kind: 'continue', id: item.id, index: hit.index };
-    }
-    if (e.alt) return { kind: 'convert', id: item.id, index: hit.index };
-    return { kind: 'remove', id: item.id, index: hit.index };
+    const end = hit.sub === 0 && (hit.index === 0 || hit.index === n - 1);
+    if (!drawing && !item.path.closed && end) return { kind: 'continue', id: item.id, index: hit.index };
+    if (e.alt) return { kind: 'convert', id: item.id, sub: hit.sub, index: hit.index };
+    return { kind: 'remove', id: item.id, sub: hit.sub, index: hit.index };
   }
   for (const item of paths) {
     const world = editor.worldMatrixOf(item.id);
-    const seg = hitSegment(item.path, world, e, e.zoom, strokeTolerance(item, world, e.zoom, factor));
-    if (seg && seg.t > END_T && seg.t < 1 - END_T) return { kind: 'add', id: item.id, index: seg.index, t: seg.t };
+    const seg = hitItemSegment(item, world, e, e.zoom, strokeTolerance(item, world, e.zoom, factor));
+    if (seg && seg.t > END_T && seg.t < 1 - END_T) {
+      return { kind: 'add', id: item.id, sub: seg.sub, index: seg.index, t: seg.t };
+    }
   }
   return drawing ? { kind: 'draw' } : { kind: 'start' };
 }
@@ -117,14 +120,15 @@ function updateCursor(e: ToolEvent) {
 }
 
 // the handles of this anchor show while it is the one being drawn
-function pick(id: string, index: number) {
-  anchorSelection.set([{ itemId: id, index }]);
+function pick(id: string, index: number, sub = 0) {
+  anchorSelection.set([{ itemId: id, sub, index }]);
 }
 
 function begin(e: ToolEvent, item: PathItem, path: PathData, index: number, mode: Gesture['mode'], label: string) {
   gesture = {
     item,
     layerId: null,
+    sub: 0,
     path,
     index,
     mode,
@@ -142,7 +146,7 @@ function showGesture() {
   const g = gesture;
   if (!g) return;
   if (g.layerId) editor.previewAdded = [{ layerId: g.layerId, item: { ...g.item, path: g.path } }];
-  else editor.preview.set(g.item.id, { ...g.item, path: g.path });
+  else editor.preview.set(g.item.id, withContour(g.item, g.sub, g.path));
   editor.markAll();
 }
 
@@ -157,15 +161,22 @@ function startPath(e: ToolEvent) {
   showGesture();
 }
 
-function removePoint(id: string, index: number) {
+function removePoint(id: string, sub: number, index: number) {
   const drawing = id === drawingId;
   let gone = false;
   editor.commit('Delete anchor point', (draft) => {
     const found = editor.draftFind(draft, id);
     if (!found || found.item.type !== 'path') return;
-    removeAnchor(found.item.path, index);
+    const c = contourOf(found.item, sub);
+    if (!c) return;
+    removeAnchor(c, index);
+    // a hole of two anchors is no hole anymore
+    if (sub > 0) {
+      if (c.anchors.length < 3) found.item.subpaths.splice(sub - 1, 1);
+      return;
+    }
     // a lone point is no path, unless it is the start of the one being drawn
-    if (found.item.path.anchors.length < (drawing ? 1 : 2)) {
+    if (c.anchors.length < (drawing ? 1 : 2)) {
       found.list.splice(found.index, 1);
       gone = true;
     }
@@ -179,10 +190,11 @@ function removePoint(id: string, index: number) {
   }
 }
 
-function addPoint(id: string, index: number, t: number) {
+function addPoint(id: string, sub: number, index: number, t: number) {
   editor.commit('Add anchor point', (draft) => {
     const found = editor.draftFind(draft, id);
-    if (found && found.item.type === 'path') insertAnchor(found.item.path, index, t);
+    const c = found && found.item.type === 'path' ? contourOf(found.item, sub) : null;
+    if (c) insertAnchor(c, index, t);
   });
   const item = drawingItem();
   if (item) pick(item.id, item.path.anchors.length - 1);
@@ -201,10 +213,10 @@ function down(e: ToolEvent) {
       startPath(e);
       return;
     case 'remove':
-      removePoint(t.id, t.index);
+      removePoint(t.id, t.sub, t.index);
       return;
     case 'add':
-      addPoint(t.id, t.index, t.t);
+      addPoint(t.id, t.sub, t.index, t.t);
       return;
     case 'draw': {
       const item = drawingItem()!;
@@ -235,20 +247,23 @@ function down(e: ToolEvent) {
     }
     case 'convert': {
       const item = editor.itemById(t.id, false) as PathItem;
-      const path = copyPath(item.path);
+      const contour = contourOf(item, t.sub);
+      if (!contour) return;
+      const path = copyPath(contour);
       const a = path.anchors[t.index];
       // the last anchor of the path being drawn loses only its out handle, the drawn curve stays
-      const last = t.id === drawingId && t.index === path.anchors.length - 1;
+      const last = t.id === drawingId && t.sub === 0 && t.index === path.anchors.length - 1;
       const had = last ? a.ox !== 0 || a.oy !== 0 : hasHandles(a);
       if (last) retractOut(a);
       else retractHandles(a);
       begin(e, item, path, t.index, last ? 'out' : 'symmetric', 'Convert anchor');
+      gesture!.sub = t.sub;
       gesture!.changed = had;
       break;
     }
   }
   if (gesture) {
-    pick(gesture.item.id, gesture.index);
+    pick(gesture.item.id, gesture.index, gesture.sub);
     showGesture();
   }
 }
@@ -297,7 +312,7 @@ function up(e: ToolEvent) {
     editor.updateItem(
       g.item.id,
       (item) => {
-        if (item.type === 'path') item.path = g.path;
+        if (item.type === 'path') setContour(item, g.sub, g.path);
       },
       g.label
     );
@@ -305,6 +320,11 @@ function up(e: ToolEvent) {
   editor.clearPreview();
   if (g.end) {
     endPath();
+    return;
+  }
+  // a hole is never drawn on, its anchor just stays picked
+  if (g.sub > 0) {
+    pick(g.item.id, g.index, g.sub);
     return;
   }
   drawingId = g.item.id;
@@ -329,7 +349,7 @@ function cancelGesture() {
 function removeLast() {
   const item = drawingItem();
   if (!item) return;
-  removePoint(item.id, item.path.anchors.length - 1);
+  removePoint(item.id, 0, item.path.anchors.length - 1);
 }
 
 function onkeyup(e: KeyboardEvent) {
