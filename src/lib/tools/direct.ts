@@ -4,11 +4,12 @@ import { applyPoint, applyVector, invert } from '$lib/core/mat';
 import { snapAngle } from '$lib/core/vec';
 import { contains, fromPoints } from '$lib/core/bbox';
 import { bendSegment, copyPath, removeAnchor, segmentCubic } from '$lib/core/path';
-import { hitAnchor, hitSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
+import { contourOf, contours, withContour } from '$lib/core/items';
+import { hitContours, hitItemSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
 import { editor, hover } from '$lib/editor/editor';
 import { addToSelection, select } from '$lib/editor/selection';
 import { overlayState } from '$lib/render/overlay';
-import { anchorSelection, selection, toolCursor } from '$lib/stores/app';
+import { anchorSelection, selection, toolCursor, type AnchorRef } from '$lib/stores/app';
 import { pickDeep } from './pick';
 import { BEND_CURSOR } from './cursors';
 import { toolBase, type Tool, type ToolEvent } from './tool';
@@ -16,20 +17,27 @@ import { toolBase, type Tool, type ToolEvent } from './tool';
 const DRAG = 3;
 const END_T = 0.02;
 
-type Picked = { itemId: string; index: number };
-
 type Action =
   | { kind: 'anchors' }
-  | { kind: 'handle'; item: PathItem; world: Mat; index: number; part: 'in' | 'out' }
-  | { kind: 'bend'; item: PathItem; world: Mat; index: number; t: number }
+  | { kind: 'handle'; item: PathItem; world: Mat; sub: number; index: number; part: 'in' | 'out' }
+  | { kind: 'bend'; item: PathItem; world: Mat; sub: number; index: number; t: number }
   | { kind: 'marquee'; add: boolean };
 
 function selectedPaths(): PathItem[] {
   return editor.selectedItems(false).filter((it): it is PathItem => it.type === 'path');
 }
 
-function isPicked(itemId: string, index: number): boolean {
-  return get(anchorSelection).some((a) => a.itemId === itemId && a.index === index);
+function same(a: AnchorRef, b: AnchorRef): boolean {
+  return a.itemId === b.itemId && a.sub === b.sub && a.index === b.index;
+}
+
+function isPicked(ref: AnchorRef): boolean {
+  return get(anchorSelection).some((a) => same(a, ref));
+}
+
+// every anchor of every contour of the item
+function allAnchors(item: PathItem): AnchorRef[] {
+  return contours(item).flatMap((c, sub) => c.anchors.map((_, index) => ({ itemId: item.id, sub, index })));
 }
 
 function len(x: number, y: number): number {
@@ -117,29 +125,29 @@ function down(e: ToolEvent) {
 
   for (const item of selectedPaths()) {
     const world = editor.worldMatrixOf(item.id);
-    const hit = hitAnchor(item.path, world, e, e.zoom, factor, (i) => isPicked(item.id, i));
+    const picked = (sub: number, index: number) => isPicked({ itemId: item.id, sub, index });
+    const hit = hitContours(item, world, e, e.zoom, factor, picked);
     if (!hit) continue;
     if (hit.part === 'anchor') {
-      const one = { itemId: item.id, index: hit.index };
+      const one = { itemId: item.id, sub: hit.sub, index: hit.index };
       if (e.shift) {
         const list = get(anchorSelection);
-        const rest = list.filter((a) => a.itemId !== item.id || a.index !== hit.index);
-        anchorSelection.set(isPicked(item.id, hit.index) ? rest : [...list, one]);
-      } else if (!isPicked(item.id, hit.index)) {
+        anchorSelection.set(isPicked(one) ? list.filter((a) => !same(a, one)) : [...list, one]);
+      } else if (!isPicked(one)) {
         anchorSelection.set([one]);
       }
       action = { kind: 'anchors' };
     } else {
-      action = { kind: 'handle', item, world, index: hit.index, part: hit.part };
+      action = { kind: 'handle', item, world, sub: hit.sub, index: hit.index, part: hit.part };
     }
     return;
   }
 
   for (const item of selectedPaths()) {
     const world = editor.worldMatrixOf(item.id);
-    const seg = hitSegment(item.path, world, e, e.zoom, strokeTolerance(item, world, e.zoom, factor));
+    const seg = hitItemSegment(item, world, e, e.zoom, strokeTolerance(item, world, e.zoom, factor));
     if (!seg) continue;
-    pickSegment(item, world, seg.index, seg.t, e.shift);
+    pickSegment(item, world, seg.sub, seg.index, seg.t, e.shift);
     return;
   }
 
@@ -153,13 +161,13 @@ function down(e: ToolEvent) {
       return;
     }
     const world = editor.worldMatrixOf(hit.id);
-    const seg = hitSegment(hit.path, world, e, e.zoom, strokeTolerance(hit, world, e.zoom, factor));
+    const seg = hitItemSegment(hit, world, e, e.zoom, strokeTolerance(hit, world, e.zoom, factor));
     if (seg) {
-      pickSegment(hit, world, seg.index, seg.t, e.shift);
+      pickSegment(hit, world, seg.sub, seg.index, seg.t, e.shift);
       return;
     }
     // inside the fill every anchor is picked, so a drag moves the whole path
-    const all = hit.path.anchors.map((_, index) => ({ itemId: hit.id, index }));
+    const all = allAnchors(hit);
     anchorSelection.set(e.shift ? [...get(anchorSelection), ...all] : all);
     action = { kind: 'anchors' };
     return;
@@ -168,15 +176,33 @@ function down(e: ToolEvent) {
 }
 
 // a click on a segment picks the anchors at both ends, a drag on it bends the curve
-function pickSegment(item: PathItem, world: Mat, index: number, t: number, add: boolean) {
-  const next = (index + 1) % item.path.anchors.length;
+function pickSegment(item: PathItem, world: Mat, sub: number, index: number, t: number, add: boolean) {
+  const n = contourOf(item, sub)?.anchors.length ?? 1;
   const both = [
-    { itemId: item.id, index },
-    { itemId: item.id, index: next }
+    { itemId: item.id, sub, index },
+    { itemId: item.id, sub, index: (index + 1) % n }
   ];
   anchorSelection.set(add ? [...get(anchorSelection), ...both] : both);
-  if (t > END_T && t < 1 - END_T) action = { kind: 'bend', item, world, index, t };
+  if (t > END_T && t < 1 - END_T) action = { kind: 'bend', item, world, sub, index, t };
   else action = { kind: 'anchors' };
+}
+
+// a copy of the item with the picked anchors moved by d in its local space
+function movedAnchors(item: PathItem, refs: AnchorRef[], d: Vec): PathItem {
+  let out = item;
+  for (const sub of new Set(refs.map((r) => r.sub))) {
+    const c = contourOf(item, sub);
+    if (!c) continue;
+    const path = copyPath(c);
+    for (const r of refs) {
+      const a = r.sub === sub ? path.anchors[r.index] : null;
+      if (!a) continue;
+      a.x += d.x;
+      a.y += d.y;
+    }
+    out = withContour(out, sub, path);
+  }
+  return out;
 }
 
 function drag(e: ToolEvent) {
@@ -188,38 +214,36 @@ function drag(e: ToolEvent) {
       editor.markOverlay();
       return;
     case 'anchors': {
-      for (const [id, indices] of pickedByItem()) {
+      for (const [id, refs] of pickedByItem()) {
         const item = editor.itemById(id, false);
         if (!item || item.type !== 'path') continue;
         const d = applyVector(invert(editor.worldMatrixOf(id)), delta);
-        const path = copyPath(item.path);
-        for (const i of indices) {
-          if (!path.anchors[i]) continue;
-          path.anchors[i].x += d.x;
-          path.anchors[i].y += d.y;
-        }
-        editor.preview.set(id, { ...item, path });
+        editor.preview.set(id, movedAnchors(item, refs, d));
       }
       break;
     }
     case 'handle': {
-      const { item, world, index, part } = action;
-      const path = copyPath(item.path);
+      const { item, world, sub, index, part } = action;
+      const c = contourOf(item, sub);
+      if (!c) return;
+      const path = copyPath(c);
       const a = path.anchors[index];
       // shift keeps the handle at 45 degree steps around its anchor
       let local = applyPoint(invert(world), e);
       if (e.shift) local = snapAngle(a, local);
       setHandle(a, part, local.x - a.x, local.y - a.y, e.alt);
-      editor.preview.set(item.id, { ...item, path });
+      editor.preview.set(item.id, withContour(item, sub, path));
       break;
     }
     case 'bend': {
-      const { item, world, index, t } = action;
+      const { item, world, sub, index, t } = action;
+      const c = contourOf(item, sub);
+      if (!c) return;
       const d = applyVector(invert(world), delta);
-      const c = segmentCubic(item.path, index);
-      const path = copyPath(item.path);
-      bendSegment(path, index, t, c[1], c[2], d, e.alt);
-      editor.preview.set(item.id, { ...item, path });
+      const cubic = segmentCubic(c, index);
+      const path = copyPath(c);
+      bendSegment(path, index, t, cubic[1], cubic[2], d, e.alt);
+      editor.preview.set(item.id, withContour(item, sub, path));
       break;
     }
   }
@@ -230,16 +254,19 @@ function drag(e: ToolEvent) {
 function finishMarquee(add: boolean) {
   const box = overlayState.marquee;
   if (!box) return;
-  const picked: Picked[] = add ? [...get(anchorSelection)] : [];
+  const picked: AnchorRef[] = add ? [...get(anchorSelection)] : [];
   const ids = new Set<string>(add ? get(selection) : []);
   for (const layer of editor.currentLayers()) {
     if (!editor.isEditable(layer)) continue;
     for (const item of editor.layerItems(layer)) {
       if (item.type !== 'path' || item.locked || !item.visible) continue;
-      item.path.anchors.forEach((a, index) => {
-        if (!contains(box, applyPoint(item.transform, a))) return;
-        if (!picked.some((p) => p.itemId === item.id && p.index === index)) picked.push({ itemId: item.id, index });
-        ids.add(item.id);
+      contours(item).forEach((c, sub) => {
+        c.anchors.forEach((a, index) => {
+          if (!contains(box, applyPoint(item.transform, a))) return;
+          const ref = { itemId: item.id, sub, index };
+          if (!picked.some((p) => same(p, ref))) picked.push(ref);
+          ids.add(item.id);
+        });
       });
     }
   }
@@ -254,9 +281,9 @@ const ARROWS: Record<string, [number, number]> = {
   ArrowDown: [0, 1]
 };
 
-function pickedByItem(): Map<string, number[]> {
-  const byItem = new Map<string, number[]>();
-  for (const a of get(anchorSelection)) byItem.set(a.itemId, [...(byItem.get(a.itemId) ?? []), a.index]);
+function pickedByItem(): Map<string, AnchorRef[]> {
+  const byItem = new Map<string, AnchorRef[]>();
+  for (const a of get(anchorSelection)) byItem.set(a.itemId, [...(byItem.get(a.itemId) ?? []), a]);
   return byItem;
 }
 
@@ -268,12 +295,12 @@ function nudgeAnchors(dx: number, dy: number) {
   editor.commit(
     'Nudge anchors',
     (draft) => {
-      for (const [id, indices] of byItem) {
+      for (const [id, refs] of byItem) {
         const found = editor.draftFind(draft, id);
         const d = moves.get(id);
         if (!found || found.item.type !== 'path' || !d) continue;
-        for (const i of indices) {
-          const a = found.item.path.anchors[i];
+        for (const r of refs) {
+          const a = contourOf(found.item, r.sub)?.anchors[r.index];
           if (!a) continue;
           a.x += d.x;
           a.y += d.y;
@@ -288,13 +315,22 @@ function deleteAnchors() {
   const byItem = pickedByItem();
   const emptied: string[] = [];
   editor.commit('Delete anchors', (draft) => {
-    for (const [id, indices] of byItem) {
+    for (const [id, refs] of byItem) {
       const found = editor.draftFind(draft, id);
       if (!found || found.item.type !== 'path') continue;
-      const path = found.item.path;
-      for (const i of [...indices].sort((a, b) => b - a)) removeAnchor(path, i);
+      const item = found.item;
+      // the last subpaths first, so the numbers of the others stay right
+      const subs = [...new Set(refs.map((r) => r.sub))].sort((a, b) => b - a);
+      for (const sub of subs) {
+        const c = contourOf(item, sub);
+        if (!c) continue;
+        const indices = refs.filter((r) => r.sub === sub).map((r) => r.index);
+        for (const i of indices.sort((a, b) => b - a)) removeAnchor(c, i);
+        // a hole needs three anchors to stay a closed ring
+        if (sub > 0 && c.anchors.length < 3) item.subpaths.splice(sub - 1, 1);
+      }
       // a single point is not a path anymore
-      if (path.anchors.length < 2) {
+      if (item.path.anchors.length < 2) {
         found.list.splice(found.index, 1);
         emptied.push(id);
       }
@@ -317,8 +353,8 @@ export const directTool: Tool = {
       let cursor = 'default';
       for (const item of selectedPaths()) {
         const world = editor.worldMatrixOf(item.id);
-        if (hitAnchor(item.path, world, e, e.zoom, factor)) break;
-        if (hitSegment(item.path, world, e, e.zoom, strokeTolerance(item, world, e.zoom, factor))) {
+        if (hitContours(item, world, e, e.zoom, factor)) break;
+        if (hitItemSegment(item, world, e, e.zoom, strokeTolerance(item, world, e.zoom, factor))) {
           cursor = BEND_CURSOR;
           break;
         }
@@ -353,11 +389,12 @@ export const directTool: Tool = {
   dblclick(e) {
     const factor = pointerFactor(e.pointerType);
     for (const item of selectedPaths()) {
-      const hit = hitAnchor(item.path, editor.worldMatrixOf(item.id), e, e.zoom, factor);
+      const hit = hitContours(item, editor.worldMatrixOf(item.id), e, e.zoom, factor);
       if (!hit || hit.part !== 'anchor') continue;
       editor.commit('Convert anchor', (draft) => {
         const found = editor.draftFind(draft, item.id);
-        if (found && found.item.type === 'path') toggleKind(found.item.path, hit.index);
+        const c = found && found.item.type === 'path' ? contourOf(found.item, hit.sub) : null;
+        if (c) toggleKind(c, hit.index);
       });
       return;
     }
