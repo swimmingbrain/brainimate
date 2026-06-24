@@ -4,7 +4,7 @@ import type { Doc, GroupItem, Item, Layer, Mat } from '$lib/core/types';
 import { History, type HistoryState } from './history';
 import { newId } from '$lib/core/ids';
 import { identity, multiply } from '$lib/core/mat';
-import { cloneItem, findItem, itemBounds, parentMatrix, type Found } from '$lib/core/items';
+import { cloneItem, contourOf, findItem, itemBounds, parentMatrix, type Found } from '$lib/core/items';
 import { emptyBox, union, type Box } from '$lib/core/bbox';
 import { itemsAt } from '$lib/render/frame';
 import { keyframeForEdit } from '$lib/anim/timeline';
@@ -174,7 +174,9 @@ class Editor {
     const sel = get(selection);
     const kept = anchors.filter((a) => {
       const item = this.locate(a.itemId)?.found.item;
-      return item?.type === 'path' && a.index < item.path.anchors.length && sel.has(a.itemId);
+      if (item?.type !== 'path' || !sel.has(a.itemId)) return false;
+      const c = contourOf(item, a.sub);
+      return c !== null && a.index < c.anchors.length;
     });
     if (kept.length !== anchors.length) anchorSelection.set(kept);
   }

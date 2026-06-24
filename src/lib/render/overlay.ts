@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import type { Item, Mat, PathItem, Vec } from '$lib/core/types';
 import { applyPoint, multiply } from '$lib/core/mat';
 import { corners, isEmpty, type Box } from '$lib/core/bbox';
-import { localBounds } from '$lib/core/items';
+import { contours, localBounds } from '$lib/core/items';
 import { shapePath2D } from './pathcache';
 import { editor, hover } from '$lib/editor/editor';
 import { frameHandles, framePoint, selectionFrame } from '$lib/editor/selection';
@@ -89,18 +89,15 @@ function drawFrame(ctx: CanvasRenderingContext2D, v: View, accent: string) {
 
 function drawAnchors(ctx: CanvasRenderingContext2D, v: View, item: PathItem, world: Mat, color: string) {
   const m = screenMatrix(v, world);
-  const picked = new Set(
-    get(anchorSelection)
-      .filter((a) => a.itemId === item.id)
-      .map((a) => a.index)
-  );
+  const refs = get(anchorSelection).filter((a) => a.itemId === item.id);
+  const list = contours(item);
   const half = ANCHOR_SIZE / 2;
   ctx.lineWidth = 1;
   ctx.strokeStyle = color;
 
   // handles of the picked anchors, under the anchor glyphs
-  for (const index of picked) {
-    const a = item.path.anchors[index];
+  for (const ref of refs) {
+    const a = list[ref.sub]?.anchors[ref.index];
     if (!a) continue;
     const p = applyPoint(m, a);
     for (const [hx, hy] of [
@@ -120,17 +117,20 @@ function drawAnchors(ctx: CanvasRenderingContext2D, v: View, item: PathItem, wor
     }
   }
 
-  item.path.anchors.forEach((a, i) => {
-    const p = applyPoint(m, a);
-    ctx.fillStyle = picked.has(i) ? color : '#ffffff';
-    ctx.beginPath();
-    if (a.kind === 'corner') {
-      ctx.rect(Math.round(p.x - half) + 0.5, Math.round(p.y - half) + 0.5, ANCHOR_SIZE - 1, ANCHOR_SIZE - 1);
-    } else {
-      ctx.arc(p.x, p.y, half, 0, Math.PI * 2);
-    }
-    ctx.fill();
-    ctx.stroke();
+  list.forEach((contour, sub) => {
+    const picked = new Set(refs.filter((r) => r.sub === sub).map((r) => r.index));
+    contour.anchors.forEach((a, i) => {
+      const p = applyPoint(m, a);
+      ctx.fillStyle = picked.has(i) ? color : '#ffffff';
+      ctx.beginPath();
+      if (a.kind === 'corner') {
+        ctx.rect(Math.round(p.x - half) + 0.5, Math.round(p.y - half) + 0.5, ANCHOR_SIZE - 1, ANCHOR_SIZE - 1);
+      } else {
+        ctx.arc(p.x, p.y, half, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      ctx.stroke();
+    });
   });
 }
 

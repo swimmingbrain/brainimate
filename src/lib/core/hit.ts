@@ -2,7 +2,7 @@ import type { Item, Mat, PathData, PathItem, Vec } from './types';
 import type { Ctx2D } from './style';
 import { applyPoint, invert, multiply, scaleFactor } from './mat';
 import { contains, expand } from './bbox';
-import { itemBounds, localBounds } from './items';
+import { contours, itemBounds, localBounds } from './items';
 import { nearestSegment, transformPath } from './path';
 import { shapePath2D } from '$lib/render/pathcache';
 
@@ -141,4 +141,46 @@ export function hitSegment(
   const hit = nearestSegment(transformPath(path, m), p);
   if (!hit || hit.d * zoom > tolerance) return null;
   return hit;
+}
+
+export interface ContourHit extends AnchorHit {
+  sub: number;
+}
+
+// an anchor or handle on any contour of the item, the outline first
+export function hitContours(
+  item: PathItem,
+  m: Mat,
+  p: Vec,
+  zoom: number,
+  factor = 1,
+  showHandles: (sub: number, index: number) => boolean = () => false
+): ContourHit | null {
+  const list = contours(item);
+  // anchors of every contour come before any handle
+  for (let sub = 0; sub < list.length; sub++) {
+    const hit = hitAnchor(list[sub], m, p, zoom, factor);
+    if (hit) return { ...hit, sub };
+  }
+  for (let sub = 0; sub < list.length; sub++) {
+    const hit = hitAnchor(list[sub], m, p, zoom, factor, (i) => showHandles(sub, i));
+    if (hit) return { ...hit, sub };
+  }
+  return null;
+}
+
+// the closest segment of any contour within tolerance screen pixels
+export function hitItemSegment(
+  item: PathItem,
+  m: Mat,
+  p: Vec,
+  zoom: number,
+  tolerance: number
+): { sub: number; index: number; t: number; d: number; point: Vec } | null {
+  let best: { sub: number; index: number; t: number; d: number; point: Vec } | null = null;
+  contours(item).forEach((c, sub) => {
+    const hit = hitSegment(c, m, p, zoom, tolerance);
+    if (hit && (!best || hit.d < best.d)) best = { ...hit, sub };
+  });
+  return best;
 }

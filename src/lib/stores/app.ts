@@ -61,8 +61,15 @@ export const playing = writable(false);
 
 // item ids
 export const selection = writable<Set<string>>(new Set());
+// an anchor of a path item, sub 0 is the outline and sub k the subpath k - 1
+export interface AnchorRef {
+  itemId: string;
+  sub: number;
+  index: number;
+}
+
 // anchors picked with the direct selection tool
-export const anchorSelection = writable<{ itemId: string; index: number }[]>([]);
+export const anchorSelection = writable<AnchorRef[]>([]);
 export const activeLayer = writable<string | null>(null);
 
 // the open document, until the editor owns it
