@@ -27,10 +27,10 @@ let trail: Vec[] = [];
 // the boolean work runs after the release, the next stroke waits for it
 let busy = false;
 
-// the size is in screen pixels like the brush, the width stays even without pressure
+// the size is in document units like the brush, the width stays even without pressure
 function options(done: boolean): FreehandOptions {
   return {
-    size: get(preferences).drawing.eraserSize / zoom,
+    size: get(preferences).drawing.eraserSize,
     thinning: 0,
     smoothing: 0.5,
     streamline: 0.3,
@@ -176,7 +176,7 @@ export const eraserTool: Tool = {
     ctx.strokeStyle = 'rgba(128, 128, 128, 0.9)';
     ctx.lineWidth = 1 / z;
     ctx.beginPath();
-    ctx.arc(pointer.x, pointer.y, get(preferences).drawing.eraserSize / 2 / z, 0, Math.PI * 2);
+    ctx.arc(pointer.x, pointer.y, get(preferences).drawing.eraserSize / 2, 0, Math.PI * 2);
     ctx.stroke();
   },
 
