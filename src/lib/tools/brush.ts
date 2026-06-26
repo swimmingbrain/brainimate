@@ -26,12 +26,12 @@ function brushPaint(): Paint {
   return clonePaint(get(fillPaint)) ?? clonePaint(get(strokePaint)) ?? solid('#000000');
 }
 
-// the size is in screen pixels, so the brush feels the same at any zoom
+// the size is in document units, a stroke is as wide on the page at any zoom
 function options(done: boolean): FreehandOptions {
   const d = get(preferences).drawing;
   const s = d.brushSmoothing / 100;
   return {
-    size: d.brushSize / zoom,
+    size: d.brushSize,
     thinning: d.brushPressure ? 0.6 : 0,
     smoothing: 0.2 + s * 0.6,
     streamline: 0.1 + s * 0.7,
@@ -105,6 +105,7 @@ export const brushTool: Tool = {
     const stroke = strokePoints();
     const final = strokeOutline(stroke, options(true));
     const s = get(preferences).drawing.brushSmoothing / 100;
+    // the fit stays relative to the screen like the pencil smoothing
     const path = outlineToPath(final, stroke, options(true).size, (0.4 + s * 1.2) / zoom);
     const target = layerId;
     reset();
@@ -134,7 +135,7 @@ export const brushTool: Tool = {
     ctx.strokeStyle = 'rgba(128, 128, 128, 0.9)';
     ctx.lineWidth = 1 / z;
     ctx.beginPath();
-    ctx.arc(pointer.x, pointer.y, get(preferences).drawing.brushSize / 2 / z, 0, Math.PI * 2);
+    ctx.arc(pointer.x, pointer.y, get(preferences).drawing.brushSize / 2, 0, Math.PI * 2);
     ctx.stroke();
   },
 
