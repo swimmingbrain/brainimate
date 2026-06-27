@@ -1,4 +1,6 @@
 import type { Paint, Style } from './types';
+import type { Box } from './bbox';
+import { fitGradient, isFitted, isGradient } from './gradient';
 
 export type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -72,14 +74,28 @@ export function rgba(color: string, alpha: number): string {
   return out;
 }
 
+// one canvas gradient per paint object, an edit makes a new paint so a stale one is never read
+const gradients = new WeakMap<Paint, { key: string; gradient: CanvasGradient }>();
+
+// a gradient nobody placed yet spans the box of its item
+export function needsBox(p: Paint | null): boolean {
+  return isGradient(p) && !isFitted(p);
+}
+
 // gradients are in item local space, so the context must already hold the item transform
-export function canvasPaint(ctx: Ctx2D, p: Paint): string | CanvasGradient {
+export function canvasPaint(ctx: Ctx2D, p: Paint, box: Box | null = null): string | CanvasGradient {
   if (p.type === 'solid') return rgba(p.color, p.alpha);
+  const fit = box !== null && !isFitted(p);
+  const key = fit ? `${box.minX},${box.minY},${box.maxX},${box.maxY}` : '';
+  const cached = gradients.get(p);
+  if (cached && cached.key === key) return cached.gradient;
+  const q = fit ? fitGradient(p, box) : p;
   const g =
-    p.type === 'linear'
-      ? ctx.createLinearGradient(p.x1, p.y1, p.x2, p.y2)
-      : ctx.createRadialGradient(p.fx, p.fy, 0, p.cx, p.cy, Math.max(0, p.r));
-  for (const s of p.stops) g.addColorStop(Math.max(0, Math.min(1, s.t)), rgba(s.color, s.alpha));
+    q.type === 'linear'
+      ? ctx.createLinearGradient(q.x1, q.y1, q.x2, q.y2)
+      : ctx.createRadialGradient(q.fx, q.fy, 0, q.cx, q.cy, Math.max(0, q.r));
+  for (const s of q.stops) g.addColorStop(Math.max(0, Math.min(1, s.t)), rgba(s.color, s.alpha));
+  gradients.set(p, { key, gradient: g });
   return g;
 }
 
