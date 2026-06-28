@@ -1,10 +1,11 @@
 import { get } from 'svelte/store';
-import type { Doc, GroupItem, Item, Paint, PathData, PathItem } from '$lib/core/types';
+import type { Doc, GroupItem, Item, Paint, PathData, PathItem, TextItem } from '$lib/core/types';
 import { clonePaint, cloneStyle, solid } from '$lib/core/style';
+import { convertPaint, fitGradient, isFitted, isGradient, makeGradient, withAngle } from '$lib/core/gradient';
 import { around, compose, decompose, identity, invert, multiply, rotate, scale, scaleFactor } from '$lib/core/mat';
 import { boxCenter, isEmpty } from '$lib/core/bbox';
 import { closePath, copyPath, reversePath, transformPath, type Compound } from '$lib/core/path';
-import { cloneItem, contours, makePathItem, parentMatrix } from '$lib/core/items';
+import { cloneItem, contours, localBounds, makePathItem, parentMatrix } from '$lib/core/items';
 import { combine, divide, type BooleanOp, type Shape } from '$lib/core/boolean';
 import { joinTwo, simplifyPath, strokePieces } from '$lib/core/pathops';
 import { smoothPath } from '$lib/core/smooth';
@@ -56,16 +57,29 @@ export function toggleOutline() {
   outlineMode.update((on) => !on);
 }
 
+// the selected shapes swap their fill and stroke too
 export function swapColors() {
   const fill = get(fillPaint);
   fillPaint.set(get(strokePaint));
   strokePaint.set(fill);
+  const ids = styledIds();
+  if (ids.length === 0) return;
+  editor.updateItems(
+    ids,
+    (item) => {
+      if (item.type !== 'path' && item.type !== 'text') return;
+      const f = item.style.fill;
+      item.style.fill = item.style.stroke;
+      item.style.stroke = f;
+    },
+    'Swap fill and stroke'
+  );
 }
 
 // black stroke and white fill, like the other drawing apps
 export function resetColors() {
-  fillPaint.set(solid('#ffffff'));
-  strokePaint.set(solid('#000000'));
+  setPaint('fill', solid('#ffffff'));
+  setPaint('stroke', solid('#000000'));
 }
 
 // the active chip gets no color
@@ -77,21 +91,65 @@ export function toggleColorTarget() {
   colorTarget.update((t) => (t === 'fill' ? 'stroke' : 'fill'));
 }
 
-// sets the current color and gives it to the selected shapes too, like illustrator
-export function setPaint(target: 'fill' | 'stroke', paint: Paint | null) {
-  (target === 'fill' ? fillPaint : strokePaint).set(clonePaint(paint));
-  const ids = editor
+// the selected items that have a fill and a stroke
+function styledItems(): (PathItem | TextItem)[] {
+  return editor
     .selectedItems(false)
-    .filter((it) => it.type === 'path' || it.type === 'text')
-    .map((it) => it.id);
+    .filter((it): it is PathItem | TextItem => it.type === 'path' || it.type === 'text');
+}
+
+function styledIds(): string[] {
+  return styledItems().map((it) => it.id);
+}
+
+// what the chips and the color panel show: the first selected shape, or the color new shapes get
+export function shownPaint(target: 'fill' | 'stroke'): Paint | null {
+  const item = styledItems()[0];
+  if (item) return item.style[target];
+  return get(target === 'fill' ? fillPaint : strokePaint);
+}
+
+// a gradient keeps the place the item's own gradient of that kind had, or is laid across the item
+function paintFor(item: PathItem | TextItem, target: 'fill' | 'stroke', paint: Paint | null): Paint | null {
+  if (!isGradient(paint)) return clonePaint(paint);
+  const own = item.style[target];
+  if (isGradient(own) && own.type === paint.type && isFitted(own)) {
+    return { ...clonePaint(own)!, stops: paint.stops.map((s) => ({ ...s })) } as Paint;
+  }
+  return fitGradient(paint, localBounds(item));
+}
+
+// sets the current color and gives it to the selected shapes too, like illustrator,
+// the current color keeps no gradient place, a new shape gets the gradient across itself
+export function setPaint(target: 'fill' | 'stroke', paint: Paint | null) {
+  const current = isGradient(paint) ? makeGradient(paint.type, paint.stops) : clonePaint(paint);
+  (target === 'fill' ? fillPaint : strokePaint).set(current);
+  const ids = styledIds();
   if (ids.length === 0) return;
   editor.updateItems(
     ids,
     (item) => {
-      if (item.type === 'path' || item.type === 'text') item.style[target] = clonePaint(paint);
+      if (item.type === 'path' || item.type === 'text') item.style[target] = paintFor(item, target, paint);
     },
     target === 'fill' ? 'Fill color' : 'Stroke color',
     `paint-${target}`
+  );
+}
+
+// turns the linear gradients of the selection, a shape without one gets it laid across at that angle
+export function setGradientAngle(target: 'fill' | 'stroke', angle: number) {
+  editor.updateItems(
+    styledIds(),
+    (item) => {
+      if (item.type !== 'path' && item.type !== 'text') return;
+      const own = item.style[target];
+      if (!isGradient(own)) return;
+      const linear = own.type === 'linear' ? own : convertPaint(own, 'linear');
+      if (!isGradient(linear)) return;
+      item.style[target] = isFitted(linear) ? withAngle(linear, angle) : fitGradient(linear, localBounds(item), angle);
+    },
+    'Gradient angle',
+    `angle-${target}`
   );
 }
 
