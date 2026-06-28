@@ -18,6 +18,7 @@
     joinSelectedPaths,
     outlineSelectedStrokes,
     reverseSelectedPaths,
+    setGradientAngle,
     setPaint,
     setSelectedPathsClosed,
     simplifySelectedPaths,
@@ -101,12 +102,16 @@
 
   function openPicker(target: Target, e: MouseEvent) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    picker = picker?.target === target ? null : { target, x: rect.left - 240, y: rect.top };
+    picker = picker?.target === target ? null : { target, x: rect.left - 270, y: rect.top - 40 };
   }
 
   function pickerPaint(target: Target): Paint | null {
     if (target === 'bg') return solid(doc.bg);
     return style ? style[target] : null;
+  }
+
+  function turnGradient(deg: number) {
+    if (picker && picker.target !== 'bg') setGradientAngle(picker.target, deg);
   }
 
   function onpick(target: Target, paint: Paint | null) {
@@ -226,10 +231,18 @@
     <h3 class="section">{items.length === 1 ? first?.name : `${items.length} items`}</h3>
     {#if style}
       <Field label="Fill">
-        <ColorField value={paintColor(style.fill)} label="Fill color" onclick={(e) => openPicker('fill', e)} />
+        <ColorField
+          value={paintColor(style.fill)}
+          paint={style.fill}
+          label="Fill color"
+          onclick={(e) => openPicker('fill', e)} />
       </Field>
       <Field label="Stroke">
-        <ColorField value={paintColor(style.stroke)} label="Stroke color" onclick={(e) => openPicker('stroke', e)} />
+        <ColorField
+          value={paintColor(style.stroke)}
+          paint={style.stroke}
+          label="Stroke color"
+          onclick={(e) => openPicker('stroke', e)} />
       </Field>
       <Field label="Stroke width">
         <NumberField
@@ -363,6 +376,8 @@
     title={picker.target === 'fill' ? 'Fill' : picker.target === 'stroke' ? 'Stroke' : 'Background'}
     paint={pickerPaint(picker.target)}
     allowNone={picker.target !== 'bg'}
+    allowGradient={picker.target !== 'bg'}
+    onangle={picker.target === 'bg' ? undefined : (deg) => turnGradient(deg)}
     x={picker.x}
     y={picker.y}
     onchange={(p) => onpick(picker!.target, p)}
