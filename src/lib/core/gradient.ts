@@ -63,15 +63,16 @@ export function fitGradient(p: Gradient, box: Box, angle = gradientAngle(p)): Gr
   const c = boxCenter(box);
   const hw = boxWidth(box) / 2;
   const hh = boxHeight(box) / 2;
+  // the stops keep their order, a picked stop keeps its index
+  const stops = p.stops.map((s) => ({ ...s }));
   if (p.type === 'radial') {
     const r = Math.max(hw, hh, 1e-3);
-    return { ...p, stops: sortStops(p.stops), cx: c.x, cy: c.y, r, fx: c.x, fy: c.y };
+    return { ...p, stops, cx: c.x, cy: c.y, r, fx: c.x, fy: c.y };
   }
   const a = (angle * Math.PI) / 180;
   const dx = Math.cos(a);
   const dy = Math.sin(a);
   const half = Math.max(hw * Math.abs(dx) + hh * Math.abs(dy), 1e-3);
-  const stops = sortStops(p.stops);
   return { ...p, stops, x1: c.x - dx * half, y1: c.y - dy * half, x2: c.x + dx * half, y2: c.y + dy * half };
 }
 
