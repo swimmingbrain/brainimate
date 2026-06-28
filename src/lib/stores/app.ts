@@ -82,6 +82,8 @@ export const strokePaint = writable<Paint | null>({ type: 'solid', color: get(pr
 export const strokeWidth = writable(get(preferences).drawing.strokeWidth);
 // which of the two chips the color panel and the swatches change
 export const colorTarget = writable<'fill' | 'stroke'>('fill');
+// the gradient stop the color picker edits, the gradient tool picks it too
+export const activeStop = writable(0);
 
 export const outlineMode = writable(false);
 

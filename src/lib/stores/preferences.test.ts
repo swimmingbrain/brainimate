@@ -41,4 +41,9 @@ describe('mergePreferences', () => {
     const merged = mergePreferences({ shortcuts: { 'tool.pen': 'Q', 'tool.brush': 4 } });
     expect(merged.shortcuts).toEqual({ 'tool.pen': 'Q' });
   });
+
+  it('keeps recent colors that are hex, once each', () => {
+    const merged = mergePreferences({ recentColors: ['#ff0000', 'red', '#ff0000', '#00ff00', 5] });
+    expect(merged.recentColors).toEqual(['#ff0000', '#00ff00']);
+  });
 });

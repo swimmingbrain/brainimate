@@ -66,9 +66,13 @@ export interface Preferences {
   };
   // action id to key combo, only the ones changed from the default
   shortcuts: Record<string, string>;
+  // the colors picked last, newest first
+  recentColors: string[];
 }
 
 const STORAGE_KEY = 'brainimate-preferences';
+
+export const RECENT_COLORS = 10;
 
 export const MIN_DOCK = 220;
 export const MAX_DOCK = 520;
@@ -123,7 +127,8 @@ export function defaultPreferences(): Preferences {
       bottomTab: 'color',
       hidden: []
     },
-    shortcuts: {}
+    shortcuts: {},
+    recentColors: []
   };
 }
 
@@ -200,6 +205,9 @@ export function mergePreferences(stored: unknown): Preferences {
   panels.bottomTab = oneOf(panels.bottomTab, DOCK_TABS, defaults.panels.bottomTab);
   panels.hidden = panels.hidden.filter((tab) => DOCK_TABS.includes(tab));
 
+  p.recentColors = p.recentColors.filter((c, i, list) => typeof c === 'string' && isHex(c) && list.indexOf(c) === i);
+  p.recentColors = p.recentColors.slice(0, RECENT_COLORS);
+
   // the defaults hold no shortcuts, so the walk above cannot keep them
   p.shortcuts = {};
   const shortcuts = isObject(stored) ? stored.shortcuts : null;
@@ -254,4 +262,14 @@ export function setGroup<K extends keyof Preferences>(key: K, patch: Partial<Pre
 
 export function resetPreferences() {
   preferences.set(defaultPreferences());
+}
+
+// a color goes to the front of the recent row, an older copy of it leaves
+export function rememberColor(color: string) {
+  const c = color.toLowerCase();
+  if (!isHex(c)) return;
+  preferences.update((p) => {
+    if (p.recentColors[0] === c) return p;
+    return { ...p, recentColors: [c, ...p.recentColors.filter((r) => r !== c)].slice(0, RECENT_COLORS) };
+  });
 }
