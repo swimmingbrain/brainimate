@@ -1,6 +1,8 @@
 import type { Asset, Doc, ImageItem, Item, Layer, Mat, PathItem, TextItem } from '$lib/core/types';
 import { multiply, scaleFactor } from '$lib/core/mat';
-import { canvasPaint, compositeOp, type Ctx2D } from '$lib/core/style';
+import { canvasPaint, compositeOp, needsBox, type Ctx2D } from '$lib/core/style';
+import { compoundBounds } from '$lib/core/path';
+import { localBounds } from '$lib/core/items';
 import { shapePath2D } from './pathcache';
 import { itemsAt } from './frame';
 
@@ -76,14 +78,15 @@ function drawPath(ctx: Ctx2D, item: PathItem, m: Mat, outline: string | null, s:
     return;
   }
   const style = item.style;
+  const box = needsBox(style.fill) || needsBox(style.stroke) ? compoundBounds(item.path, item.subpaths) : null;
   if (style.fill) {
-    ctx.fillStyle = canvasPaint(ctx, style.fill);
+    ctx.fillStyle = canvasPaint(ctx, style.fill, box);
     ctx.fill(shape);
   }
   if (style.stroke && style.width > 0) {
     // without scale stroke the width stays in world units whatever the item transform does
     const k = style.scaleStroke ? 1 : s.viewScale / scale;
-    ctx.strokeStyle = canvasPaint(ctx, style.stroke);
+    ctx.strokeStyle = canvasPaint(ctx, style.stroke, box);
     ctx.lineWidth = style.width * k;
     ctx.lineCap = style.cap;
     ctx.lineJoin = style.join;
@@ -101,13 +104,14 @@ function drawText(ctx: Ctx2D, item: TextItem, m: Mat, outline: string | null) {
   if ('letterSpacing' in ctx) ctx.letterSpacing = `${item.spacing}px`;
   const lines = item.text.split('\n');
   const step = item.size * item.lineHeight;
-  const fill = outline ?? (item.style.fill ? canvasPaint(ctx, item.style.fill) : null);
+  const box = needsBox(item.style.fill) || needsBox(item.style.stroke) ? localBounds(item) : null;
+  const fill = outline ?? (item.style.fill ? canvasPaint(ctx, item.style.fill, box) : null);
   if (fill) {
     ctx.fillStyle = fill;
     lines.forEach((line, i) => ctx.fillText(line, 0, i * step));
   }
   if (!outline && item.style.stroke && item.style.width > 0) {
-    ctx.strokeStyle = canvasPaint(ctx, item.style.stroke);
+    ctx.strokeStyle = canvasPaint(ctx, item.style.stroke, box);
     ctx.lineWidth = item.style.width;
     lines.forEach((line, i) => ctx.strokeText(line, 0, i * step));
   }
