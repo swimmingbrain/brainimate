@@ -92,7 +92,7 @@ export function toggleColorTarget() {
 }
 
 // the selected items that have a fill and a stroke
-function styledItems(): (PathItem | TextItem)[] {
+export function styledItems(): (PathItem | TextItem)[] {
   return editor
     .selectedItems(false)
     .filter((it): it is PathItem | TextItem => it.type === 'path' || it.type === 'text');
