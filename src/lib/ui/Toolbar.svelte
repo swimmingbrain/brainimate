@@ -2,14 +2,32 @@
   import Icon from '$lib/icons/Icon.svelte';
   import ColorPopover from './ColorPopover.svelte';
   import { TOOL_INFO, selectTool } from '$lib/tools';
-  import { clearColor, resetColors, setPaint, swapColors } from '$lib/editor/commands';
-  import { paintColor } from '$lib/core/style';
-  import { activeTool, colorTarget, fillPaint, strokePaint } from '$lib/stores/app';
+  import {
+    clearColor,
+    resetColors,
+    setGradientAngle,
+    setPaint,
+    shownPaint,
+    styledItems,
+    swapColors
+  } from '$lib/editor/commands';
+  import { cssPaint } from '$lib/core/gradient';
+  import { docVersion } from '$lib/editor/editor';
+  import { activeTool, colorTarget, fillPaint, frame, selection, strokePaint } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
 
   const tools = $derived($preferences.toolbar.tools.map((id) => TOOL_INFO[id]));
-  const fillColor = $derived(paintColor($fillPaint));
-  const strokeColor = $derived(paintColor($strokePaint));
+  // the chips show the selection like the color panel, or the colors new shapes get
+  const paints = $derived.by(() => {
+    void $docVersion;
+    void $selection;
+    void $frame;
+    void $fillPaint;
+    void $strokePaint;
+    return { fill: shownPaint('fill'), stroke: shownPaint('stroke'), selected: styledItems().length > 0 };
+  });
+  const fillColor = $derived(cssPaint(paints.fill));
+  const strokeColor = $derived(cssPaint(paints.stroke));
 
   let picker = $state<{ target: 'fill' | 'stroke'; x: number; y: number } | null>(null);
   // a click on the chip closes an open picker first, it must not open it again right away
@@ -27,7 +45,7 @@
     }
     if (performance.now() - closedAt < 250) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    picker = { target, x: rect.right + 8, y: rect.top - 40 };
+    picker = { target, x: rect.right + 8, y: rect.top - 300 };
   }
 </script>
 
@@ -85,10 +103,11 @@
 {#if picker}
   <ColorPopover
     title={picker.target === 'fill' ? 'Fill' : 'Stroke'}
-    paint={picker.target === 'fill' ? $fillPaint : $strokePaint}
+    paint={picker.target === 'fill' ? paints.fill : paints.stroke}
     x={picker.x}
     y={picker.y}
     onchange={(p) => setPaint(picker!.target, p)}
+    onangle={paints.selected ? (deg) => setGradientAngle(picker!.target, deg) : undefined}
     onclose={() => {
       picker = null;
       closedAt = performance.now();
@@ -175,21 +194,34 @@
     width: 18px;
     height: 18px;
     outline: 1px solid var(--border);
+    /* the checkers show through a color with alpha */
+    background: repeating-conic-gradient(#9a9aa2 0 25%, #d4d4d8 0 50%) 0 0 / 6px 6px;
+  }
+
+  .chip::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--c, #fff);
   }
 
   .chip.fill {
     left: 0;
     top: 0;
     z-index: 1;
-    background: var(--c, #fff);
   }
 
   /* the stroke is a thick frame with a hole, like in the other drawing apps */
   .chip.stroke {
     right: 0;
     bottom: 0;
+  }
+
+  .chip.stroke::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
     background: var(--bg-surface);
-    border: 4px solid var(--c, #fff);
   }
 
   .chip.front {
@@ -197,21 +229,14 @@
     outline-color: var(--text-muted);
   }
 
-  .chip.none {
+  .chip.none::before {
     background: #fff;
-    border-color: #fff;
-  }
-
-  .chip.stroke.none {
-    background: var(--bg-surface);
   }
 
   .chip.none::after {
     content: '';
     position: absolute;
-    left: 50%;
-    top: -6px;
-    bottom: -6px;
+    inset: -6px auto -6px 50%;
     width: 1.5px;
     margin-left: -0.75px;
     background: var(--error);
