@@ -1,7 +1,15 @@
 import { get } from 'svelte/store';
 import type { Doc, GroupItem, Item, Paint, PathData, PathItem, TextItem } from '$lib/core/types';
 import { clonePaint, cloneStyle, solid } from '$lib/core/style';
-import { convertPaint, fitGradient, isFitted, isGradient, makeGradient, withAngle } from '$lib/core/gradient';
+import {
+  convertPaint,
+  fitGradient,
+  isFitted,
+  isGradient,
+  makeGradient,
+  transformPaint,
+  withAngle
+} from '$lib/core/gradient';
 import { around, compose, decompose, identity, invert, multiply, rotate, scale, scaleFactor } from '$lib/core/mat';
 import { boxCenter, isEmpty } from '$lib/core/bbox';
 import { closePath, copyPath, reversePath, transformPath, type Compound } from '$lib/core/path';
@@ -553,7 +561,14 @@ export async function booleanSelection(op: BooleanOp | 'divide') {
   }
   const added = pieces.map(({ shape, source }) => {
     const from = paths[source];
-    const item = makePathItem(from.name, shape.path, cloneStyle(from.style), [...base.transform], shape.subpaths);
+    const style = cloneStyle(from.style);
+    // the pieces live in the space of the bottom path, a gradient from another path moves over with them
+    if (from.id !== base.id) {
+      const m = spaceOf(base, from);
+      style.fill = transformPaint(style.fill, m);
+      style.stroke = transformPaint(style.stroke, m);
+    }
+    const item = makePathItem(from.name, shape.path, style, [...base.transform], shape.subpaths);
     return { ...item, opacity: from.opacity, blend: from.blend };
   });
   editor.commit(BOOLEAN_LABELS[op], (draft) => {
