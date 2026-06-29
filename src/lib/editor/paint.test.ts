@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { get } from 'svelte/store';
 import { editor } from './editor';
-import { setGradientAngle, setPaint, shownPaint, swapColors } from './commands';
+import { booleanSelection, setGradientAngle, setPaint, shownPaint, swapColors } from './commands';
 import { makePathItem } from '$lib/core/items';
 import { rectPath } from '$lib/core/shapes';
 import { defaultStyle, solid } from '$lib/core/style';
+import { translate } from '$lib/core/mat';
 import { makeGradient } from '$lib/core/gradient';
 import { fillPaint, selection } from '$lib/stores/app';
 import type { PathItem } from '$lib/core/types';
@@ -56,5 +57,19 @@ describe('paint commands', () => {
     setPaint('fill', solid('#222222'));
     editor.undo();
     expect(first().style.fill).toEqual(solid('#ff0000'));
+  });
+
+  it('a divided piece keeps its gradient where it was on the page', async () => {
+    const upper = makePathItem('up', rectPath(-50, -50, 100, 100), defaultStyle(), translate(100, 50));
+    editor.insertItem(editor.activeLayer()!.id, upper);
+    selection.set(new Set([upper.id]));
+    setPaint('fill', makeGradient('linear', BW));
+    // the gradient runs from x -50 to 50 in its own space, that is 50 to 150 on the page
+    selection.set(new Set([first().id, upper.id]));
+    await booleanSelection('divide');
+    const pieces = editor.layerItems(editor.doc.layers[0]) as PathItem[];
+    const fromUpper = pieces.filter((p) => p.style.fill?.type === 'linear');
+    expect(fromUpper.length).toBeGreaterThan(0);
+    for (const p of fromUpper) expect(p.style.fill).toMatchObject({ x1: 50, x2: 150 });
   });
 });
