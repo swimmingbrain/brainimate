@@ -95,3 +95,7 @@ export function transformBox(b: Box, m: Mat): Box {
   if (isEmpty(b)) return b;
   return fromPoints(corners(b).map((p) => applyPoint(m, p)));
 }
+
+export function translateBox(b: Box, dx: number, dy: number): Box {
+  return { minX: b.minX + dx, minY: b.minY + dy, maxX: b.maxX + dx, maxY: b.maxY + dy };
+}
