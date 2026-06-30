@@ -6,11 +6,13 @@ import { contours, localBounds } from '$lib/core/items';
 import { shapePath2D } from './pathcache';
 import { editor, hover } from '$lib/editor/editor';
 import { frameHandles, framePoint, selectionFrame } from '$lib/editor/selection';
+import { snapState } from '$lib/editor/snap';
 import { activeTool, anchorSelection, selection, type View } from '$lib/stores/app';
 
 export const HANDLE_SIZE = 7;
 export const ANCHOR_SIZE = 7;
 export const HANDLE_DOT = 6;
+export const SMART_GUIDE = '#e06cd0';
 
 // what the tools ask the overlay to show besides the selection
 export const overlayState: {
@@ -134,6 +136,41 @@ function drawAnchors(ctx: CanvasRenderingContext2D, v: View, item: PathItem, wor
   });
 }
 
+// the lines a drag snapped to, across the stage, with a small word next to the point
+function drawSnap(ctx: CanvasRenderingContext2D, v: View) {
+  const r = snapState.result;
+  if (!r) return;
+  const doc = editor.doc;
+  ctx.strokeStyle = SMART_GUIDE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const line of r.lines) {
+    if (line.axis === 'x') {
+      const x = Math.round(line.value * v.zoom + v.panX) + 0.5;
+      const y0 = Math.min(0, r.y) * v.zoom + v.panY;
+      const y1 = Math.max(doc.height, r.y) * v.zoom + v.panY;
+      ctx.moveTo(x, y0);
+      ctx.lineTo(x, y1);
+    } else {
+      const y = Math.round(line.value * v.zoom + v.panY) + 0.5;
+      const x0 = Math.min(0, r.x) * v.zoom + v.panX;
+      const x1 = Math.max(doc.width, r.x) * v.zoom + v.panX;
+      ctx.moveTo(x0, y);
+      ctx.lineTo(x1, y);
+    }
+  }
+  ctx.stroke();
+  if (!r.label) return;
+  const p = toScreen(v, r);
+  ctx.font = '10px "JetBrains Mono", monospace';
+  ctx.textBaseline = 'middle';
+  const w = ctx.measureText(r.label).width + 8;
+  ctx.fillStyle = 'rgba(17, 17, 19, 0.85)';
+  ctx.fillRect(p.x + 10, p.y - 20, w, 14);
+  ctx.fillStyle = SMART_GUIDE;
+  ctx.fillText(r.label, p.x + 14, p.y - 13);
+}
+
 // hover and selection outlines, the handle box, the marquee and anchors for the direct tool
 export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number, colors: OverlayColors) {
   ctx.save();
@@ -182,6 +219,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
     ctx.strokeRect(Math.round(a.x) + 0.5, Math.round(a.y) + 0.5, Math.round(b.x - a.x), Math.round(b.y - a.y));
     ctx.setLineDash([]);
   }
+  drawSnap(ctx, v);
   ctx.restore();
 }
 
