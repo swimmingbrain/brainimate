@@ -9,6 +9,7 @@ import { hitContours, hitItemSegment, pointerFactor, strokeTolerance } from '$li
 import { editor, hover } from '$lib/editor/editor';
 import { addToSelection, select } from '$lib/editor/selection';
 import { overlayState } from '$lib/render/overlay';
+import { clearSnap, snapEvent, snapPoint } from '$lib/editor/snap';
 import { anchorSelection, selection, toolCursor, type AnchorRef } from '$lib/stores/app';
 import { pickDeep } from './pick';
 import { BEND_CURSOR } from './cursors';
@@ -104,12 +105,16 @@ function toggleKind(path: PathData, index: number) {
 let action: Action | null = null;
 let start: ToolEvent | null = null;
 let dragging = false;
+// the world point under the pointer that snaps while anchors move, the grabbed anchor itself
+let grab: Vec | null = null;
 
 function reset() {
   action = null;
   start = null;
   dragging = false;
+  grab = null;
   overlayState.marquee = null;
+  clearSnap();
 }
 
 function cancel() {
@@ -130,6 +135,8 @@ function down(e: ToolEvent) {
     if (!hit) continue;
     if (hit.part === 'anchor') {
       const one = { itemId: item.id, sub: hit.sub, index: hit.index };
+      const a = contourOf(item, hit.sub)?.anchors[hit.index];
+      if (a) grab = applyPoint(world, a);
       if (e.shift) {
         const list = get(anchorSelection);
         anchorSelection.set(isPicked(one) ? list.filter((a) => !same(a, one)) : [...list, one]);
@@ -167,6 +174,7 @@ function down(e: ToolEvent) {
       return;
     }
     // inside the fill every anchor is picked, so a drag moves the whole path
+    grab = { x: e.x, y: e.y };
     const all = allAnchors(hit);
     anchorSelection.set(e.shift ? [...get(anchorSelection), ...all] : all);
     action = { kind: 'anchors' };
@@ -207,14 +215,20 @@ function movedAnchors(item: PathItem, refs: AnchorRef[], d: Vec): PathItem {
 
 function drag(e: ToolEvent) {
   if (!action || !start) return;
-  const delta = { x: e.x - start.x, y: e.y - start.y };
+  let delta = { x: e.x - start.x, y: e.y - start.y };
   switch (action.kind) {
     case 'marquee':
       overlayState.marquee = fromPoints([start, e]);
       editor.markOverlay();
       return;
     case 'anchors': {
-      for (const [id, refs] of pickedByItem()) {
+      const byItem = pickedByItem();
+      if (grab) {
+        const to = { x: grab.x + delta.x, y: grab.y + delta.y };
+        const snapped = snapPoint(to, { zoom: e.zoom, exclude: byItem.keys(), show: true });
+        delta = { x: snapped.x - grab.x, y: snapped.y - grab.y };
+      }
+      for (const [id, refs] of byItem) {
         const item = editor.itemById(id, false);
         if (!item || item.type !== 'path') continue;
         const d = applyVector(invert(editor.worldMatrixOf(id)), delta);
@@ -229,7 +243,7 @@ function drag(e: ToolEvent) {
       const path = copyPath(c);
       const a = path.anchors[index];
       // shift keeps the handle at 45 degree steps around its anchor
-      let local = applyPoint(invert(world), e);
+      let local = applyPoint(invert(world), snapEvent(e, { exclude: [item.id], show: true }));
       if (e.shift) local = snapAngle(a, local);
       setHandle(a, part, local.x - a.x, local.y - a.y, e.alt);
       editor.preview.set(item.id, withContour(item, sub, path));
