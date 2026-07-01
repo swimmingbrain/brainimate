@@ -194,3 +194,13 @@ export function clearSnap() {
   snapState.result = null;
   editor.markOverlay();
 }
+
+// a pointer event moved onto the snap, for the tools that place points
+export function snapEvent<T extends Vec & { zoom: number; pointerType: string }>(
+  e: T,
+  opts: Partial<SnapOptions> = {}
+): T {
+  const factor = e.pointerType === 'touch' || e.pointerType === 'pen' ? 2 : 1;
+  const r = snapPoint(e, { zoom: e.zoom, factor, ...opts });
+  return { ...e, x: r.x, y: r.y };
+}

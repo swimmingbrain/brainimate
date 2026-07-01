@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import type { Item, Mat, PathData, PathItem, Vec } from '$lib/core/types';
 import { applyPoint, applyVector, around, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
 import { snapAngle } from '$lib/core/vec';
-import { fromPoints } from '$lib/core/bbox';
+import { fromPoints, isEmpty, translateBox, type Box } from '$lib/core/bbox';
 import { contourOf, withContour, withNewIds } from '$lib/core/items';
 import { bendSegment, copyPath, insertAnchor, segmentCubic } from '$lib/core/path';
 import { hitContours, hitItemSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
@@ -22,6 +22,7 @@ import {
   type SelectionFrame
 } from '$lib/editor/selection';
 import { HANDLE_SIZE, overlayState } from '$lib/render/overlay';
+import { clearSnap, snapEvent, snapPoint } from '$lib/editor/snap';
 import { selection, toolCursor } from '$lib/stores/app';
 import { itemsInBox, pickChain, pickForSelect } from './pick';
 import { BEND_CURSOR, CORNER_CURSOR, ROTATE_CURSOR, resizeCursor } from './cursors';
@@ -118,6 +119,8 @@ export function createSelectTool(id: ToolId): Tool {
   let copies: { layerId: string; item: Item }[] | null = null;
   // an unselected path under a click that only selects it if the pointer does not move
   let clickItem: string | null = null;
+  // the bounds of what is moved, its edges and middle snap
+  let startBox: Box | null = null;
 
   function setCursor(c: string) {
     if (get(toolCursor) !== c) toolCursor.set(c);
@@ -130,7 +133,9 @@ export function createSelectTool(id: ToolId): Tool {
     base = new Map();
     copies = null;
     clickItem = null;
+    startBox = null;
     overlayState.marquee = null;
+    clearSnap();
   }
 
   function cancel() {
@@ -244,6 +249,10 @@ export function createSelectTool(id: ToolId): Tool {
   function beginDrag(e: ToolEvent) {
     hover.set(null);
     if (!action) return;
+    if (action.kind === 'move') {
+      const b = editor.selectionBounds();
+      startBox = isEmpty(b) ? null : b;
+    }
     if (action.kind === 'move' && (start?.alt || e.alt)) {
       copies = [];
       for (const [id, item] of base) {
@@ -275,7 +284,12 @@ export function createSelectTool(id: ToolId): Tool {
         editor.markOverlay();
         return;
       case 'move': {
-        const end = e.shift ? snapAngle(start, e) : e;
+        let end: Vec = { x: e.x, y: e.y };
+        if (startBox) {
+          const box = translateBox(startBox, e.x - start.x, e.y - start.y);
+          end = snapPoint(e, { zoom: e.zoom, box, exclude: base.keys(), show: true });
+        }
+        if (e.shift) end = snapAngle(start, end);
         const m = translate(end.x - start.x, end.y - start.y);
         if (copies) {
           editor.previewAdded = copies.map((c) => ({
@@ -287,9 +301,11 @@ export function createSelectTool(id: ToolId): Tool {
         }
         break;
       }
-      case 'scale':
-        editor.preview = transformedSelection(scaleMatrix(action.frame, action.handle, start, e), base);
+      case 'scale': {
+        const to = snapEvent(e, { exclude: base.keys(), show: true });
+        editor.preview = transformedSelection(scaleMatrix(action.frame, action.handle, start, to), base);
         break;
+      }
       case 'rotate': {
         const p = action.pivot;
         let a = Math.atan2(e.y - p.y, e.x - p.x) - Math.atan2(start.y - p.y, start.x - p.x);
@@ -309,7 +325,13 @@ export function createSelectTool(id: ToolId): Tool {
       }
       case 'anchor': {
         const { item, world, sub, index } = action;
-        const d = applyVector(invert(world), { x: e.x - start.x, y: e.y - start.y });
+        // the anchor itself lands on the snap, not the pointer
+        const from = applyPoint(world, action.path.anchors[index]);
+        const to = snapPoint(
+          { x: from.x + e.x - start.x, y: from.y + e.y - start.y },
+          { zoom: e.zoom, exclude: [item.id], show: true }
+        );
+        const d = applyVector(invert(world), { x: to.x - from.x, y: to.y - from.y });
         const path = copyPath(action.path);
         path.anchors[index].x += d.x;
         path.anchors[index].y += d.y;
