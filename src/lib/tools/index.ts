@@ -14,6 +14,7 @@ import { pencilTool } from './pencil';
 import { brushTool } from './brush';
 import { eraserTool } from './eraser';
 import { polygonTool } from './polygon';
+import { gradientTool } from './gradient';
 
 export { TOOL_INFO, type ToolInfo } from './tool';
 
@@ -46,6 +47,7 @@ const TOOLS = [
   rectTool,
   ellipseTool,
   polygonTool,
+  gradientTool,
   zoomTool,
   handTool
 ];
