@@ -10,6 +10,7 @@ import { editor, hover } from '$lib/editor/editor';
 import { select } from '$lib/editor/selection';
 import { worldAnchor } from '$lib/render/overlay';
 import { anchorSelection, selection, toolCursor, view } from '$lib/stores/app';
+import { clearSnap, snapEvent } from '$lib/editor/snap';
 import { PEN_CURSORS } from './cursors';
 import { PREVIEW_COLOR, currentStyle, drawingLayer, setPreviewStroke } from './draw';
 import { toolBase, type Tool, type ToolEvent } from './tool';
@@ -157,7 +158,8 @@ function down(e: ToolEvent) {
   if (t.kind === 'start') {
     const layer = drawingLayer();
     if (!layer) return;
-    const path: PathData = { anchors: [makeAnchor(e.x, e.y, 'smooth')], closed: false };
+    const at = snapEvent(e, { show: true });
+    const path: PathData = { anchors: [makeAnchor(at.x, at.y, 'smooth')], closed: false };
     const item = makePathItem('Path', path, currentStyle());
     begin(e, item, copyPath(path), 0, 'Draw path', true);
     gesture!.layerId = layer.id;
@@ -178,7 +180,7 @@ function down(e: ToolEvent) {
   if (t.kind === 'draw') {
     const item = drawingItem()!;
     const path = copyPath(item.path);
-    const p = toLocal(item.id, e);
+    const p = toLocal(item.id, snapEvent(e, { show: true }));
     path.anchors.push(makeAnchor(p.x, p.y, 'smooth'));
     refresh(path, path.anchors.length - 1);
     begin(e, item, path, path.anchors.length - 1, 'Add point', true);
@@ -207,7 +209,8 @@ function drag(e: ToolEvent) {
     g.dragging = true;
   }
   const inv = invert(g.layerId ? g.item.transform : editor.worldMatrixOf(g.item.id));
-  const now = applyPoint(inv, e);
+  // a point of a path in the document does not snap to the rest of its own path
+  const now = applyPoint(inv, snapEvent(e, { exclude: g.layerId ? [] : [g.item.id], show: true }));
   const then = applyPoint(inv, g.start);
   const a = g.path.anchors[g.index];
   a.x = g.origin.x + now.x - then.x;
@@ -218,6 +221,7 @@ function drag(e: ToolEvent) {
 
 function up(e: ToolEvent) {
   pointer = e;
+  clearSnap();
   const g = gesture;
   gesture = null;
   if (!g) return;
@@ -341,6 +345,7 @@ export const curvatureTool: Tool = {
     if (e.key === 'Escape' && gesture) {
       e.preventDefault();
       gesture = null;
+      clearSnap();
       editor.clearPreview();
       return;
     }
@@ -363,6 +368,7 @@ export const curvatureTool: Tool = {
   deactivate() {
     if (gesture) {
       gesture = null;
+      clearSnap();
       editor.clearPreview();
     }
     endPath();
