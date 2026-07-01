@@ -55,3 +55,34 @@ export const PEN_CURSORS = {
   // the curvature tool, a pen with a small wave
   curve: pen('M16 20.5q1.8-3 3.5 0t3.5 0')
 };
+
+// the bucket of the toolbar icon tipped over, the hot spot is the drop it pours
+const BUCKET =
+  "<g transform='translate(3 2) scale(1.15)'>" +
+  glyph('M12.7 7.3 7.3 2 1.6 7.7a1.3 1.3 0 0 0 0 1.9l3.5 3.5c.5.5 1.3.5 1.9 0zM3.3 1.3l3.4 3.4M1.5 8.7h10') +
+  "<path d='M14.7 13.3a1.35 1.35 0 1 1-2.7 0c0-1.1 1.1-1.6 1.35-2.7.25 1.1 1.35 1.6 1.35 2.7z' " +
+  "fill='black' stroke='white' stroke-width='.9'/>" +
+  '</g>';
+
+export const BUCKET_CURSOR = svgCursor(BUCKET, 18, 19, 'crosshair');
+
+// a small ink bottle with a drop at the hot spot, for the stroke mode of the bucket
+export const INK_CURSOR = svgCursor(
+  glyph('M10 10h8v9.5a1.5 1.5 0 0 1-1.5 1.5h-5a1.5 1.5 0 0 1-1.5-1.5zM12 10V6.5h4V10M12.5 6.5V4h3v2.5M10 14.5h8') +
+    "<path d='M5 15.5a1.6 1.6 0 1 1-3.2 0c0-1.3 1.3-1.9 1.6-3.2.3 1.3 1.6 1.9 1.6 3.2z' " +
+    "fill='black' stroke='white' stroke-width='.9'/>",
+  3,
+  17,
+  'crosshair'
+);
+
+// the eyedropper of the toolbar icon, the hot spot is its tip
+export const EYEDROPPER_CURSOR = svgCursor(
+  "<g transform='translate(1 3) scale(1.25)'>" +
+    glyph('M1.5 14.5 2 14h2l6-6M2 14v-2l6-6m2-2 2.3-2.3a1.4 1.4 0 1 1 2 2L12 6l.3.3a1.4 1.4 0 1 1-2 2' +
+      'L7.7 5.7a1.4 1.4 0 1 1 2-2z') +
+    '</g>',
+  3,
+  21,
+  'crosshair'
+);
