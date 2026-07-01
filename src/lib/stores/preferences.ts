@@ -7,6 +7,8 @@ export type DockTab = 'properties' | 'color' | 'swatches' | 'library' | 'align' 
 
 export type PencilMode = 'smooth' | 'ink' | 'straighten';
 export type EraserMode = 'normal' | 'fills' | 'strokes';
+// how far apart the ends of an open path may be for the bucket to fill it as if closed
+export type BucketGap = 'none' | 'small' | 'medium' | 'large';
 
 export const WORKSPACE_IDS: Workspace[] = ['essentials', 'illustrate', 'animate', 'rig'];
 export const DOCK_TABS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig'];
@@ -32,6 +34,7 @@ export interface Preferences {
     brushMode: 'normal' | 'behind';
     eraserSize: number;
     eraserMode: EraserMode;
+    bucketGap: BucketGap;
     polygonSides: number;
     polygonStar: boolean;
     // inner radius of a star, percent of the outer one
@@ -98,6 +101,7 @@ export function defaultPreferences(): Preferences {
       brushMode: 'normal',
       eraserSize: 20,
       eraserMode: 'normal',
+      bucketGap: 'small',
       polygonSides: 5,
       polygonStar: false,
       polygonInner: 50,
@@ -181,6 +185,7 @@ export function mergePreferences(stored: unknown): Preferences {
   d.brushMode = oneOf(d.brushMode, ['normal', 'behind'], 'normal');
   d.eraserSize = clamp(d.eraserSize, 1, 500);
   d.eraserMode = oneOf(d.eraserMode, ['normal', 'fills', 'strokes'], 'normal');
+  d.bucketGap = oneOf(d.bucketGap, ['none', 'small', 'medium', 'large'], 'small');
   d.polygonSides = clamp(Math.round(d.polygonSides), 3, 12);
   d.polygonInner = clamp(d.polygonInner, 5, 95);
   d.strokeWidth = clamp(d.strokeWidth, 0, 500);

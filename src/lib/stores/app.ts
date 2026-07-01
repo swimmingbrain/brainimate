@@ -52,8 +52,11 @@ export const contextMenu = writable<{ x: number; y: number; items: MenuItem[] } 
 export const activeTool = writable<ToolId>('select');
 // the tools change it while hovering, the stage shows it
 export const toolCursor = writable('default');
-// settings the stage bar shows for the drawing tools
-export const toolOptions = writable({ rectRadius: 0 });
+// settings the stage bar shows for the drawing tools, the bucket paints fills or strokes like the ink bottle
+export const toolOptions = writable<{ rectRadius: number; bucketMode: 'fill' | 'stroke' }>({
+  rectRadius: 0,
+  bucketMode: 'fill'
+});
 
 // 0 based, the ui shows it 1 based
 export const frame = writable(0);
