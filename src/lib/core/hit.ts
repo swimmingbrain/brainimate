@@ -184,3 +184,12 @@ export function hitItemSegment(
   });
   return best;
 }
+
+// p lies in the filled area of the path, holes left out, an open path counts as closed by a straight line
+export function insideShape(item: PathItem, m: Mat, p: Vec): boolean {
+  const ctx = hitContext();
+  if (!ctx || item.path.anchors.length < 3) return false;
+  const local = applyPoint(invert(m), p);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return ctx.isPointInPath(shapePath2D(item.path, item.subpaths), local.x, local.y);
+}
