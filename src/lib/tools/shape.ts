@@ -4,6 +4,7 @@ import { makePathItem } from '$lib/core/items';
 import { defaultStyle, clonePaint, solid } from '$lib/core/style';
 import { editor } from '$lib/editor/editor';
 import { addToast, fillPaint, strokePaint, strokeWidth } from '$lib/stores/app';
+import { clearSnap, snapEvent } from '$lib/editor/snap';
 import { toolBase, type Tool, type ToolEvent, type ToolId } from './tool';
 
 // screen pixels a drag needs before it makes a shape, a plain click draws nothing
@@ -31,6 +32,7 @@ export function shapeTool(
   function cancel() {
     start = null;
     item = null;
+    clearSnap();
     editor.previewAdded = [];
     editor.markAll();
   }
@@ -44,14 +46,16 @@ export function shapeTool(
         addToast(layer ? `${layer.name} is locked or hidden` : 'There is no layer to draw on', 'warning');
         return;
       }
-      start = { x: e.x, y: e.y };
+      const at = snapEvent(e, { show: true });
+      start = { x: at.x, y: at.y };
       layerId = layer.id;
       item = null;
       size = 0;
     },
 
-    move(e) {
+    move(raw) {
       if (!start || !layerId) return;
+      const e = snapEvent(raw, { show: true });
       size = Math.max(size, Math.hypot(e.x - start.x, e.y - start.y) * e.zoom);
       const shape = build(start, e);
       if (!item) {
