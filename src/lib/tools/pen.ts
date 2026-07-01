@@ -9,6 +9,7 @@ import { editor, hover } from '$lib/editor/editor';
 import { select } from '$lib/editor/selection';
 import { worldAnchor, worldHandle } from '$lib/render/overlay';
 import { anchorSelection, selection, toolCursor, view } from '$lib/stores/app';
+import { clearSnap, snapEvent } from '$lib/editor/snap';
 import { PEN_CURSORS } from './cursors';
 import { directTool } from './direct';
 import { PREVIEW_COLOR, currentStyle, drawingLayer, setPreviewStroke } from './draw';
@@ -210,7 +211,7 @@ function down(e: ToolEvent) {
   const t = targetAt(e);
   switch (t.kind) {
     case 'start':
-      startPath(e);
+      startPath(snapEvent(e, { show: true }));
       return;
     case 'remove':
       removePoint(t.id, t.sub, t.index);
@@ -223,7 +224,7 @@ function down(e: ToolEvent) {
       const path = copyPath(item.path);
       const world = editor.worldMatrixOf(item.id);
       const last = applyPoint(world, path.anchors[path.anchors.length - 1]);
-      const p = toLocal(item.id, nextPoint(last, e, e.shift));
+      const p = toLocal(item.id, nextPoint(last, snapEvent(e, { show: true }), e.shift));
       path.anchors.push(makeAnchor(p.x, p.y));
       begin(e, item, path, path.anchors.length - 1, 'symmetric', 'Add anchor');
       break;
@@ -292,6 +293,7 @@ function drag(e: ToolEvent) {
 
 function up(e: ToolEvent) {
   pointer = e;
+  clearSnap();
   if (direct) {
     direct = false;
     directTool.up?.(e);
@@ -343,6 +345,7 @@ function endPath() {
 
 function cancelGesture() {
   gesture = null;
+  clearSnap();
   editor.clearPreview();
 }
 
@@ -377,7 +380,7 @@ function drawOverlay(ctx: CanvasRenderingContext2D) {
   const last = anchors[anchors.length - 1];
   const from = applyPoint(world, last);
   const c1 = applyPoint(world, outPoint(last));
-  let to = nextPoint(from, pointer, pointer.shift);
+  let to = nextPoint(from, snapEvent(pointer), pointer.shift);
   let c2 = to;
   if (t.kind === 'close') {
     to = applyPoint(world, anchors[0]);
