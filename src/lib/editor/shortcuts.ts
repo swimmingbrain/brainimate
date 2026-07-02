@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import { createKeybindingsHandler, type KeybindingsMap } from 'tinykeys';
-import { anchorSelection, contextMenu, dialog, frame } from '$lib/stores/app';
+import { anchorSelection, contextMenu, dialog, frame, toolCursor, toolOptions } from '$lib/stores/app';
+import { BUCKET_CURSOR, INK_CURSOR } from '$lib/tools/cursors';
 import { TOOL_IDS, TOOL_INFO } from '$lib/tools/tool';
 import { keyDown, selectTool } from '$lib/tools';
 import { editor } from './editor';
@@ -59,6 +60,12 @@ function lastFrame(): number {
 
 function step(by: number) {
   frame.update((f) => Math.max(0, f + by));
+}
+
+function bucketMode(mode: 'fill' | 'stroke') {
+  toolOptions.update((o) => ({ ...o, bucketMode: mode }));
+  selectTool('bucket');
+  toolCursor.set(mode === 'stroke' ? INK_CURSOR : BUCKET_CURSOR);
 }
 
 function bindings(): KeybindingsMap {
@@ -126,6 +133,9 @@ function bindings(): KeybindingsMap {
     const key = TOOL_INFO[id].shortcut;
     if (key) map[key.replace(/[A-Z]$/, (c) => c.toLowerCase())] = run(() => selectTool(id));
   }
+  // k is the bucket for fills, s the same tool as an ink bottle for strokes
+  map.k = run(() => bucketMode('fill'));
+  map.s = run(() => bucketMode('stroke'));
   return map;
 }
 
