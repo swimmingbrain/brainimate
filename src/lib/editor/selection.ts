@@ -119,6 +119,26 @@ export function transformSelection(m: Mat, label: string, key?: string) {
   );
 }
 
+// each item moves by its own world offset, all in one undo step
+export function translateItems(moves: Map<string, Vec>, label: string, key?: string) {
+  if (moves.size === 0) return;
+  const next = new Map<string, Mat>();
+  for (const [id, d] of moves) {
+    const item = editor.itemById(id, false);
+    if (!item) continue;
+    const parent = editor.parentMatrixOf(id);
+    next.set(id, multiply(invert(parent), multiply(translate(d.x, d.y), multiply(parent, item.transform))));
+  }
+  editor.updateItems(
+    [...next.keys()],
+    (item) => {
+      item.transform = next.get(item.id)!;
+    },
+    label,
+    key
+  );
+}
+
 export function nudge(dx: number, dy: number) {
   transformSelection(translate(dx, dy), 'Nudge', 'nudge');
 }
