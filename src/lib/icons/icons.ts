@@ -91,5 +91,11 @@ export const ICONS: Record<string, string> = {
   simplify: '<path d="M2 12 4 8.5 6 10 8 5.5l2 2.5 2-3.5 2 2" opacity=".45"/><path d="M2 13.5C6 12.5 8 5 14 5"/>',
   smooth: '<path d="M2 12.5C6 12.5 5 3.5 14 3.5"/><path d="M3.8 10.8 10.2 5.2"/><circle cx="7" cy="8" r="1.4" fill="currentColor"/>',
   reverse: '<path d="M13 5.5H3.5M5.8 3.2 3.5 5.5l2.3 2.3M3 10.5h9.5M10.2 8.2l2.3 2.3-2.3 2.3"/>',
-  'outline-stroke': '<path d="M2.8 11.6 11.6 2.8l1.6 1.6-8.8 8.8z"/><path d="M2.2 13.8h3"/>'
+  'outline-stroke': '<path d="M2.8 11.6 11.6 2.8l1.6 1.6-8.8 8.8z"/><path d="M2.2 13.8h3"/>',
+  'dist-hcenter':
+    '<path d="M3 2v12M8 2v12M13 2v12" opacity=".45"/><rect x="1.8" y="5" width="2.4" height="6" rx=".4" fill="currentColor" stroke="none"/><rect x="6.8" y="3.5" width="2.4" height="9" rx=".4" fill="currentColor" stroke="none"/><rect x="11.8" y="6" width="2.4" height="4" rx=".4" fill="currentColor" stroke="none"/>',
+  'dist-vcenter':
+    '<path d="M2 3h12M2 8h12M2 13h12" opacity=".45"/><rect x="5" y="1.8" width="6" height="2.4" rx=".4" fill="currentColor" stroke="none"/><rect x="3.5" y="6.8" width="9" height="2.4" rx=".4" fill="currentColor" stroke="none"/><rect x="6" y="11.8" width="4" height="2.4" rx=".4" fill="currentColor" stroke="none"/>',
+  'dist-hspace': '<rect x="1.5" y="3.5" width="3" height="9" rx=".5"/><rect x="11.5" y="3.5" width="3" height="9" rx=".5"/><path d="M6.5 8h3M6.5 6v4M9.5 6v4"/>',
+  'dist-vspace': '<rect x="3.5" y="1.5" width="9" height="3" rx=".5"/><rect x="3.5" y="11.5" width="9" height="3" rx=".5"/><path d="M8 6.5v3M6 6.5h4M6 9.5h4"/>'
 };
