@@ -90,6 +90,9 @@ export const activeStop = writable(0);
 
 export const outlineMode = writable(false);
 
+// the point of the selection box the transform fields measure from and turn around, 0 to 1 on each axis
+export const transformOrigin = writable<{ x: number; y: number }>({ x: 0, y: 0 });
+
 // screen = world * zoom + pan, in css pixels of the stage
 export interface View {
   zoom: number;
