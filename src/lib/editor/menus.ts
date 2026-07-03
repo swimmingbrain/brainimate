@@ -32,6 +32,7 @@ import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, selectAll } from './selection';
 import { addLayer } from './layers';
+import { alignSelection, alignToStage, distributeSelection } from './align';
 import type { HistoryState } from './history';
 
 export interface TopMenu {
@@ -61,6 +62,7 @@ export interface MenuContext {
   history: HistoryState;
   hasSelection: boolean;
   hasClipboard: boolean;
+  alignToStage: boolean;
 }
 
 export function buildMenus(p: Preferences, outline: boolean, workspace: Workspace, ctx: MenuContext): TopMenu[] {
@@ -213,16 +215,20 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         {
           label: 'Align',
           children: [
-            soon('Left'),
-            soon('Horizontal center'),
-            soon('Right'),
+            { label: 'Left', disabled: none, action: () => alignSelection('left') },
+            { label: 'Horizontal center', disabled: none, action: () => alignSelection('hcenter') },
+            { label: 'Right', disabled: none, action: () => alignSelection('right') },
             SEP,
-            soon('Top'),
-            soon('Vertical center'),
-            soon('Bottom'),
+            { label: 'Top', disabled: none, action: () => alignSelection('top') },
+            { label: 'Vertical center', disabled: none, action: () => alignSelection('vcenter') },
+            { label: 'Bottom', disabled: none, action: () => alignSelection('bottom') },
             SEP,
-            soon('Distribute widths'),
-            soon('Distribute heights')
+            { label: 'Distribute horizontal centers', disabled: none, action: () => distributeSelection('hcenters') },
+            { label: 'Distribute vertical centers', disabled: none, action: () => distributeSelection('vcenters') },
+            { label: 'Same horizontal spacing', disabled: none, action: () => distributeSelection('hspace') },
+            { label: 'Same vertical spacing', disabled: none, action: () => distributeSelection('vspace') },
+            SEP,
+            { label: 'To stage', checked: ctx.alignToStage, action: () => alignToStage.set(!ctx.alignToStage) }
           ]
         },
         {
