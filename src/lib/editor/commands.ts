@@ -53,6 +53,18 @@ export function toggleSnapping() {
   setGroup('snapping', { enabled: !get(preferences).snapping.enabled });
 }
 
+export function toggleSmartGuides() {
+  setGroup('snapping', { smartGuides: !get(preferences).snapping.smartGuides });
+}
+
+export function toggleSnapToGrid() {
+  setGroup('grid', { snap: !get(preferences).grid.snap });
+}
+
+export function toggleSnapToGuides() {
+  setGroup('guides', { snap: !get(preferences).guides.snap });
+}
+
 export function toggleOnion() {
   setGroup('timeline', { onion: !get(preferences).timeline.onion });
 }
