@@ -7,6 +7,8 @@ import { shapePath2D } from './pathcache';
 import { editor, hover } from '$lib/editor/editor';
 import { frameHandles, framePoint, selectionFrame } from '$lib/editor/selection';
 import { snapState } from '$lib/editor/snap';
+import { guideState } from '$lib/editor/guides';
+import { preferences } from '$lib/stores/preferences';
 import { activeTool, anchorSelection, selection, type View } from '$lib/stores/app';
 
 export const HANDLE_SIZE = 7;
@@ -136,6 +138,44 @@ function drawAnchors(ctx: CanvasRenderingContext2D, v: View, item: PathItem, wor
   });
 }
 
+// guides run across the whole view, the one being dragged follows the pointer
+function drawGuides(ctx: CanvasRenderingContext2D, v: View, width: number, height: number) {
+  const prefs = get(preferences);
+  const drag = guideState.drag;
+  if (!prefs.guides.show && !drag) return;
+  const g = editor.doc.guides;
+  const line = (axis: 'h' | 'v', value: number) => {
+    if (axis === 'h') {
+      const y = Math.round(value * v.zoom + v.panY) + 0.5;
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+    } else {
+      const x = Math.round(value * v.zoom + v.panX) + 0.5;
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+    }
+  };
+  ctx.strokeStyle = prefs.guides.color;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  if (prefs.guides.show) {
+    for (const axis of ['h', 'v'] as const) {
+      g[axis].forEach((value, i) => {
+        if (drag && drag.axis === axis && drag.index === i) return;
+        line(axis, value);
+      });
+    }
+  }
+  ctx.stroke();
+  if (!drag) return;
+  // a guide about to be dropped on its ruler goes faint
+  ctx.globalAlpha = drag.remove ? 0.35 : 1;
+  ctx.beginPath();
+  line(drag.axis, drag.value);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
 // the lines a drag snapped to, across the stage, with a small word next to the point
 function drawSnap(ctx: CanvasRenderingContext2D, v: View) {
   const r = snapState.result;
@@ -181,6 +221,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
   const direct = tool === 'direct';
   // the path tools show anchors too, so you can see where to add, remove or go on
   const anchors = direct || tool === 'pen' || tool === 'curvature';
+  drawGuides(ctx, v, ctx.canvas.width / dpr, ctx.canvas.height / dpr);
 
   const h = get(hover);
   if (h && !sel.has(h)) {
