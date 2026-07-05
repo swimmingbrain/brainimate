@@ -87,7 +87,7 @@ export function defaultPreferences(): Preferences {
     workspace: 'essentials',
     toolbar: { tools: [...TOOL_IDS], side: 'left', size: 'small' },
     grid: { show: false, size: 20, color: '#8a8a94', snap: false },
-    guides: { show: true, lock: false, color: '#4fc3d9', snap: true },
+    guides: { show: true, lock: false, color: '#4fc3f7', snap: true },
     rulers: { show: true },
     snapping: { enabled: true, points: true, objects: true, pixels: false, smartGuides: true },
     stage: { pasteboard: true },
