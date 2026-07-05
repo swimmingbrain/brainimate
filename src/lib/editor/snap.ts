@@ -52,6 +52,8 @@ export interface SnapOptions {
   axis?: 'x' | 'y';
   // the overlay shows the lines of this snap until clearSnap
   show?: boolean;
+  // a guide being moved does not snap to the guides, it would stick to where it was
+  guides?: boolean;
 }
 
 // what the overlay draws while a drag snaps
@@ -129,12 +131,12 @@ function addAnchors(c: SnapCandidates, item: Item, m: Mat, budget: { left: numbe
 }
 
 // every line something can snap to under the current preferences, the dragged items left out
-export function collectCandidates(prefs: Preferences, exclude: Set<string>): SnapCandidates {
+export function collectCandidates(prefs: Preferences, exclude: Set<string>, guides = true): SnapCandidates {
   const c: SnapCandidates = { xs: [], ys: [], grid: null };
   if (!prefs.snapping.enabled) return c;
   if (prefs.grid.snap) c.grid = prefs.grid.size;
   const doc = editor.doc;
-  if (prefs.guides.snap && prefs.guides.show) {
+  if (guides && prefs.guides.snap && prefs.guides.show) {
     for (const x of doc.guides.v) c.xs.push({ value: x, kind: 'guide' });
     for (const y of doc.guides.h) c.ys.push({ value: y, kind: 'guide' });
   }
@@ -159,15 +161,16 @@ export function collectCandidates(prefs: Preferences, exclude: Set<string>): Sna
 let cache: { key: string; candidates: SnapCandidates } | null = null;
 
 // the candidates only change with the document, the frame, the preferences and what is excluded
-function candidates(exclude: Set<string>): SnapCandidates {
+function candidates(exclude: Set<string>, guides: boolean): SnapCandidates {
   const prefs = get(preferences);
   const key = [
     get(docVersion),
     editor.frame,
+    guides,
     [...exclude].sort().join(','),
     JSON.stringify([prefs.snapping, prefs.grid.snap, prefs.grid.size, prefs.guides.snap, prefs.guides.show])
   ].join('|');
-  if (cache?.key !== key) cache = { key, candidates: collectCandidates(prefs, exclude) };
+  if (cache?.key !== key) cache = { key, candidates: collectCandidates(prefs, exclude, guides) };
   return cache.candidates;
 }
 
@@ -176,7 +179,8 @@ export function snapPoint(p: Vec, opts: SnapOptions): SnapResult {
   const prefs = get(preferences);
   const exclude = new Set(opts.exclude ?? []);
   const tolerance = (SNAP_TOLERANCE * (opts.factor ?? 1)) / opts.zoom;
-  const result = snapToCandidates(p, candidates(exclude), tolerance, opts.box ?? null, opts.axis ?? null);
+  const c = candidates(exclude, opts.guides ?? true);
+  const result = snapToCandidates(p, c, tolerance, opts.box ?? null, opts.axis ?? null);
   // whole pixels when nothing else caught the point
   if (prefs.snapping.enabled && prefs.snapping.pixels) {
     if (!result.lines.some((l) => l.axis === 'x') && opts.axis !== 'y') result.x = Math.round(result.x);
