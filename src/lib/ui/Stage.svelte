@@ -1,22 +1,39 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
-  import { activeTool, anchorSelection, outlineMode, stageSize, toolCursor, view, type View } from '$lib/stores/app';
-  import { preferences } from '$lib/stores/preferences';
+  import {
+    activeTool,
+    addToast,
+    anchorSelection,
+    outlineMode,
+    stageSize,
+    toolCursor,
+    view,
+    type View
+  } from '$lib/stores/app';
+  import { preferences, setGroup } from '$lib/stores/preferences';
   import { fitView, isAutoFit, setAutoFit, setRedraw, setViewport, zoomAround } from '$lib/editor/view';
   import { editor, hover } from '$lib/editor/editor';
   import { renderStage, setImageLoaded } from '$lib/render/renderer';
   import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
   import { doubleClick, drawToolOverlay, pointerDown, pointerMove, pointerUp } from '$lib/tools';
   import { coalescedEvents, makeEvent, type ToolEvent } from '$lib/tools/tool';
+  import { pickItem } from '$lib/tools/pick';
+  import { pointerFactor } from '$lib/core/hit';
+  import { finishGuideDrag, guideAt, guideState, guidesLocked, type GuideAxis } from '$lib/editor/guides';
+  import { clearSnap, snapPoint } from '$lib/editor/snap';
 
-  const RULER = 16;
+  const RULER = 20;
+  // the tools that can grab a guide on the stage
+  const GUIDE_TOOLS = ['select', 'direct', 'transform'];
 
   let host = $state<HTMLDivElement | null>(null);
   let content = $state<HTMLCanvasElement | null>(null);
   let overlay = $state<HTMLCanvasElement | null>(null);
   let spaceHeld = $state(false);
   let panning = $state(false);
+  // the axis of the guide under the pointer or being dragged, for the cursor
+  let guideCursor = $state<GuideAxis | null>(null);
 
   let contentCtx: CanvasRenderingContext2D | null = null;
   let overlayCtx: CanvasRenderingContext2D | null = null;
@@ -24,6 +41,8 @@
   let height = 0;
   let dpr = 1;
   let panStart: { x: number; y: number; panX: number; panY: number } | null = null;
+  // css pixels on the stage, the rulers mark where it is
+  let pointerAt: { x: number; y: number } | null = null;
 
   // read once from the theme, the canvas cannot use css variables
   const colors = {
@@ -36,7 +55,12 @@
     accent: '#d19a66'
   };
 
-  const cursor = $derived(panning ? 'grabbing' : spaceHeld || $activeTool === 'hand' ? 'grab' : $toolCursor);
+  const cursor = $derived.by(() => {
+    if (panning) return 'grabbing';
+    if (spaceHeld || $activeTool === 'hand') return 'grab';
+    if (guideCursor) return guideCursor === 'h' ? 'row-resize' : 'col-resize';
+    return $toolCursor;
+  });
 
   // the editor holds the dirty flags, the loop below reads them
   function markDirty() {
@@ -131,7 +155,7 @@
     ctx.strokeStyle = colors.tick;
     ctx.lineWidth = 1;
     ctx.fillStyle = colors.label;
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = '10px "JetBrains Mono", monospace';
     ctx.textBaseline = 'top';
     ctx.beginPath();
 
@@ -139,28 +163,41 @@
       const sx = Math.round(i * minor * v.zoom + v.panX) + 0.5;
       if (sx > width) break;
       if (i % every !== 0) continue;
-      const len = i % 10 === 0 ? RULER : i % 5 === 0 ? 7 : 4;
+      const len = i % 10 === 0 ? RULER : i % 5 === 0 ? 8 : 4;
       ctx.moveTo(sx, RULER - len);
       ctx.lineTo(sx, RULER);
-      if (i % 10 === 0) ctx.fillText(label(i * minor), sx + 3, 2);
+      if (i % 10 === 0) ctx.fillText(label(i * minor), sx + 3, 3);
     }
 
     for (let i = Math.ceil((RULER - v.panY) / v.zoom / minor); ; i++) {
       const sy = Math.round(i * minor * v.zoom + v.panY) + 0.5;
       if (sy > height) break;
       if (i % every !== 0) continue;
-      const len = i % 10 === 0 ? RULER : i % 5 === 0 ? 7 : 4;
+      const len = i % 10 === 0 ? RULER : i % 5 === 0 ? 8 : 4;
       ctx.moveTo(RULER - len, sy);
       ctx.lineTo(RULER, sy);
       if (i % 10 === 0) {
         ctx.save();
-        ctx.translate(2, sy - 3);
+        ctx.translate(3, sy - 3);
         ctx.rotate(-Math.PI / 2);
         ctx.fillText(label(i * minor), 0, 0);
         ctx.restore();
       }
     }
     ctx.stroke();
+
+    // where the pointer is, on both rulers
+    if (pointerAt) {
+      ctx.strokeStyle = colors.accent;
+      ctx.beginPath();
+      const px = Math.round(pointerAt.x) + 0.5;
+      const py = Math.round(pointerAt.y) + 0.5;
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, RULER);
+      ctx.moveTo(0, py);
+      ctx.lineTo(RULER, py);
+      ctx.stroke();
+    }
 
     ctx.fillStyle = colors.ruler;
     ctx.fillRect(0, 0, RULER, RULER);
@@ -180,6 +217,43 @@
     return makeEvent(e, overlay!.getBoundingClientRect(), get(view));
   }
 
+  // the top ruler pulls out horizontal guides, the left one vertical guides
+  function rulerAt(sx: number, sy: number): GuideAxis | null {
+    if (!get(preferences).rulers.show || (sx < RULER && sy < RULER)) return null;
+    if (sy < RULER) return 'h';
+    if (sx < RULER) return 'v';
+    return null;
+  }
+
+  // a guide the pointer can grab: visible, unlocked, a selection tool, and no item on top of it
+  function grabbableGuide(ev: ToolEvent): { axis: GuideAxis; index: number } | null {
+    const prefs = get(preferences);
+    if (!prefs.guides.show || prefs.guides.lock || !GUIDE_TOOLS.includes(get(activeTool))) return null;
+    const g = editor.doc.guides;
+    if (g.h.length === 0 && g.v.length === 0) return null;
+    const factor = pointerFactor(ev.pointerType);
+    const hit = guideAt(ev, ev.zoom, factor);
+    if (!hit || pickItem(ev, ev.zoom, factor)) return null;
+    return hit;
+  }
+
+  function startGuide(axis: GuideAxis, index: number, ev: ToolEvent) {
+    if (!get(preferences).guides.show) setGroup('guides', { show: true });
+    guideState.drag = { axis, index, value: axis === 'h' ? ev.y : ev.x, remove: false };
+    guideCursor = axis;
+    editor.markOverlay();
+  }
+
+  function dragGuide(ev: ToolEvent) {
+    const drag = guideState.drag;
+    if (!drag) return;
+    const axis = drag.axis === 'h' ? 'y' : 'x';
+    const p = snapPoint(ev, { zoom: ev.zoom, axis, guides: false, show: true });
+    drag.value = axis === 'y' ? p.y : p.x;
+    drag.remove = drag.axis === 'h' ? ev.sy < RULER : ev.sx < RULER;
+    editor.markOverlay();
+  }
+
   function onpointerdown(e: PointerEvent) {
     overlay?.setPointerCapture(e.pointerId);
     const hand = e.button === 1 || (e.button === 0 && (spaceHeld || get(activeTool) === 'hand'));
@@ -192,7 +266,19 @@
       return;
     }
     if (e.button !== 0) return;
-    pointerDown(toolEvent(e));
+    const ev = toolEvent(e);
+    const ruler = rulerAt(ev.sx, ev.sy);
+    if (ruler) {
+      if (guidesLocked()) addToast('Guides are locked');
+      else startGuide(ruler, -1, ev);
+      return;
+    }
+    const guide = grabbableGuide(ev);
+    if (guide) {
+      startGuide(guide.axis, guide.index, ev);
+      return;
+    }
+    pointerDown(ev);
     editor.markOverlay();
   }
 
@@ -202,9 +288,20 @@
       view.update((v) => ({ ...v, panX: start.panX + e.clientX - start.x, panY: start.panY + e.clientY - start.y }));
       return;
     }
+    const ev = toolEvent(e);
+    pointerAt = { x: ev.sx, y: ev.sy };
+    if (guideState.drag) {
+      dragGuide(ev);
+      return;
+    }
     // a hover only needs the latest position, a drag gets every point in between
-    if (e.buttons === 0) pointerMove(toolEvent(e));
-    else for (const ev of coalescedEvents(e)) pointerMove(toolEvent(ev));
+    if (e.buttons === 0) {
+      const guide = rulerAt(ev.sx, ev.sy) ? null : grabbableGuide(ev);
+      guideCursor = guide?.axis ?? null;
+      pointerMove(ev);
+    } else {
+      for (const one of coalescedEvents(e)) pointerMove(toolEvent(one));
+    }
     editor.markOverlay();
   }
 
@@ -213,6 +310,13 @@
     if (panStart) {
       panStart = null;
       panning = false;
+      return;
+    }
+    if (guideState.drag) {
+      dragGuide(toolEvent(e));
+      finishGuideDrag();
+      clearSnap();
+      guideCursor = null;
       return;
     }
     if (e.button !== 0) return;
@@ -331,6 +435,8 @@
     onpointercancel={onpointerup}
     onpointerleave={() => {
       if (!panStart) hover.set(null);
+      pointerAt = null;
+      editor.markOverlay();
     }}
     {ondblclick}
     onmousedown={(e) => {
