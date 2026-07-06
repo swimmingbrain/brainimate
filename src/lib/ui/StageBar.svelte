@@ -4,7 +4,17 @@
   import NumberField from './NumberField.svelte';
   import { TOOL_INFO } from '$lib/tools';
   import { getTool } from '$lib/tools/tool';
-  import { toggleGrid, toggleOnion, toggleOutline, toggleRulers, toggleSnapping } from '$lib/editor/commands';
+  import {
+    toggleGrid,
+    toggleGuides,
+    toggleOnion,
+    toggleOutline,
+    toggleRulers,
+    toggleSmartGuides,
+    toggleSnapToGrid,
+    toggleSnapToGuides,
+    toggleSnapping
+  } from '$lib/editor/commands';
   import { zoomFit, zoomTo } from '$lib/editor/view';
   import { activeTool, outlineMode, view, type MenuItem } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
@@ -20,12 +30,23 @@
     { label: 'Fit in window', shortcut: 'Ctrl+0', action: zoomFit }
   ];
 
+  // view toggles, then the snapping ones, then onion skin and outlines, a gap between the groups
   const toggles = $derived([
-    { icon: 'grid', label: 'Grid', on: $preferences.grid.show, run: toggleGrid },
-    { icon: 'rulers', label: 'Rulers', on: $preferences.rulers.show, run: toggleRulers },
-    { icon: 'snap', label: 'Snapping', on: $preferences.snapping.enabled, run: toggleSnapping },
-    { icon: 'onion', label: 'Onion skin', on: $preferences.timeline.onion, run: toggleOnion },
-    { icon: 'outline', label: 'Outline mode', on: $outlineMode, run: toggleOutline }
+    [
+      { icon: 'grid', label: "Grid (Ctrl+')", on: $preferences.grid.show, run: toggleGrid },
+      { icon: 'rulers', label: 'Rulers (Ctrl+R)', on: $preferences.rulers.show, run: toggleRulers },
+      { icon: 'guides', label: 'Guides (Ctrl+;)', on: $preferences.guides.show, run: toggleGuides }
+    ],
+    [
+      { icon: 'snap', label: 'Snapping', on: $preferences.snapping.enabled, run: toggleSnapping },
+      { icon: 'snap-grid', label: 'Snap to grid', on: $preferences.grid.snap, run: toggleSnapToGrid },
+      { icon: 'snap-guides', label: 'Snap to guides', on: $preferences.guides.snap, run: toggleSnapToGuides },
+      { icon: 'smart', label: 'Smart guides (Ctrl+U)', on: $preferences.snapping.smartGuides, run: toggleSmartGuides }
+    ],
+    [
+      { icon: 'onion', label: 'Onion skin', on: $preferences.timeline.onion, run: toggleOnion },
+      { icon: 'outline', label: 'Outline mode', on: $outlineMode, run: toggleOutline }
+    ]
   ]);
 </script>
 
@@ -66,11 +87,20 @@
     <button class="icon-btn" onclick={zoomFit} title="Fit in window (Ctrl+0)" aria-label="Fit in window">
       <Icon name="fit" size={14} />
     </button>
-    <span class="sep"></span>
-    {#each toggles as t (t.icon)}
-      <button class="icon-btn" class:on={t.on} onclick={t.run} title={t.label} aria-label={t.label} aria-pressed={t.on}>
-        <Icon name={t.icon} size={14} />
-      </button>
+    {#each toggles as group, g (g)}
+      <span class="sep"></span>
+      {#each group as t (t.icon)}
+        <button
+          class="icon-btn"
+          class:on={t.on}
+          class:off={g === 1 && t.icon !== 'snap' && !$preferences.snapping.enabled}
+          onclick={t.run}
+          title={t.label}
+          aria-label={t.label}
+          aria-pressed={t.on}>
+          <Icon name={t.icon} size={14} />
+        </button>
+      {/each}
     {/each}
   </div>
 </div>
@@ -165,6 +195,11 @@
   .icon-btn.on {
     background: var(--accent-dim);
     color: var(--accent);
+  }
+
+  /* the snap kinds while snapping as a whole is off */
+  .icon-btn.off {
+    opacity: 0.45;
   }
 
   .sep {
