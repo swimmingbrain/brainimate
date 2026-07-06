@@ -97,5 +97,9 @@ export const ICONS: Record<string, string> = {
   'dist-vcenter':
     '<path d="M2 3h12M2 8h12M2 13h12" opacity=".45"/><rect x="5" y="1.8" width="6" height="2.4" rx=".4" fill="currentColor" stroke="none"/><rect x="3.5" y="6.8" width="9" height="2.4" rx=".4" fill="currentColor" stroke="none"/><rect x="6" y="11.8" width="4" height="2.4" rx=".4" fill="currentColor" stroke="none"/>',
   'dist-hspace': '<rect x="1.5" y="3.5" width="3" height="9" rx=".5"/><rect x="11.5" y="3.5" width="3" height="9" rx=".5"/><path d="M6.5 8h3M6.5 6v4M9.5 6v4"/>',
-  'dist-vspace': '<rect x="3.5" y="1.5" width="9" height="3" rx=".5"/><rect x="3.5" y="11.5" width="9" height="3" rx=".5"/><path d="M8 6.5v3M6 6.5h4M6 9.5h4"/>'
+  'dist-vspace': '<rect x="3.5" y="1.5" width="9" height="3" rx=".5"/><rect x="3.5" y="11.5" width="9" height="3" rx=".5"/><path d="M8 6.5v3M6 6.5h4M6 9.5h4"/>',
+  guides: '<path d="M1.5 1.5h13v3h-10v10h-3z"/><path d="M4.5 9.5h10M9.5 4.5v10" opacity=".6"/>',
+  'snap-grid': '<path d="M2 6h12M2 10h12M6 2v12M10 2v12" opacity=".6"/><circle cx="10" cy="10" r="2.2" fill="currentColor" stroke="none"/>',
+  'snap-guides': '<path d="M1.5 6h13M10 1.5v13" opacity=".6"/><circle cx="10" cy="6" r="2.2" fill="currentColor" stroke="none"/>',
+  smart: '<path d="M1.5 8h13M8 1.5v13" opacity=".55"/><rect x="4.5" y="4.5" width="7" height="7" rx=".5"/>'
 };
