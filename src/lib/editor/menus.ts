@@ -25,9 +25,13 @@ import {
   toggleOutline,
   togglePasteboard,
   toggleRulers,
+  toggleSmartGuides,
+  toggleSnapToGrid,
+  toggleSnapToGuides,
   toggleSnapping,
   undo
 } from './commands';
+import { clearGuides, toggleGuideLock } from './guides';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, selectAll } from './selection';
@@ -125,13 +129,15 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         { label: 'Rulers', shortcut: 'Ctrl+R', checked: p.rulers.show, action: toggleRulers },
         { label: 'Grid', shortcut: "Ctrl+'", checked: p.grid.show, action: toggleGrid },
         { label: 'Guides', shortcut: 'Ctrl+;', checked: p.guides.show, action: toggleGuides },
+        { label: 'Lock guides', checked: p.guides.lock, action: toggleGuideLock },
+        { label: 'Clear guides', action: clearGuides },
         {
           label: 'Snapping',
           children: [
             { label: 'Snapping', checked: p.snapping.enabled, action: toggleSnapping },
             SEP,
-            { label: 'Snap to grid', checked: p.grid.snap, action: () => setGroup('grid', { snap: !p.grid.snap }) },
-            { label: 'Snap to guides', checked: p.guides.snap, action: () => setGroup('guides', { snap: !p.guides.snap }) },
+            { label: 'Snap to grid', checked: p.grid.snap, action: toggleSnapToGrid },
+            { label: 'Snap to guides', checked: p.guides.snap, action: toggleSnapToGuides },
             {
               label: 'Snap to points',
               checked: p.snapping.points,
@@ -147,11 +153,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
               checked: p.snapping.pixels,
               action: () => setGroup('snapping', { pixels: !p.snapping.pixels })
             },
-            {
-              label: 'Smart guides',
-              checked: p.snapping.smartGuides,
-              action: () => setGroup('snapping', { smartGuides: !p.snapping.smartGuides })
-            }
+            { label: 'Smart guides', shortcut: 'Ctrl+U', checked: p.snapping.smartGuides, action: toggleSmartGuides }
           ]
         },
         SEP,
