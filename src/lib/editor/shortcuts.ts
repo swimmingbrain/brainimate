@@ -20,6 +20,7 @@ import {
   toggleGrid,
   toggleGuides,
   toggleRulers,
+  toggleSmartGuides,
   undo
 } from './commands';
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
@@ -112,6 +113,7 @@ function bindings(): KeybindingsMap {
     '$mod+;': run(toggleGuides),
     // the browser would reload, the rulers win
     '$mod+r': run(toggleRulers),
+    '$mod+u': run(toggleSmartGuides),
     F6: run(insertKeyframeHere),
 
     x: run(toggleColorTarget),
