@@ -26,6 +26,7 @@
   } from '$lib/editor/commands';
   import Icon from '$lib/icons/Icon.svelte';
   import { frame, selection } from '$lib/stores/app';
+  import { preferences, setGroup } from '$lib/stores/preferences';
 
   type Target = 'fill' | 'stroke' | 'bg';
 
@@ -227,6 +228,16 @@
     <Field label="Background">
       <ColorField value={doc.bg} label="Background color" onclick={(e) => openPicker('bg', e)} />
     </Field>
+    <h3 class="section">Guides</h3>
+    <Field label="Lock guides">
+      <ToggleField
+        value={$preferences.guides.lock}
+        label="Lock guides"
+        onchange={(on) => setGroup('guides', { lock: on })} />
+    </Field>
+    <Field label="Guides">
+      <span class="value">{doc.guides.h.length + doc.guides.v.length}</span>
+    </Field>
   {:else}
     <h3 class="section">{items.length === 1 ? first?.name : `${items.length} items`}</h3>
     {#if style}
@@ -274,6 +285,30 @@
           label="Dashed"
           onchange={(on) => setStyle('dash', on ? [6, 4] : [], 'Dash')} />
       </Field>
+      {#if style.dash.length > 0}
+        {@const dash = style.dash[0] ?? 6}
+        {@const gap = style.dash[1] ?? dash}
+        <Field label="Dash and gap">
+          <div class="pair">
+            <NumberField
+              value={dash}
+              min={0.5}
+              max={500}
+              step={0.5}
+              unit=" px"
+              label="Dash length"
+              onchange={(v) => setStyle('dash', [v, gap], 'Dash')} />
+            <NumberField
+              value={gap}
+              min={0.5}
+              max={500}
+              step={0.5}
+              unit=" px"
+              label="Gap length"
+              onchange={(v) => setStyle('dash', [dash, v], 'Dash')} />
+          </div>
+        </Field>
+      {/if}
       <Field label="Scale strokes">
         <ToggleField
           value={style.scaleStroke}
@@ -425,6 +460,12 @@
     font-family: var(--font-editor);
     font-size: 11.5px;
     color: var(--text-primary);
+  }
+
+  .pair {
+    display: flex;
+    gap: 4px;
+    width: 100%;
   }
 
   .ops {
