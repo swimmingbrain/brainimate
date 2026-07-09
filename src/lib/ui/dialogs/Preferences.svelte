@@ -103,6 +103,18 @@
       <Field label="Guides">
         <ToggleField value={$preferences.guides.show} label="Guides" onchange={(v) => setGroup('guides', { show: v })} />
       </Field>
+      <Field label="Snap to guides">
+        <ToggleField
+          value={$preferences.guides.snap}
+          label="Snap to guides"
+          onchange={(v) => setGroup('guides', { snap: v })} />
+      </Field>
+      <Field label="Lock guides">
+        <ToggleField
+          value={$preferences.guides.lock}
+          label="Lock guides"
+          onchange={(v) => setGroup('guides', { lock: v })} />
+      </Field>
       <Field label="Smart guides">
         <ToggleField
           value={$preferences.snapping.smartGuides}
