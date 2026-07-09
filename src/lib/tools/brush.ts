@@ -18,7 +18,6 @@ let last: { sx: number; sy: number } | null = null;
 let layerId: string | null = null;
 let pointer: ToolEvent | null = null;
 let pen = false;
-let zoom = 1;
 let outline: Vec[] = [];
 
 // the brush paints with the fill, or with the stroke color when there is no fill
@@ -77,7 +76,6 @@ export const brushTool: Tool = {
     const layer = drawingLayer();
     if (!layer) return;
     layerId = layer.id;
-    zoom = e.zoom;
     pen = e.pointerType === 'pen';
     points = [{ x: e.x, y: e.y, pressure: e.pressure }];
     last = { sx: e.sx, sy: e.sy };
@@ -105,8 +103,8 @@ export const brushTool: Tool = {
     const stroke = strokePoints();
     const final = strokeOutline(stroke, options(true));
     const s = get(preferences).drawing.brushSmoothing / 100;
-    // the fit stays relative to the screen like the pencil smoothing
-    const path = outlineToPath(final, stroke, options(true).size, (0.4 + s * 1.2) / zoom);
+    // the fit is in document units too, so the same stroke comes out the same at any zoom
+    const path = outlineToPath(final, stroke, options(true).size, 0.4 + s * 1.2);
     const target = layerId;
     reset();
     if (path.anchors.length < 3) return;
