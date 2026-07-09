@@ -16,7 +16,16 @@
   }));
 
   const groups: { name: string; items: Shortcut[] }[] = [
-    { name: 'Tools', items: [...tools, { keys: ['Space'], what: 'Hand while held' }] },
+    {
+      name: 'Tools',
+      items: [
+        ...tools,
+        { keys: ['S'], what: 'Ink bottle, the bucket for strokes' },
+        { keys: ['Space'], what: 'Hand while held' },
+        { keys: ['Shift', 'click'], what: 'Bucket inks the stroke' },
+        { keys: ['Alt', 'click'], what: 'Eyedropper styles the selection' }
+      ]
+    },
     {
       name: 'Colors',
       items: [
@@ -71,7 +80,9 @@
         { keys: ['Ctrl', '0'], what: 'Fit the stage in the window' },
         { keys: ['Ctrl', 'wheel'], what: 'Zoom around the pointer' },
         { keys: ['Ctrl', "'"], what: 'Grid' },
-        { keys: ['Ctrl', 'R'], what: 'Rulers' }
+        { keys: ['Ctrl', 'R'], what: 'Rulers' },
+        { keys: ['Ctrl', ';'], what: 'Guides' },
+        { keys: ['Ctrl', 'U'], what: 'Smart guides' }
       ]
     },
     {
