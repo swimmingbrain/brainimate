@@ -53,8 +53,8 @@
   --guide: #4fc3f7;
   --smart-guide: #e2559b;
   --selection: #4f9cf9;
-  --onion-before: #e06c75;
-  --onion-after: #73c991;
+  --onion-before: #5b8fc9;
+  --onion-after: #5a8f5a;
 
   /* timeline geometry */
   --ruler-h: 28px;
@@ -64,14 +64,17 @@
 
   /* frame cells, spans and dots */
   --frame-line: rgba(255, 255, 255, 0.04);
-  --frame-line-major: rgba(255, 255, 255, 0.09);
+  --frame-fifth: rgba(0, 0, 0, 0.22);
   --frame-hold: #2c2c31;
   --frame-hold-edge: #3a3a41;
+  --frame-empty: rgba(255, 255, 255, 0.025);
+  --frame-folder: #1d1d21;
   --keyframe: #d4d4d8;
-  --tween: rgba(126, 107, 176, 0.32);
-  --tween-edge: #7e6bb0;
-  --pose: rgba(79, 158, 158, 0.32);
-  --pose-edge: #4f9e9e;
+  --tween: #4f2c5b;
+  --tween-edge: #b04dbd;
+  --pose: #2c4664;
+  --pose-edge: #4d7fb8;
+  --frame-label: #e06c75;
 
   /* the playhead shares the accent so one color carries the eye across the app */
   --playhead: var(--accent);
