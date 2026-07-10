@@ -20,7 +20,9 @@ It is early. The drawing tools work, the timeline and the rig come next.
 ## Features
 
 - Pen, curvature, pencil, brush, eraser, polygons and stars, every line stays an editable curve
-- Unite, subtract, intersect, exclude and divide shapes, outline strokes, simplify and smooth paths
+- Unite, subtract, intersect, exclude and divide shapes, holes stay part of their shape, outline strokes, simplify and smooth paths
+- Solid colors and linear or radial gradients, a color picker, swatches, paint bucket, ink bottle and eyedropper
+- Align, distribute and transform by numbers, rulers, guides, a grid and smart guides that snap
 - A timeline with layers, keyframes, tweens with easing and onion skin
 - Bones for characters, bound to the drawing and posed with inverse kinematics
 - Symbols you draw once and reuse, edited in place
@@ -34,13 +36,14 @@ It is early. The drawing tools work, the timeline and the rig come next.
 | `V` `A` `Q` | Selection, direct selection, free transform |
 | `P` `Shift+P` `Y` `B` `E` | Pen, curvature, pencil, brush, eraser |
 | `R` `O` `N` `T` | Rectangle, ellipse, line, text |
-| `K` `I` `G` | Paint bucket, eyedropper, gradient |
+| `K` `S` `I` `G` | Paint bucket, ink bottle, eyedropper, gradient |
 | `M` `Shift+M` | Bone, bind |
 | `Z` `H` `Space` | Zoom, hand, hand while held |
 | `Ctrl+G` `Ctrl+Shift+G` `Ctrl+B` `Ctrl+J` | Group, ungroup, break apart, join paths |
 | `Ctrl+Up` `Ctrl+Down` | Bring forward, send backward, with `Shift` to the front or back |
 | `Enter` `Esc` `Backspace` | End the pen path, or take back its last anchor |
 | `X` `Shift+X` `D` | Fill or stroke in front, swap them, default colors |
+| `Ctrl+R` `Ctrl+;` `Ctrl+'` `Ctrl+U` | Rulers, guides, grid, smart guides |
 | `F5` `F6` `F7` | Insert frame, keyframe, blank keyframe |
 | `,` `.` `Enter` | Previous frame, next frame, play |
 | `Ctrl+Z` `Ctrl+Shift+Z` | Undo, redo |
