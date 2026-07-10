@@ -241,6 +241,18 @@
           label="Onion skin as outlines"
           onchange={(v) => setGroup('timeline', { onionOutline: v })} />
       </Field>
+      <Field label="Onion keyframes" hint="Ghost the keyframes around the playhead instead of the frames">
+        <ToggleField
+          value={$preferences.timeline.onionKeyframes}
+          label="Onion skin on keyframes only"
+          onchange={(v) => setGroup('timeline', { onionKeyframes: v })} />
+      </Field>
+      <Field label="Onion past">
+        <ColorField value={$preferences.timeline.onionBeforeColor} label="Onion skin color before" onclick={notYet} />
+      </Field>
+      <Field label="Onion future">
+        <ColorField value={$preferences.timeline.onionAfterColor} label="Onion skin color after" onclick={notYet} />
+      </Field>
       <Field label="Auto key">
         <ToggleField
           value={$preferences.timeline.autoKey}

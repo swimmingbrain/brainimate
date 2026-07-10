@@ -55,6 +55,8 @@ export interface Preferences {
     onionBeforeColor: string;
     onionAfterColor: string;
     onionOutline: boolean;
+    // the ghosts are the keyframes around the playhead instead of the frames next to it
+    onionKeyframes: boolean;
     autoKey: boolean;
     loop: boolean;
   };
@@ -117,9 +119,10 @@ export function defaultPreferences(): Preferences {
       onion: false,
       onionBefore: 2,
       onionAfter: 2,
-      onionBeforeColor: '#e06c75',
-      onionAfterColor: '#73c991',
+      onionBeforeColor: '#5b8fc9',
+      onionAfterColor: '#5a8f5a',
       onionOutline: false,
+      onionKeyframes: false,
       autoKey: true,
       loop: true
     },
