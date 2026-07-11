@@ -1,5 +1,6 @@
-import type { Doc, Keyframe, Layer } from '$lib/core/types';
+import type { Doc, Item, Keyframe, Layer } from '$lib/core/types';
 import { cloneItems } from '$lib/core/items';
+import { newId } from '$lib/core/ids';
 import { keyframeAt, keyframeIndexAt, nextKeyframe, poseAt, resolveItems, tweenAt } from '$lib/render/frame';
 
 // every function here changes the layer in place, the editor calls them on a draft inside one commit
@@ -174,4 +175,84 @@ export function moveKeyframes(layers: Layer[], refs: KeyRef[], delta: number) {
 
 export function duplicateKeyframes(layers: Layer[], refs: KeyRef[], delta: number) {
   shiftKeyframes(layers, refs, delta, true);
+}
+
+// frames from..to, both included, on a few layers
+export interface FrameRange {
+  layers: string[];
+  from: number;
+  to: number;
+}
+
+// copied frames, one row per layer with keyframes counted from the start of the copy
+export interface FrameClip {
+  rows: { layer: string; type: Layer['type']; keys: Keyframe[]; length: number }[];
+  length: number;
+}
+
+// a keyframe at frame with what shows there, the one already there when there is one
+function snapshot(layer: Layer, frame: number): Keyframe {
+  const own = layer.keyframes.find((k) => k.frame === frame);
+  if (own) return cloneKey(own, frame);
+  const spot = tweenAt(layer, frame);
+  return {
+    frame,
+    items: cloneItems(resolveItems(layer, frame)),
+    pose: JSON.parse(JSON.stringify(poseAt(layer, frame))),
+    tween: spot ? { ease: spot.key.tween!.ease } : null,
+    label: ''
+  };
+}
+
+// the copy always starts with a keyframe, even when the range starts inside a span
+export function copyFrames(layers: Layer[], range: FrameRange): FrameClip {
+  const rows: FrameClip['rows'] = [];
+  for (const id of range.layers) {
+    const layer = layers.find((l) => l.id === id);
+    if (!layer || !hasFrames(layer)) continue;
+    const end = Math.min(range.to + 1, layer.length);
+    const keys: Keyframe[] = [];
+    if (range.from < end) {
+      keys.push({ ...snapshot(layer, range.from), frame: 0 });
+      for (const k of layer.keyframes) {
+        if (k.frame > range.from && k.frame < end) keys.push(cloneKey(k, k.frame - range.from));
+      }
+    }
+    rows.push({ layer: id, type: layer.type, keys, length: Math.max(0, end - range.from) });
+  }
+  return { rows, length: range.to - range.from + 1 };
+}
+
+// the same new id for an old one in every keyframe, so the pasted tweens still match
+function renewIds(items: Item[], ids: Map<string, string>) {
+  for (const item of items) {
+    let id = ids.get(item.id);
+    if (!id) {
+      id = newId();
+      ids.set(item.id, id);
+    }
+    item.id = id;
+    if (item.type === 'group') renewIds(item.children, ids);
+  }
+}
+
+// each row overwrites the frames from at on one target layer, the frames after the pasted
+// ones keep showing what they showed. frames going to another layer get new item ids
+export function pasteFrames(layers: Layer[], clip: FrameClip, targets: string[], at: number) {
+  clip.rows.forEach((row, i) => {
+    const layer = layers.find((l) => l.id === targets[i]);
+    if (!layer || !hasFrames(layer) || row.keys.length === 0) return;
+    const end = at + clip.length;
+    if (end < layer.length) insertKeyframe(layer, end);
+    const kept = layer.keyframes.filter((k) => k.frame < at || k.frame >= end);
+    const ids = layer.id === row.layer ? null : new Map<string, string>();
+    const pasted = row.keys.map((k) => {
+      const copy = cloneKey(k, at + k.frame);
+      if (ids) renewIds(copy.items, ids);
+      return copy;
+    });
+    layer.keyframes.splice(0, layer.keyframes.length, ...kept, ...pasted);
+    layer.length = Math.max(layer.length, at + Math.max(1, row.length));
+    tidy(layer);
+  });
 }
