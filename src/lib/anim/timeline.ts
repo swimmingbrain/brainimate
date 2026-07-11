@@ -130,3 +130,48 @@ export function setLabel(layer: Layer, frame: number, label: string) {
   const key = keyframeAt(layer, frame);
   if (key) key.label = label.trim();
 }
+
+// a keyframe on one layer, by layer id
+export interface KeyRef {
+  layer: string;
+  frame: number;
+}
+
+function cloneKey(k: Keyframe, frame: number): Keyframe {
+  return { ...(JSON.parse(JSON.stringify(k)) as Keyframe), frame };
+}
+
+// moves keyframes along by delta, or copies them there, a keyframe already where one lands is
+// replaced. frame 0 gets an empty keyframe when its own one moved away
+function shiftKeyframes(layers: Layer[], refs: KeyRef[], delta: number, copy: boolean) {
+  if (refs.length === 0) return;
+  // nothing goes before frame 0, every layer moves by the same amount
+  const d = Math.max(delta, -Math.min(...refs.map((r) => r.frame)));
+  if (d === 0) return;
+  for (const id of new Set(refs.map((r) => r.layer))) {
+    const layer = layers.find((l) => l.id === id);
+    if (!layer || !hasFrames(layer)) continue;
+    const picked = new Set(refs.filter((r) => r.layer === id).map((r) => r.frame));
+    const moving = layer.keyframes.filter((k) => picked.has(k.frame));
+    if (moving.length === 0) continue;
+    const lastMoves = picked.has(layer.keyframes[layer.keyframes.length - 1].frame);
+    const length = layer.length;
+    const landing = new Set(moving.map((k) => k.frame + d));
+    const moved = copy ? moving.map((k) => cloneKey(k, k.frame + d)) : moving;
+    const kept = layer.keyframes.filter((k) => !landing.has(k.frame) && (copy || !picked.has(k.frame)));
+    if (!copy) for (const k of moved) k.frame += d;
+    layer.keyframes.splice(0, layer.keyframes.length, ...kept, ...moved);
+    tidy(layer);
+    // the end moves with the last keyframe and keeps its hold
+    const last = layer.keyframes[layer.keyframes.length - 1].frame;
+    layer.length = lastMoves && !copy ? Math.max(length + d, last + 1) : Math.max(length, last + 1);
+  }
+}
+
+export function moveKeyframes(layers: Layer[], refs: KeyRef[], delta: number) {
+  shiftKeyframes(layers, refs, delta, false);
+}
+
+export function duplicateKeyframes(layers: Layer[], refs: KeyRef[], delta: number) {
+  shiftKeyframes(layers, refs, delta, true);
+}
