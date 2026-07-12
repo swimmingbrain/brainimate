@@ -279,3 +279,103 @@ export function reverseFrames(layers: Layer[], range: FrameRange) {
     tidy(layer);
   }
 }
+
+// folders: a layer's parent is the id of the folder it sits in. in the layers array (bottom first)
+// a folder's content sits right below the folder, so the timeline lists it right under the folder row
+
+export function parentFolder(layers: Layer[], layer: Layer): Layer | null {
+  if (!layer.parent) return null;
+  const p = layers.find((l) => l.id === layer.parent);
+  return p && p.type === 'folder' ? p : null;
+}
+
+// how many folders a layer sits in
+export function layerDepth(layers: Layer[], layer: Layer): number {
+  let depth = 0;
+  for (let p = parentFolder(layers, layer); p && depth < layers.length; p = parentFolder(layers, p)) depth++;
+  return depth;
+}
+
+export function layerChildren(layers: Layer[], folderId: string): Layer[] {
+  return layers.filter((l) => l.parent === folderId);
+}
+
+// everything inside a folder, folders in folders included
+export function descendantIds(layers: Layer[], folderId: string): string[] {
+  const out: string[] = [];
+  const walk = (id: string) => {
+    for (const child of layerChildren(layers, id)) {
+      if (out.includes(child.id)) continue;
+      out.push(child.id);
+      walk(child.id);
+    }
+  };
+  walk(folderId);
+  return out;
+}
+
+// a hidden or locked folder hides or locks what is in it
+export function isLayerShown(layers: Layer[], layer: Layer): boolean {
+  let depth = 0;
+  for (let l: Layer | null = layer; l && depth <= layers.length; l = parentFolder(layers, l), depth++) {
+    if (!l.visible) return false;
+  }
+  return true;
+}
+
+export function isLayerLocked(layers: Layer[], layer: Layer): boolean {
+  let depth = 0;
+  for (let l: Layer | null = layer; l && depth <= layers.length; l = parentFolder(layers, l), depth++) {
+    if (l.locked) return true;
+  }
+  return false;
+}
+
+export interface LayerRow {
+  layer: Layer;
+  depth: number;
+}
+
+// the rows of the timeline, top layer first, the content of a folder under it unless it is collapsed
+export function layerRows(layers: Layer[], collapsed: Set<string>): LayerRow[] {
+  const out: LayerRow[] = [];
+  const top = [...layers].reverse();
+  const walk = (parent: string | null, depth: number) => {
+    for (const layer of top) {
+      const own = parentFolder(layers, layer)?.id ?? null;
+      if (own !== parent) continue;
+      out.push({ layer, depth });
+      if (layer.type === 'folder' && !collapsed.has(layer.id) && depth < layers.length) walk(layer.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
+}
+
+// the layer with all it holds, as indexes into the layers array, bottom first
+function blockOf(layers: Layer[], id: string): number[] {
+  const ids = new Set([id, ...descendantIds(layers, id)]);
+  return layers.map((l, i) => (ids.has(l.id) ? i : -1)).filter((i) => i >= 0);
+}
+
+// moves a layer, a folder with its content, right above or below another row of the timeline
+// or to the top of a folder
+export function moveLayer(layers: Layer[], id: string, target: string, where: 'above' | 'below' | 'into') {
+  const block = blockOf(layers, id);
+  const moving = block.map((i) => layers[i]);
+  if (block.length === 0 || moving.some((l) => l.id === target)) return;
+  const into = where === 'into' && layers.find((l) => l.id === target)?.type === 'folder';
+  for (let i = block.length - 1; i >= 0; i--) layers.splice(block[i], 1);
+  const t = layers.findIndex((l) => l.id === target);
+  if (t < 0) {
+    layers.push(...moving);
+    return;
+  }
+  // above a row is after it in the array, below it is before the row and everything it holds
+  let index = t + 1;
+  if (into) index = t;
+  else if (where === 'below') index = Math.min(...blockOf(layers, target));
+  layers.splice(index, 0, ...moving);
+  const layer = layers.find((l) => l.id === id)!;
+  layer.parent = into ? target : (layers.find((l) => l.id === target)?.parent ?? null);
+}
