@@ -2,6 +2,7 @@ import type { Doc, Item, Keyframe, Layer } from '$lib/core/types';
 import { cloneItems } from '$lib/core/items';
 import { newId } from '$lib/core/ids';
 import { keyframeAt, keyframeIndexAt, nextKeyframe, poseAt, resolveItems, tweenAt } from '$lib/render/frame';
+import { reverseEase } from './easing';
 
 // every function here changes the layer in place, the editor calls them on a draft inside one commit
 
@@ -255,4 +256,26 @@ export function pasteFrames(layers: Layer[], clip: FrameClip, targets: string[],
     layer.length = Math.max(layer.length, at + Math.max(1, row.length));
     tidy(layer);
   });
+}
+
+// the range plays backwards: each span lands mirrored, a tween from one keyframe to the next
+// now runs from the later one back with its ease turned round. frames outside stay as they were
+export function reverseFrames(layers: Layer[], range: FrameRange) {
+  for (const id of range.layers) {
+    const layer = layers.find((l) => l.id === id);
+    if (!layer || !hasFrames(layer)) continue;
+    const to = Math.min(range.to, layer.length - 1);
+    if (to <= range.from) continue;
+    if (to + 1 < layer.length) insertKeyframe(layer, to + 1);
+    insertKeyframe(layer, range.from);
+    const inside = layer.keyframes.filter((k) => k.frame >= range.from && k.frame <= to);
+    const ends = inside.map((k, i) => inside[i + 1]?.frame ?? to + 1);
+    const tweens = inside.map((k) => k.tween);
+    inside.forEach((k, i) => {
+      k.frame = range.from + to + 1 - ends[i];
+      const before = i > 0 ? tweens[i - 1] : null;
+      k.tween = before ? { ease: reverseEase(before.ease) } : null;
+    });
+    tidy(layer);
+  }
 }
