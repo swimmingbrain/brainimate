@@ -258,24 +258,39 @@ export function pasteFrames(layers: Layer[], clip: FrameClip, targets: string[],
   });
 }
 
-// the range plays backwards: each span lands mirrored, a tween from one keyframe to the next
-// now runs from the later one back with its ease turned round. frames outside stay as they were
+// the range plays backwards, frame f shows what frame from + to - f showed. a held span lands
+// mirrored, a tween runs from its later keyframe back to the earlier one with the ease turned
+// round, so a keyframe can turn into two: one where its hold starts and one where a tween leaves
 export function reverseFrames(layers: Layer[], range: FrameRange) {
+  const from = range.from;
   for (const id of range.layers) {
     const layer = layers.find((l) => l.id === id);
     if (!layer || !hasFrames(layer)) continue;
     const to = Math.min(range.to, layer.length - 1);
-    if (to <= range.from) continue;
+    if (to <= from) continue;
+    // keyframes at the edges keep every frame outside the range as it was
     if (to + 1 < layer.length) insertKeyframe(layer, to + 1);
-    insertKeyframe(layer, range.from);
-    const inside = layer.keyframes.filter((k) => k.frame >= range.from && k.frame <= to);
-    const ends = inside.map((k, i) => inside[i + 1]?.frame ?? to + 1);
-    const tweens = inside.map((k) => k.tween);
+    if (tweenAt(layer, to)) insertKeyframe(layer, to);
+    insertKeyframe(layer, from);
+    if (from > 0) {
+      const prev = keyframeAt(layer, from - 1);
+      if (prev?.tween) insertKeyframe(layer, from - 1).tween = null;
+    }
+    const inside = layer.keyframes.filter((k) => k.frame >= from && k.frame <= to);
+    const last = inside.length - 1;
+    const out: Keyframe[] = [];
     inside.forEach((k, i) => {
-      k.frame = range.from + to + 1 - ends[i];
-      const before = i > 0 ? tweens[i - 1] : null;
-      k.tween = before ? { ease: reverseEase(before.ease) } : null;
+      const end = i < last ? inside[i + 1].frame : to + 1;
+      const own = i < last ? k.tween : null;
+      const before = i > 0 ? inside[i - 1].tween : null;
+      const hold = own ? null : from + to + 1 - end;
+      const point = own || before ? from + to - k.frame : null;
+      const tween = before ? { ease: reverseEase(before.ease) } : null;
+      if (hold !== null) out.push({ ...cloneKey(k, hold), tween: point === hold ? tween : null });
+      if (point !== null && point !== hold) out.push({ ...cloneKey(k, point), tween, label: hold === null ? k.label : '' });
     });
+    const kept = layer.keyframes.filter((k) => k.frame < from || k.frame > to);
+    layer.keyframes.splice(0, layer.keyframes.length, ...kept, ...out);
     tidy(layer);
   }
 }
