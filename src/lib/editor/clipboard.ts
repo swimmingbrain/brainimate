@@ -37,7 +37,7 @@ function placeCopies(items: Item[], offset: number, label: string) {
   const layer = editor.activeLayer();
   if (!layer) return;
   if (!editor.isEditable(layer)) {
-    addToast(`${layer.name} is locked or hidden`, 'warning');
+    addToast(editor.lockReason(layer), 'warning');
     return;
   }
   const copies = items.map((item) => {

@@ -43,7 +43,7 @@ export function shapeTool(
     down(e) {
       const layer = editor.activeLayer();
       if (!layer || !editor.isEditable(layer)) {
-        addToast(layer ? `${layer.name} is locked or hidden` : 'There is no layer to draw on', 'warning');
+        addToast(editor.lockReason(layer), 'warning');
         return;
       }
       const at = snapEvent(e, { show: true });

@@ -11,7 +11,7 @@ export const PREVIEW_COLOR = '#d19a66';
 export function drawingLayer(): Layer | null {
   const layer = editor.activeLayer();
   if (!layer || !editor.isEditable(layer)) {
-    addToast(layer ? `${layer.name} is locked or hidden` : 'There is no layer to draw on', 'warning');
+    addToast(editor.lockReason(layer), 'warning');
     return null;
   }
   return layer;
