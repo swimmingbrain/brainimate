@@ -1,6 +1,7 @@
 import { get, writable } from 'svelte/store';
 import type { ToolId } from '$lib/tools/tool';
 import type { Paint } from '$lib/core/types';
+import type { FrameClip, FrameRange } from '$lib/anim/timeline';
 import { preferences, setGroup, type DockTab, type Workspace } from './preferences';
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error';
@@ -61,6 +62,15 @@ export const toolOptions = writable<{ rectRadius: number; bucketMode: 'fill' | '
 // 0 based, the ui shows it 1 based
 export const frame = writable(0);
 export const playing = writable(false);
+
+// frames picked in the timeline, the frame commands work on them
+export const frameSelection = writable<FrameRange | null>(null);
+// what copy frames took, for paste frames
+export const frameClipboard = writable<FrameClip | null>(null);
+// folder ids the timeline shows closed
+export const collapsedFolders = writable<Set<string>>(new Set());
+// how far the frame grid is scrolled and how much of it shows, in css pixels
+export const timelineView = writable({ scrollX: 0, scrollY: 0, width: 0, height: 0 });
 
 // item ids
 export const selection = writable<Set<string>>(new Set());
