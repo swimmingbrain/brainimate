@@ -7,6 +7,7 @@ import { defaultStyle } from '$lib/core/style';
 import { translate } from '$lib/core/mat';
 import { frame, selection } from '$lib/stores/app';
 import { setGroup } from '$lib/stores/preferences';
+import { insertKeyframe } from '$lib/anim/timeline';
 
 function rect(x = 0) {
   return makePathItem('Rectangle', rectPath(-10, -10, 20, 20), defaultStyle(), translate(x, 0));
@@ -87,5 +88,60 @@ describe('editor', () => {
     editor.insertItems(layer.id, [rect(0), rect(100)], 'Add');
     const b = editor.selectionBounds();
     expect(b).toEqual({ minX: -10, minY: -10, maxX: 110, maxY: 10 });
+  });
+});
+
+describe('editing a tween', () => {
+  // a rect going from x 0 on frame 0 to x 100 on frame 10
+  function tween(): string {
+    const layer = editor.activeLayer()!;
+    const item = rect(0);
+    editor.insertItem(layer.id, item);
+    editor.commit('Keyframe', (d) => {
+      insertKeyframe(d.layers[0], 10);
+    });
+    frame.set(10);
+    editor.updateItem(item.id, (it) => (it.transform = translate(100, 0)), 'Move');
+    editor.commit('Tween', (d) => {
+      d.layers[0].keyframes[0].tween = { ease: 'linear' };
+    });
+    frame.set(5);
+    return item.id;
+  }
+
+  beforeEach(() => {
+    editor.newDoc(800, 600, 24);
+    setGroup('timeline', { autoKey: true });
+  });
+
+  it('shows the in between state', () => {
+    const id = tween();
+    expect(editor.itemById(id)!.transform[4]).toBeCloseTo(50);
+  });
+
+  it('keys the in between state first with auto key on', () => {
+    const id = tween();
+    editor.updateItem(id, (it) => (it.opacity = 0.5), 'Opacity');
+    const keys = editor.doc.layers[0].keyframes;
+    expect(keys.map((k) => k.frame)).toEqual([0, 5, 10]);
+    expect(keys[1].items[0].transform[4]).toBeCloseTo(50);
+    expect(keys[1].items[0].opacity).toBe(0.5);
+    expect(keys[1].tween?.ease).toBe('linear');
+    frame.set(0);
+  });
+
+  it('moves the keyframe the tween starts from with auto key off', () => {
+    const id = tween();
+    setGroup('timeline', { autoKey: false });
+    const shown = editor.itemById(id)!;
+    editor.preview.set(id, { ...shown, transform: translate(60, 20) });
+    editor.commitPreview('Move');
+    const keys = editor.doc.layers[0].keyframes;
+    expect(keys.map((k) => k.frame)).toEqual([0, 10]);
+    expect(keys[0].items[0].transform[4]).toBeCloseTo(10);
+    expect(keys[0].items[0].transform[5]).toBeCloseTo(20);
+    expect(keys[1].items[0].transform[4]).toBeCloseTo(100);
+    setGroup('timeline', { autoKey: true });
+    frame.set(0);
   });
 });
