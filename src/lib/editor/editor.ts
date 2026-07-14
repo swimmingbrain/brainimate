@@ -6,8 +6,9 @@ import { newId } from '$lib/core/ids';
 import { identity, multiply } from '$lib/core/mat';
 import { cloneItem, contourOf, findItem, itemBounds, parentMatrix, type Found } from '$lib/core/items';
 import { emptyBox, union, type Box } from '$lib/core/bbox';
-import { itemsAt } from '$lib/render/frame';
-import { keyframeForEdit } from '$lib/anim/timeline';
+import { itemsAt, tweenAt } from '$lib/render/frame';
+import { isLayerLocked, isLayerShown, keyframeForEdit } from '$lib/anim/timeline';
+import { rebaseEdit } from '$lib/anim/tween';
 import { activeLayer, anchorSelection, dirty, docName, frame, selection, stageSize } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 
@@ -208,9 +209,19 @@ class Editor {
     return itemsAt(layer, this.frame);
   }
 
-  // a layer the tools may pick from and change
+  // a layer the tools may pick from and change, a hidden or locked folder around it counts too
   isEditable(layer: Layer): boolean {
-    return layer.visible && !layer.locked && layer.type !== 'folder';
+    if (layer.type === 'folder' || layer.type === 'rig') return false;
+    const layers = this.currentLayers();
+    return isLayerShown(layers, layer) && !isLayerLocked(layers, layer);
+  }
+
+  // why the tools cannot draw on a layer, for the note they show
+  lockReason(layer: Layer | null): string {
+    if (!layer) return 'There is no layer to draw on';
+    if (layer.type === 'folder') return 'Pick a layer, a folder holds no drawings';
+    if (layer.type === 'rig') return 'Pick a layer, a rig layer holds bones';
+    return `${layer.name} is locked or hidden`;
   }
 
   locate(id: string): Located | null {
@@ -278,11 +289,33 @@ class Editor {
     return get(preferences).timeline.autoKey;
   }
 
+  // the layers of a draft that match currentLayers
+  draftLayers(draft: Doc): Layer[] {
+    return draft.layers;
+  }
+
   // the items list of a draft layer at the current frame, a keyframe is added first when needed
   draftItems(draft: Doc, layerId: string): Item[] | null {
-    const layer = draft.layers.find((l) => l.id === layerId);
+    const layer = this.draftLayers(draft).find((l) => l.id === layerId);
     if (!layer) return null;
     return keyframeForEdit(layer, this.frame, this.autoKey()).items;
+  }
+
+  // the shown item when it is an in between state of a tween that an edit has to be carried
+  // back from: auto key is off, so the edit lands on the keyframe the tween starts from
+  private tweenedItem(id: string): Item | null {
+    if (this.autoKey()) return null;
+    const loc = this.locate(id);
+    if (!loc || !tweenAt(loc.layer, this.frame)) return null;
+    return loc.found.item;
+  }
+
+  // writes an edited copy of the shown item into the draft
+  private writeEdit(draft: Doc, edited: Item) {
+    const shown = this.tweenedItem(edited.id);
+    const found = this.draftFind(draft, edited.id);
+    if (!found) return;
+    found.list[found.index] = shown ? rebaseEdit(found.item, shown, edited) : cloneItem(edited);
   }
 
   // finds an item inside a draft by id, on the layer it lives on now
@@ -325,6 +358,13 @@ class Editor {
       label,
       (draft) => {
         for (const id of ids) {
+          const shown = this.tweenedItem(id);
+          if (shown) {
+            const edited = cloneItem(shown);
+            fn(edited);
+            this.writeEdit(draft, edited);
+            continue;
+          }
           const found = this.draftFind(draft, id);
           if (found) fn(found.item);
         }
@@ -343,10 +383,7 @@ class Editor {
     const added = this.previewAdded;
     if (changed.length === 0 && added.length === 0) return;
     this.commit(label, (draft) => {
-      for (const item of changed) {
-        const found = this.draftFind(draft, item.id);
-        if (found) found.list[found.index] = cloneItem(item);
-      }
+      for (const item of changed) this.writeEdit(draft, item);
       for (const { layerId, item } of added) this.draftItems(draft, layerId)?.push(cloneItem(item));
     });
     this.clearPreview();
