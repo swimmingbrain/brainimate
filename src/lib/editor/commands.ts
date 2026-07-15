@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import type { Doc, GroupItem, Item, Paint, PathData, PathItem, TextItem } from '$lib/core/types';
+import type { Doc, GroupItem, Item, Layer, Paint, PathData, PathItem, TextItem } from '$lib/core/types';
 import { clonePaint, cloneStyle, solid } from '$lib/core/style';
 import {
   convertPaint,
@@ -18,8 +18,40 @@ import { combine, divide, type BooleanOp, type Shape } from '$lib/core/boolean';
 import { joinTwo, simplifyPath, strokePieces } from '$lib/core/pathops';
 import { smoothPath } from '$lib/core/smooth';
 import { newId } from '$lib/core/ids';
-import { insertKeyframe } from '$lib/anim/timeline';
-import { addToast, colorTarget, fillPaint, outlineMode, selection, showDockTab, strokePaint } from '$lib/stores/app';
+import {
+  clearKeyframe,
+  copyFrames,
+  docLength,
+  duplicateKeyframes,
+  hasFrames,
+  insertBlankKeyframe,
+  insertFrame,
+  insertKeyframe,
+  isKeyframe,
+  keyframeAt,
+  layerRows,
+  moveKeyframes,
+  pasteFrames,
+  removeFrame,
+  reverseFrames,
+  setLabel,
+  type FrameRange,
+  type KeyRef
+} from '$lib/anim/timeline';
+import {
+  addToast,
+  collapsedFolders,
+  colorTarget,
+  fillPaint,
+  frame,
+  frameClipboard,
+  frameSelection,
+  outlineMode,
+  selection,
+  showDockTab,
+  strokePaint,
+  timelineView
+} from '$lib/stores/app';
 import { preferences, setGroup } from '$lib/stores/preferences';
 import { editor } from './editor';
 import { clearSelection, select, transformSelection } from './selection';
@@ -225,17 +257,6 @@ export function closeSelectedPaths() {
     },
     'Close path'
   );
-}
-
-// a keyframe on the active layer at the current frame, the real frame tools come with the timeline work
-export function insertKeyframeHere() {
-  const layer = editor.activeLayer();
-  if (!layer) return;
-  const at = editor.frame;
-  editor.commit('Insert keyframe', (draft) => {
-    const target = draft.layers.find((l) => l.id === layer.id);
-    if (target) insertKeyframe(target, at);
-  });
 }
 
 // nothing selected shows the document in the properties panel
@@ -593,4 +614,182 @@ export async function booleanSelection(op: BooleanOp | 'divide') {
   });
   selection.set(new Set(added.map((it) => it.id)));
   if (added.length === 0) addToast('Nothing is left of the shapes');
+}
+
+// frames
+
+// what a frame command works on: the picked frames, or the playhead on the active layer
+export function targetFrames(): FrameRange | null {
+  const sel = get(frameSelection);
+  if (sel && sel.layers.length > 0) return sel;
+  const layer = editor.activeLayer();
+  if (!layer) return null;
+  return { layers: [layer.id], from: editor.frame, to: editor.frame };
+}
+
+// the layers of a range that hold frames, in the order of the range
+function rangeLayers(layers: Layer[], range: FrameRange): Layer[] {
+  const out: Layer[] = [];
+  for (const id of range.layers) {
+    const layer = layers.find((l) => l.id === id);
+    if (layer && hasFrames(layer)) out.push(layer);
+  }
+  return out;
+}
+
+// one change on every layer of the range, all in one undo step
+function onFrames(label: string, range: FrameRange | null, fn: (layer: Layer, range: FrameRange) => void) {
+  if (!range) return;
+  editor.commit(label, (draft) => {
+    for (const layer of rangeLayers(editor.draftLayers(draft), range)) fn(layer, range);
+  });
+}
+
+function setRange(range: FrameRange) {
+  frameSelection.set(range);
+  frame.set(range.from);
+}
+
+// F6 or F7 on a frame that already is a keyframe on every layer goes on to the next frame, like animate
+function keyRange(): FrameRange | null {
+  const range = targetFrames();
+  if (!range || range.from !== range.to) return range;
+  const layers = rangeLayers(editor.currentLayers(), range);
+  if (layers.length === 0 || !layers.every((l) => isKeyframe(l, range.from))) return range;
+  return { ...range, from: range.from + 1, to: range.from + 1 };
+}
+
+export function insertFrames() {
+  onFrames('Insert frame', targetFrames(), (layer, r) => insertFrame(layer, r.from, r.to - r.from + 1));
+}
+
+export function removeFrames() {
+  onFrames('Remove frame', targetFrames(), (layer, r) => removeFrame(layer, r.from, r.to - r.from + 1));
+}
+
+export function insertKeyframes() {
+  const range = keyRange();
+  onFrames('Insert keyframe', range, (layer, r) => {
+    for (let f = r.from; f <= r.to; f++) insertKeyframe(layer, f);
+  });
+  if (range && range.from !== editor.frame) setRange(range);
+}
+
+export function insertBlankKeyframes() {
+  const range = keyRange();
+  onFrames('Insert blank keyframe', range, (layer, r) => {
+    for (let f = r.from; f <= r.to; f++) insertBlankKeyframe(layer, f);
+  });
+  if (range && range.from !== editor.frame) setRange(range);
+}
+
+export function clearKeyframes() {
+  onFrames('Clear keyframe', targetFrames(), (layer, r) => {
+    for (let f = r.from; f <= r.to; f++) clearKeyframe(layer, f);
+  });
+}
+
+// the keyframes inside a range, or the one holding its first frame when there is none inside
+export function rangeKeys(layers: Layer[], range: FrameRange): KeyRef[] {
+  const refs: KeyRef[] = [];
+  for (const layer of rangeLayers(layers, range)) {
+    const inside = layer.keyframes.filter((k) => k.frame >= range.from && k.frame <= range.to && k.frame < layer.length);
+    const keys = inside.length > 0 ? inside : [keyframeAt(layer, range.from)].filter((k) => k !== null);
+    for (const k of keys) refs.push({ layer: layer.id, frame: k.frame });
+  }
+  return refs;
+}
+
+// every keyframe the range touches gets the tween, the one holding its first frame too
+function tweenRange(label: string, ease: (current: string | null) => string | null) {
+  onFrames(label, targetFrames(), (layer, r) => {
+    const first = keyframeAt(layer, r.from);
+    for (const k of layer.keyframes) {
+      if (k.frame > r.to || (k.frame < r.from && k !== first)) continue;
+      const next = ease(k.tween?.ease ?? null);
+      k.tween = next === null ? null : { ease: next };
+    }
+  });
+}
+
+export function createTween() {
+  tweenRange('Create tween', (current) => current ?? 'linear');
+}
+
+export function removeTween() {
+  tweenRange('Remove tween', () => null);
+}
+
+export function setFramesEase(ease: string) {
+  tweenRange('Ease', () => ease);
+}
+
+export function setFramesLabel(label: string) {
+  onFrames('Label', targetFrames(), (layer, r) => setLabel(layer, r.from, label));
+}
+
+export function copySelectedFrames() {
+  const range = targetFrames();
+  if (!range) return;
+  const clip = copyFrames(editor.currentLayers(), range);
+  if (clip.rows.length === 0) return;
+  frameClipboard.set(clip);
+  addToast(clip.length === 1 ? 'Copied 1 frame' : 'Copied ' + clip.length + ' frames');
+}
+
+// the timeline rows from the first picked layer down, as many as the copy has rows
+function pasteTargets(first: string, count: number): string[] {
+  const rows = layerRows(editor.currentLayers(), new Set()).filter((r) => hasFrames(r.layer));
+  const start = Math.max(0, rows.findIndex((r) => r.layer.id === first));
+  return rows.slice(start, start + count).map((r) => r.layer.id);
+}
+
+export function pasteSelectedFrames() {
+  const clip = get(frameClipboard);
+  const range = targetFrames();
+  if (!clip) addToast('Copy some frames first');
+  if (!clip || !range) return;
+  const targets = pasteTargets(range.layers[0], clip.rows.length);
+  const at = range.from;
+  editor.commit('Paste frames', (draft) => pasteFrames(editor.draftLayers(draft), clip, targets, at));
+  setRange({ layers: targets, from: at, to: at + clip.length - 1 });
+}
+
+export function reverseSelectedFrames() {
+  const range = targetFrames();
+  if (!range || range.to <= range.from) {
+    addToast('Pick a few frames to reverse');
+    return;
+  }
+  editor.commit('Reverse frames', (draft) => reverseFrames(editor.draftLayers(draft), range));
+}
+
+export function selectAllFrames() {
+  const rows = layerRows(editor.currentLayers(), get(collapsedFolders)).filter((r) => hasFrames(r.layer));
+  if (rows.length === 0) return;
+  frameSelection.set({ layers: rows.map((r) => r.layer.id), from: 0, to: docLength(editor.doc) - 1 });
+}
+
+// drags the picked keyframes along, alt leaves copies behind, the selection and the playhead follow
+export function moveSelectedKeyframes(delta: number, copy: boolean) {
+  const range = targetFrames();
+  if (!range || delta === 0) return;
+  const refs = rangeKeys(editor.currentLayers(), range);
+  if (refs.length === 0) return;
+  const d = Math.max(delta, -Math.min(...refs.map((r) => r.frame)));
+  if (d === 0) return;
+  editor.commit(copy ? 'Duplicate keyframes' : 'Move keyframes', (draft) => {
+    if (copy) duplicateKeyframes(editor.draftLayers(draft), refs, d);
+    else moveKeyframes(editor.draftLayers(draft), refs, d);
+  });
+  setRange({ ...range, from: range.from + d, to: range.to + d });
+}
+
+// the frame width that shows the whole document in the timeline
+export function fitTimeline() {
+  const width = get(timelineView).width;
+  if (width <= 0) return;
+  const fw = Math.max(4, Math.min(24, Math.floor(width / (docLength(editor.doc) + 2))));
+  setGroup('timeline', { frameWidth: fw });
+  timelineView.update((v) => ({ ...v, scrollX: 0 }));
 }

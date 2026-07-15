@@ -10,7 +10,7 @@ import {
   breakApart,
   clearColor,
   groupSelection,
-  insertKeyframeHere,
+  insertKeyframes,
   joinSelectedPaths,
   ungroupSelection,
   redo,
@@ -114,7 +114,7 @@ function bindings(): KeybindingsMap {
     // the browser would reload, the rulers win
     '$mod+r': run(toggleRulers),
     '$mod+u': run(toggleSmartGuides),
-    F6: run(insertKeyframeHere),
+    F6: run(insertKeyframes),
 
     x: run(toggleColorTarget),
     'Shift+x': run(swapColors),
