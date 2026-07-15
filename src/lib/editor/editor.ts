@@ -9,7 +9,7 @@ import { emptyBox, union, type Box } from '$lib/core/bbox';
 import { itemsAt, tweenAt } from '$lib/render/frame';
 import { isLayerLocked, isLayerShown, keyframeForEdit } from '$lib/anim/timeline';
 import { rebaseEdit } from '$lib/anim/tween';
-import { activeLayer, anchorSelection, dirty, docName, frame, selection, stageSize } from '$lib/stores/app';
+import { activeLayer, anchorSelection, dirty, docName, frame, frameSelection, selection, stageSize } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 
 // outline and highlight colors, a new layer takes the next one
@@ -99,6 +99,7 @@ class Editor {
     this.history.clear();
     this.clearPreview();
     selection.set(new Set());
+    frameSelection.set(null);
     hover.set(null);
     activeLayer.set(this.doc.layers[0].id);
     frame.set(0);
