@@ -1,17 +1,23 @@
 import { get } from 'svelte/store';
 import { createKeybindingsHandler, type KeybindingsMap } from 'tinykeys';
-import { anchorSelection, contextMenu, dialog, frame, toolCursor, toolOptions } from '$lib/stores/app';
+import { anchorSelection, contextMenu, dialog, frameSelection, toolCursor, toolOptions } from '$lib/stores/app';
 import { BUCKET_CURSOR, INK_CURSOR } from '$lib/tools/cursors';
 import { TOOL_IDS, TOOL_INFO } from '$lib/tools/tool';
 import { keyDown, selectTool } from '$lib/tools';
-import { editor } from './editor';
+import { firstFrame, lastFrame, stepFrame, togglePlay } from '$lib/anim/playback';
 import {
   arrangeSelection,
   breakApart,
   clearColor,
+  clearKeyframes,
+  copySelectedFrames,
   groupSelection,
+  insertBlankKeyframes,
+  insertFrames,
   insertKeyframes,
   joinSelectedPaths,
+  pasteSelectedFrames,
+  removeFrames,
   ungroupSelection,
   redo,
   resetColors,
@@ -19,6 +25,7 @@ import {
   toggleColorTarget,
   toggleGrid,
   toggleGuides,
+  toggleOnion,
   toggleRulers,
   toggleSmartGuides,
   undo
@@ -52,15 +59,8 @@ function escape() {
     return;
   }
   anchorSelection.set([]);
+  frameSelection.set(null);
   clearSelection();
-}
-
-function lastFrame(): number {
-  return Math.max(0, ...editor.doc.layers.map((l) => l.length - 1));
-}
-
-function step(by: number) {
-  frame.update((f) => Math.max(0, f + by));
 }
 
 function bucketMode(mode: 'fill' | 'stroke') {
@@ -114,17 +114,26 @@ function bindings(): KeybindingsMap {
     // the browser would reload, the rulers win
     '$mod+r': run(toggleRulers),
     '$mod+u': run(toggleSmartGuides),
+    // the browser would reload on F5 and may still take F6, the timeline has buttons for both
+    F5: run(insertFrames),
+    'Shift+F5': run(removeFrames),
     F6: run(insertKeyframes),
+    'Shift+F6': run(clearKeyframes),
+    F7: run(insertBlankKeyframes),
+    Enter: run(togglePlay),
+    'Alt+Shift+KeyO': run(toggleOnion),
+    '$mod+Alt+KeyC': run(copySelectedFrames),
+    '$mod+Alt+KeyV': run(pasteSelectedFrames),
 
     x: run(toggleColorTarget),
     'Shift+x': run(swapColors),
     d: run(resetColors),
     '/': run(clearColor),
 
-    ',': run(() => step(-1)),
-    '.': run(() => step(1)),
-    'Shift+<': run(() => frame.set(0)),
-    'Shift+>': run(() => frame.set(lastFrame())),
+    ',': run(() => stepFrame(-1)),
+    '.': run(() => stepFrame(1)),
+    'Shift+Comma': run(firstFrame),
+    'Shift+Period': run(lastFrame),
 
     '[Shift]+?': run(() => dialog.set({ kind: 'shortcuts' })),
     '$mod+,': run(() => dialog.set({ kind: 'preferences' })),
