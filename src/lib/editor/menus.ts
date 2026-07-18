@@ -12,6 +12,8 @@ import {
   simplifySelectedPaths,
   smoothSelectedPaths,
   ungroupSelection,
+  insertBlankKeyframes,
+  insertFrames,
   insertKeyframes,
   notYet,
   redo,
@@ -35,7 +37,7 @@ import { clearGuides, toggleGuideLock } from './guides';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, selectAll } from './selection';
-import { addLayer } from './layers';
+import { addFolder, addLayer, addRigLayer } from './layers';
 import { alignSelection, alignToStage, distributeSelection } from './align';
 import type { HistoryState } from './history';
 
@@ -158,7 +160,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         },
         SEP,
         { label: 'Outline mode', checked: outline, action: toggleOutline },
-        { label: 'Onion skin', shortcut: 'Alt+O', checked: p.timeline.onion, action: toggleOnion },
+        { label: 'Onion skin', shortcut: 'Alt+Shift+O', checked: p.timeline.onion, action: toggleOnion },
         { label: 'Pasteboard', checked: p.stage.pasteboard, action: togglePasteboard }
       ]
     },
@@ -166,12 +168,12 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
       label: 'Insert',
       items: [
         { label: 'Layer', action: addLayer },
-        soon('Layer folder'),
-        soon('Rig layer'),
+        { label: 'Layer folder', action: addFolder },
+        { label: 'Rig layer', action: addRigLayer },
         SEP,
-        soon('Frame', 'F5'),
+        { label: 'Frame', shortcut: 'F5', action: insertFrames },
         { label: 'Keyframe', shortcut: 'F6', action: insertKeyframes },
-        soon('Blank keyframe', 'F7'),
+        { label: 'Blank keyframe', shortcut: 'F7', action: insertBlankKeyframes },
         SEP,
         soon('Symbol...', 'Ctrl+F8'),
         soon('Text')
