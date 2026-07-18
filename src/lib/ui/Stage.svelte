@@ -5,16 +5,21 @@
     activeTool,
     addToast,
     anchorSelection,
+    frameSelection,
     outlineMode,
+    playing,
     stageSize,
     toolCursor,
     view,
     type View
   } from '$lib/stores/app';
-  import { preferences, setGroup } from '$lib/stores/preferences';
+  import { preferences, setGroup, type Preferences } from '$lib/stores/preferences';
   import { fitView, isAutoFit, setAutoFit, setRedraw, setViewport, zoomAround } from '$lib/editor/view';
   import { editor, hover } from '$lib/editor/editor';
   import { renderStage, setImageLoaded } from '$lib/render/renderer';
+  import { onionFrames } from '$lib/render/onion';
+  import { docLength } from '$lib/anim/timeline';
+  import { pause } from '$lib/anim/playback';
   import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
   import { doubleClick, drawToolOverlay, pointerDown, pointerMove, pointerUp } from '$lib/tools';
   import { coalescedEvents, makeEvent, type ToolEvent } from '$lib/tools/tool';
@@ -99,6 +104,25 @@
     markDirty();
   }
 
+  // the ghosts around the playhead, none while playing so playback stays light
+  function onionFor(prefs: Preferences) {
+    const t = prefs.timeline;
+    if (!t.onion || get(playing) || (t.onionBefore === 0 && t.onionAfter === 0)) return null;
+    const layers = editor.currentLayers();
+    const at = editor.frame;
+    const ghosts = onionFrames(layers, at, t.onionBefore, t.onionAfter, t.onionKeyframes, docLength(editor.doc));
+    if (ghosts.before.length === 0 && ghosts.after.length === 0) return null;
+    return {
+      options: {
+        ...ghosts,
+        beforeColor: t.onionBeforeColor,
+        afterColor: t.onionAfterColor,
+        outline: t.onionOutline
+      },
+      key: `${at}|${ghosts.before.join(',')}|${ghosts.after.join(',')}|${t.onionBeforeColor}|${t.onionAfterColor}|${t.onionOutline}`
+    };
+  }
+
   function drawContent(ctx: CanvasRenderingContext2D) {
     const v = get(view);
     const prefs = get(preferences);
@@ -115,7 +139,8 @@
         assets: editor.doc.assets,
         pasteboard: prefs.stage.pasteboard,
         grid: prefs.grid.show ? { size: prefs.grid.size, color: prefs.grid.color } : null,
-        colors
+        colors,
+        onion: onionFor(prefs)
       }
     );
   }
@@ -256,6 +281,9 @@
 
   function onpointerdown(e: PointerEvent) {
     overlay?.setPointerCapture(e.pointerId);
+    // working on the stage stops playback and lets go of the frames picked in the timeline
+    pause();
+    if (e.button === 0) frameSelection.set(null);
     const hand = e.button === 1 || (e.button === 0 && (spaceHeld || get(activeTool) === 'hand'));
     if (hand) {
       e.preventDefault();
@@ -391,6 +419,7 @@
       preferences.subscribe(markDirty),
       stageSize.subscribe(markDirty),
       outlineMode.subscribe(markDirty),
+      playing.subscribe(markDirty),
       activeTool.subscribe(() => editor.markOverlay()),
       anchorSelection.subscribe(() => editor.markOverlay())
     ];
