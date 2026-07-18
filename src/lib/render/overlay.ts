@@ -9,7 +9,7 @@ import { frameHandles, framePoint, selectionFrame } from '$lib/editor/selection'
 import { snapState } from '$lib/editor/snap';
 import { guideState } from '$lib/editor/guides';
 import { preferences } from '$lib/stores/preferences';
-import { activeTool, anchorSelection, selection, type View } from '$lib/stores/app';
+import { activeTool, anchorSelection, playing, selection, type View } from '$lib/stores/app';
 
 export const HANDLE_SIZE = 7;
 export const ANCHOR_SIZE = 7;
@@ -219,11 +219,13 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
   const tool = get(activeTool);
   const sel = get(selection);
   const direct = tool === 'direct';
+  // playback redraws every frame, so it leaves out the hover and the anchors
+  const busy = get(playing);
   // the path tools show anchors too, so you can see where to add, remove or go on
-  const anchors = direct || tool === 'pen' || tool === 'curvature';
+  const anchors = !busy && (direct || tool === 'pen' || tool === 'curvature');
   drawGuides(ctx, v, ctx.canvas.width / dpr, ctx.canvas.height / dpr);
 
-  const h = get(hover);
+  const h = busy ? null : get(hover);
   if (h && !sel.has(h)) {
     const item = editor.itemById(h);
     if (item) {
