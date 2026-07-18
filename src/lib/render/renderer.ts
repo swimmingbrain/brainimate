@@ -3,8 +3,10 @@ import { multiply, scaleFactor } from '$lib/core/mat';
 import { canvasPaint, compositeOp, needsBox, type Ctx2D } from '$lib/core/style';
 import { compoundBounds } from '$lib/core/path';
 import { localBounds } from '$lib/core/items';
+import { isLayerShown } from '$lib/anim/timeline';
 import { shapePath2D } from './pathcache';
 import { itemsAt } from './frame';
+import { drawOnion, type OnionOptions } from './onion';
 
 // css pixels of the canvas, dpr turns them into device pixels
 export interface RenderView {
@@ -32,6 +34,8 @@ export interface StageOptions extends RenderOptions {
   pasteboard: boolean;
   grid: { size: number; color: string } | null;
   colors: { pasteboard: string; shadow: string };
+  // ghosts of the frames around this one under the artwork, key says when they need drawing again
+  onion?: { options: OnionOptions; key: string } | null;
 }
 
 // per draw call state, set once so the item functions do not need a long argument list
@@ -165,7 +169,7 @@ export function renderLayers(ctx: Ctx2D, layers: Layer[], base: Mat, opts: Rende
   const s: DrawState = { opts, viewScale: scaleFactor(base) };
   ctx.save();
   for (const layer of layers) {
-    if (!layer.visible || layer.type === 'folder' || layer.type === 'rig') continue;
+    if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
     const outline = opts.outline || layer.outline ? layer.color : null;
     for (const item of itemsAt(layer, opts.frame)) {
       drawItem(ctx, opts.preview?.get(item.id) ?? item, base, 1, 'normal', outline, s);
@@ -239,6 +243,12 @@ export function renderStage(ctx: Ctx2D, doc: Doc, layers: Layer[], v: RenderView
     ctx.clip();
   }
   const base: Mat = [dpr * v.zoom, 0, 0, dpr * v.zoom, dpr * v.panX, dpr * v.panY];
+  if (opts.onion) {
+    const key = `${opts.onion.key}|${v.zoom}|${v.panX}|${v.panY}|${dpr}|${opts.outline}`;
+    drawOnion(ctx, layers, key, opts.onion.options, (target, frame, outline) => {
+      renderLayers(target, layers, base, { frame, outline: outline || opts.outline, assets: opts.assets });
+    });
+  }
   renderLayers(ctx, layers, base, opts);
   ctx.restore();
 
