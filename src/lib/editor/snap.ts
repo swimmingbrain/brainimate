@@ -4,6 +4,7 @@ import { applyPoint, identity, multiply } from '$lib/core/mat';
 import { boxCenter, isEmpty, type Box } from '$lib/core/bbox';
 import { contours, itemBounds } from '$lib/core/items';
 import { preferences, type Preferences } from '$lib/stores/preferences';
+import { playing } from '$lib/stores/app';
 import { docVersion, editor } from './editor';
 
 // screen pixels, doubled for fingers and pens like the hit tolerances
@@ -170,6 +171,8 @@ function candidates(exclude: Set<string>, guides: boolean): SnapCandidates {
     [...exclude].sort().join(','),
     JSON.stringify([prefs.snapping, prefs.grid.snap, prefs.grid.size, prefs.guides.snap, prefs.guides.show])
   ].join('|');
+  // while playing the frame moves on every tick, the last targets do until it stops
+  if (cache && get(playing)) return cache.candidates;
   if (cache?.key !== key) cache = { key, candidates: collectCandidates(prefs, exclude, guides) };
   return cache.candidates;
 }
