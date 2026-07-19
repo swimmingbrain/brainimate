@@ -1,14 +1,23 @@
 <script lang="ts">
   import { TOOL_INFO } from '$lib/tools';
   import { zoomFit } from '$lib/editor/view';
-  import { activeTool, frame, selection, stageSize, view } from '$lib/stores/app';
+  import { activeTool, frame, playing, selection, stageSize, view } from '$lib/stores/app';
+  import { docVersion, editor } from '$lib/editor/editor';
+  import { formatTime } from '$lib/anim/playback';
+
+  const fps = $derived.by(() => {
+    void $docVersion;
+    return editor.doc.fps;
+  });
 </script>
 
 <div class="status-bar">
   <div class="left">
     <span class="status-item tool">{TOOL_INFO[$activeTool].name}</span>
     <span class="sep"></span>
-    <span class="status-item">frame {$frame + 1}</span>
+    <span class="status-item" class:live={$playing}>frame {$frame + 1}</span>
+    <span class="sep"></span>
+    <span class="status-item" class:live={$playing} title="Minutes, seconds and frames">{formatTime($frame, fps)}</span>
     <span class="sep"></span>
     <span class="status-item">{$selection.size === 0 ? 'nothing selected' : `${$selection.size} selected`}</span>
   </div>
@@ -60,6 +69,10 @@
 
   .tool {
     color: var(--text-secondary);
+  }
+
+  .live {
+    color: var(--accent);
   }
 
   .sep {
