@@ -793,3 +793,11 @@ export function fitTimeline() {
   setGroup('timeline', { frameWidth: fw });
   timelineView.update((v) => ({ ...v, scrollX: 0 }));
 }
+
+// a double click in the frame grid keys that one frame
+export function insertKeyframeAt(layerId: string, at: number) {
+  editor.commit('Insert keyframe', (draft) => {
+    const layer = editor.draftLayers(draft).find((l) => l.id === layerId);
+    if (layer && hasFrames(layer)) insertKeyframe(layer, at);
+  });
+}
