@@ -44,6 +44,8 @@ export interface MenuItem {
   danger?: boolean;
   separator?: boolean;
   checked?: boolean;
+  // a small swatch in front of the label
+  color?: string;
   action?: () => void;
   children?: MenuItem[];
 }

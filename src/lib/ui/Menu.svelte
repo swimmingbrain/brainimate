@@ -225,6 +225,7 @@
           <span class="check">
             {#if item.checked}<Icon name="check" size={12} />{/if}
           </span>
+          {#if item.color}<span class="swatch" style="background: {item.color}"></span>{/if}
           <span class="label">{item.label}</span>
           {#if item.children?.length}
             <span class="arrow"><Icon name="chevron-right" size={12} /></span>
@@ -319,6 +320,12 @@
   .menu-item.active:not(:disabled) {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .swatch {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
   }
 
   .menu-item:disabled {
