@@ -1,71 +1,155 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import Icon from '$lib/icons/Icon.svelte';
   import Ruler from './Ruler.svelte';
+  import LayerList from './LayerList.svelte';
+  import FrameGrid from './FrameGrid.svelte';
   import TimelineBar from './TimelineBar.svelte';
-  import LayerRow from './LayerRow.svelte';
-  import { notYet } from '$lib/editor/commands';
   import { docVersion, editor } from '$lib/editor/editor';
-  import { addLayer, deleteLayer, renameLayer, setActiveLayer, setLayerFlag } from '$lib/editor/layers';
-  import { activeLayer, frame } from '$lib/stores/app';
-  import { preferences } from '$lib/stores/preferences';
+  import { addFolder, addLayer, addRigLayer, deleteActiveLayer } from '$lib/editor/layers';
+  import { docLength, layerRows } from '$lib/anim/timeline';
+  import { goToFrame } from '$lib/anim/playback';
+  import { collapsedFolders, frame, timelineView } from '$lib/stores/app';
+  import { preferences, setGroup } from '$lib/stores/preferences';
+  import { EXTRA_FRAMES, MAX_FRAME_W, MIN_FRAME_W, ROW_H } from './metrics';
+
+  let body = $state<HTMLDivElement | null>(null);
+  let gridEl = $state<HTMLDivElement | null>(null);
+  let gridW = $state(0);
+  let gridH = $state(0);
 
   const fw = $derived($preferences.timeline.frameWidth);
-
-  // the top layer is drawn last, so it is listed first
-  const layers = $derived.by(() => {
+  const rows = $derived.by(() => {
     void $docVersion;
-    return [...editor.currentLayers()].reverse();
+    return layerRows(editor.currentLayers(), $collapsedFolders);
+  });
+  const length = $derived.by(() => {
+    void $docVersion;
+    return docLength(editor.doc);
+  });
+  const scrollX = $derived($timelineView.scrollX);
+  const scrollY = $derived($timelineView.scrollY);
+  const playheadX = $derived($frame * fw + fw / 2 - scrollX);
+  const onion = $derived(
+    $preferences.timeline.onion
+      ? {
+          before: $preferences.timeline.onionBefore,
+          after: $preferences.timeline.onionAfter,
+          beforeColor: $preferences.timeline.onionBeforeColor,
+          afterColor: $preferences.timeline.onionAfterColor
+        }
+      : null
+  );
+
+  function maxX(width = fw): number {
+    return Math.max(0, (Math.max(length, $frame + 1) + EXTRA_FRAMES) * width - gridW);
+  }
+
+  function maxY(): number {
+    return Math.max(0, rows.length * ROW_H - gridH);
+  }
+
+  function scrollTo(x: number, y: number, width = fw) {
+    const sx = Math.max(0, Math.min(maxX(width), x));
+    const sy = Math.max(0, Math.min(maxY(), y));
+    timelineView.update((v) => (v.scrollX === sx && v.scrollY === sy ? v : { ...v, scrollX: sx, scrollY: sy }));
+  }
+
+  $effect(() => {
+    const w = gridW;
+    const h = gridH;
+    timelineView.update((v) => (v.width === w && v.height === h ? v : { ...v, width: w, height: h }));
+  });
+
+  // fewer rows or a taller panel can leave the list scrolled past its end
+  $effect(() => {
+    void [rows.length, gridH];
+    untrack(() => scrollTo(scrollX, scrollY));
+  });
+
+  // the playhead stays in view while playing or stepping, a page at a time
+  $effect(() => {
+    const f = $frame;
+    untrack(() => {
+      if (gridW <= 0) return;
+      const left = f * fw;
+      if (left < scrollX) scrollTo(left - gridW * 0.1, scrollY);
+      else if (left + fw > scrollX + gridW) scrollTo(left - gridW * 0.1, scrollY);
+    });
+  });
+
+  // ctrl zooms the frames around the pointer, shift scrolls sideways, the plain wheel goes up and down
+  function onwheel(e: WheelEvent) {
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : 1;
+    if (e.ctrlKey || e.metaKey) {
+      const rect = gridEl!.getBoundingClientRect();
+      const px = Math.max(0, e.clientX - rect.left);
+      const at = (px + scrollX) / fw;
+      const step = Math.max(1, Math.round(fw * 0.15));
+      const next = Math.max(MIN_FRAME_W, Math.min(MAX_FRAME_W, fw + (e.deltaY < 0 ? step : -step)));
+      if (next === fw) return;
+      setGroup('timeline', { frameWidth: next });
+      scrollTo(at * next - px, scrollY, next);
+      return;
+    }
+    let dx = e.deltaX * unit;
+    let dy = e.deltaY * unit;
+    if (e.shiftKey && dx === 0) {
+      dx = dy;
+      dy = 0;
+    }
+    scrollTo(scrollX + dx, scrollY + dy);
+  }
+
+  $effect(() => {
+    const el = body;
+    if (!el) return;
+    el.addEventListener('wheel', onwheel, { passive: false });
+    return () => el.removeEventListener('wheel', onwheel);
   });
 </script>
 
-<section class="timeline" style="--fw: {fw}px">
+<section class="timeline">
   <div class="head">
     <div class="layer-head">
-      <div class="actions">
-        <button class="mini-btn" onclick={addLayer} title="New layer" aria-label="New layer">
-          <Icon name="plus" size={13} />
-        </button>
-        <button class="mini-btn" onclick={() => notYet('New folder')} title="New folder" aria-label="New folder">
-          <Icon name="folder" size={13} />
-        </button>
-        <button class="mini-btn" onclick={() => notYet('New rig layer')} title="New rig layer" aria-label="New rig layer">
-          <Icon name="rig" size={13} />
-        </button>
-        <button
-          class="mini-btn"
-          onclick={() => $activeLayer && deleteLayer($activeLayer)}
-          title="Delete layer"
-          aria-label="Delete layer">
-          <Icon name="trash" size={13} />
-        </button>
-      </div>
-      <div class="columns" aria-hidden="true">
-        <Icon name="eye" size={12} />
-        <Icon name="lock" size={12} />
-        <Icon name="outline" size={12} />
-      </div>
+      <button class="mini-btn" onclick={addLayer} title="New layer" aria-label="New layer">
+        <Icon name="plus" size={13} />
+      </button>
+      <button class="mini-btn" onclick={addFolder} title="New folder" aria-label="New folder">
+        <Icon name="folder" size={13} />
+      </button>
+      <button class="mini-btn" onclick={addRigLayer} title="New rig layer" aria-label="New rig layer">
+        <Icon name="rig" size={13} />
+      </button>
+      <span class="grow"></span>
+      <button class="mini-btn" onclick={deleteActiveLayer} title="Delete layer" aria-label="Delete layer">
+        <Icon name="trash" size={13} />
+      </button>
     </div>
     <div class="ruler-area">
-      <Ruler frame={$frame} frameWidth={fw} onscrub={(f) => frame.set(f)} />
+      <Ruler
+        frame={$frame}
+        frameWidth={fw}
+        {scrollX}
+        width={gridW}
+        {length}
+        {onion}
+        onscrub={goToFrame}
+        onrange={(before, after) => setGroup('timeline', { onionBefore: before, onionAfter: after })} />
     </div>
   </div>
 
-  <div class="body">
-    <div class="rows">
-      {#each layers as layer (layer.id)}
-        <LayerRow
-          {layer}
-          active={$activeLayer === layer.id}
-          onactivate={() => setActiveLayer(layer.id)}
-          onrename={(name) => renameLayer(layer.id, name)}
-          ontoggle={(key, value) => setLayerFlag(layer.id, key, value)} />
-      {/each}
-      <div class="filler">
-        <div class="layer"></div>
-        <div class="frames"></div>
-      </div>
+  <div class="body" bind:this={body}>
+    <div class="layers">
+      <LayerList {rows} {scrollY} />
     </div>
-    <div class="playhead" style="left: calc(var(--layer-header-w) + var(--fw) * {$frame} + var(--fw) / 2)"></div>
+    <div class="grid" bind:this={gridEl} bind:clientWidth={gridW} bind:clientHeight={gridH}>
+      <FrameGrid {rows} frameWidth={fw} {scrollX} {scrollY} width={gridW} height={gridH} />
+      {#if playheadX > -2 && playheadX < gridW + 2}
+        <div class="playhead" style="transform: translateX({playheadX}px)"></div>
+      {/if}
+    </div>
   </div>
 
   <TimelineBar />
@@ -85,7 +169,6 @@
     height: var(--ruler-h);
     display: flex;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--border);
   }
 
   .layer-head {
@@ -93,19 +176,19 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 4px 0 2px;
+    gap: 1px;
+    padding: 0 4px;
     border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
   }
 
-  .actions {
-    display: flex;
-    align-items: center;
+  .grow {
+    flex: 1;
   }
 
   .mini-btn {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -117,66 +200,45 @@
     color: var(--text-primary);
   }
 
-  .columns {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--text-muted);
-  }
-
   .ruler-area {
     flex: 1;
     min-width: 0;
-  }
-
-  .body {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
   }
 
-  .rows {
+  .body {
     flex: 1;
     min-height: 0;
     display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    overflow-x: hidden;
   }
 
-  .filler {
-    flex: 1;
-    display: flex;
-    min-height: 12px;
-  }
-
-  .filler .layer {
+  .layers {
     width: var(--layer-header-w);
     flex-shrink: 0;
     border-right: 1px solid var(--border);
+    background: var(--bg-surface);
+    min-height: 0;
   }
 
-  .filler .frames {
+  .grid {
     position: relative;
     flex: 1;
     min-width: 0;
-    background: repeating-linear-gradient(
-      to right,
-      transparent 0 calc(var(--fw) * 4),
-      var(--frame-line) calc(var(--fw) * 4) calc(var(--fw) * 5)
-    );
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-deep);
   }
 
   .playhead {
     position: absolute;
     top: 0;
     bottom: 0;
+    left: 0;
     width: 1px;
     margin-left: -0.5px;
     background: var(--playhead);
     pointer-events: none;
+    will-change: transform;
+    z-index: 4;
   }
 </style>
