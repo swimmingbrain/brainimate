@@ -4,6 +4,10 @@
   import { frame, playing } from '$lib/stores/app';
   import { preferences, setGroup } from '$lib/stores/preferences';
   import { docVersion, editor } from '$lib/editor/editor';
+  import { fitTimeline, toggleOnion } from '$lib/editor/commands';
+  import { firstFrame, formatTime, goToFrame, lastFrame, stepFrame, togglePlay } from '$lib/anim/playback';
+  import { docLength } from '$lib/anim/timeline';
+  import { MAX_FRAME_W, MIN_FRAME_W } from './metrics';
 
   const timeline = $derived($preferences.timeline);
   // the frame rate belongs to the document, the preference is only the default for new ones
@@ -11,11 +15,10 @@
     void $docVersion;
     return editor.doc.fps;
   });
-  const last = $derived.by(() => {
+  const length = $derived.by(() => {
     void $docVersion;
-    return Math.max(0, ...editor.doc.layers.map((l) => l.length - 1));
+    return docLength(editor.doc);
   });
-  const seconds = $derived(($frame / fps).toFixed(2));
 
   function setFps(v: number) {
     editor.commit(
@@ -33,12 +36,30 @@
     <button
       class="icon-btn"
       class:on={timeline.onion}
-      onclick={() => setGroup('timeline', { onion: !timeline.onion })}
-      title="Onion skin"
+      onclick={toggleOnion}
+      title="Onion skin (Alt+Shift+O)"
       aria-label="Onion skin"
       aria-pressed={timeline.onion}>
       <Icon name="onion" size={14} />
     </button>
+    <div class="count" title="Onion skin frames before">
+      <NumberField
+        value={timeline.onionBefore}
+        min={0}
+        max={10}
+        precision={0}
+        label="Onion skin frames before"
+        onchange={(v) => setGroup('timeline', { onionBefore: v })} />
+    </div>
+    <div class="count" title="Onion skin frames after">
+      <NumberField
+        value={timeline.onionAfter}
+        min={0}
+        max={10}
+        precision={0}
+        label="Onion skin frames after"
+        onchange={(v) => setGroup('timeline', { onionAfter: v })} />
+    </div>
     <button
       class="icon-btn"
       class:on={timeline.autoKey}
@@ -61,25 +82,25 @@
 
   <span class="sep"></span>
 
-  <!-- playback arrives with the timeline work -->
   <div class="group transport">
-    <button class="icon-btn" title="First frame (Shift+,)" aria-label="First frame" onclick={() => frame.set(0)}>
+    <button class="icon-btn" title="First frame (Shift+,)" aria-label="First frame" onclick={firstFrame}>
       <Icon name="first" size={13} />
     </button>
-    <button
-      class="icon-btn"
-      title="Previous frame (,)"
-      aria-label="Previous frame"
-      onclick={() => frame.update((f) => Math.max(0, f - 1))}>
+    <button class="icon-btn" title="Previous frame (,)" aria-label="Previous frame" onclick={() => stepFrame(-1)}>
       <Icon name="prev" size={13} />
     </button>
-    <button class="icon-btn play" title="Play (Enter)" aria-label="Play">
+    <button
+      class="icon-btn play"
+      class:on={$playing}
+      title={$playing ? 'Pause (Enter)' : 'Play (Enter)'}
+      aria-label={$playing ? 'Pause' : 'Play'}
+      onclick={togglePlay}>
       <Icon name={$playing ? 'pause' : 'play'} size={13} />
     </button>
-    <button class="icon-btn" title="Next frame (.)" aria-label="Next frame" onclick={() => frame.update((f) => f + 1)}>
+    <button class="icon-btn" title="Next frame (.)" aria-label="Next frame" onclick={() => stepFrame(1)}>
       <Icon name="next" size={13} />
     </button>
-    <button class="icon-btn" title="Last frame (Shift+.)" aria-label="Last frame" onclick={() => frame.set(last)}>
+    <button class="icon-btn" title="Last frame (Shift+.)" aria-label="Last frame" onclick={lastFrame}>
       <Icon name="last" size={13} />
     </button>
   </div>
@@ -88,12 +109,18 @@
 
   <div class="group readout">
     <div class="field" title="Current frame">
-      <NumberField value={$frame + 1} min={1} max={99999} precision={0} label="Current frame" onchange={(v) => frame.set(v - 1)} />
+      <NumberField
+        value={$frame + 1}
+        min={1}
+        max={99999}
+        precision={0}
+        label="Current frame"
+        onchange={(v) => goToFrame(v - 1)} />
     </div>
     <div class="field fps" title="Frames per second">
       <NumberField value={fps} min={1} max={120} precision={0} unit=" fps" label="Frames per second" onchange={setFps} />
     </div>
-    <span class="time">{seconds}s</span>
+    <span class="time" title="Minutes, seconds and frames of {length} frames">{formatTime($frame, fps)}</span>
   </div>
 
   <div class="spacer"></div>
@@ -103,15 +130,16 @@
     <input
       class="range"
       type="range"
-      min="4"
-      max="24"
+      min={MIN_FRAME_W}
+      max={MAX_FRAME_W}
       step="1"
       value={timeline.frameWidth}
-      style="--fill: {((timeline.frameWidth - 4) / 20) * 100}%"
+      style="--fill: {((timeline.frameWidth - MIN_FRAME_W) / (MAX_FRAME_W - MIN_FRAME_W)) * 100}%"
       aria-label="Frame width"
-      title="Frame width"
+      title="Frame width (Ctrl+wheel)"
       oninput={(e) => setGroup('timeline', { frameWidth: Number(e.currentTarget.value) })} />
     <Icon name="plus" size={11} />
+    <button class="text-btn" title="Fit the whole animation" onclick={fitTimeline}>Fit</button>
   </div>
 </div>
 
@@ -159,6 +187,11 @@
     color: var(--accent);
   }
 
+  .count {
+    width: 30px;
+    margin: 0 1px;
+  }
+
   .sep {
     width: 1px;
     height: 16px;
@@ -182,7 +215,7 @@
     font-family: var(--font-editor);
     font-size: 11px;
     color: var(--text-muted);
-    min-width: 44px;
+    min-width: 58px;
   }
 
   .spacer {
@@ -192,6 +225,19 @@
   .zoom {
     gap: 6px;
     color: var(--text-muted);
+  }
+
+  .text-btn {
+    height: 20px;
+    padding: 0 7px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+
+  .text-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
   }
 
   .range {
