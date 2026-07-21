@@ -638,11 +638,15 @@ function rangeLayers(layers: Layer[], range: FrameRange): Layer[] {
 }
 
 // one change on every layer of the range, all in one undo step
-function onFrames(label: string, range: FrameRange | null, fn: (layer: Layer, range: FrameRange) => void) {
+function onFrames(label: string, range: FrameRange | null, fn: (layer: Layer, range: FrameRange) => void, key?: string) {
   if (!range) return;
-  editor.commit(label, (draft) => {
-    for (const layer of rangeLayers(editor.draftLayers(draft), range)) fn(layer, range);
-  });
+  editor.commit(
+    label,
+    (draft) => {
+      for (const layer of rangeLayers(editor.draftLayers(draft), range)) fn(layer, range);
+    },
+    key
+  );
 }
 
 function setRange(range: FrameRange) {
@@ -701,15 +705,20 @@ export function rangeKeys(layers: Layer[], range: FrameRange): KeyRef[] {
 }
 
 // every keyframe the range touches gets the tween, the one holding its first frame too
-function tweenRange(label: string, ease: (current: string | null) => string | null) {
-  onFrames(label, targetFrames(), (layer, r) => {
-    const first = keyframeAt(layer, r.from);
-    for (const k of layer.keyframes) {
-      if (k.frame > r.to || (k.frame < r.from && k !== first)) continue;
-      const next = ease(k.tween?.ease ?? null);
-      k.tween = next === null ? null : { ease: next };
-    }
-  });
+function tweenRange(label: string, ease: (current: string | null) => string | null, key?: string) {
+  onFrames(
+    label,
+    targetFrames(),
+    (layer, r) => {
+      const first = keyframeAt(layer, r.from);
+      for (const k of layer.keyframes) {
+        if (k.frame > r.to || (k.frame < r.from && k !== first)) continue;
+        const next = ease(k.tween?.ease ?? null);
+        k.tween = next === null ? null : { ease: next };
+      }
+    },
+    key
+  );
 }
 
 export function createTween() {
@@ -720,8 +729,9 @@ export function removeTween() {
   tweenRange('Remove tween', () => null);
 }
 
-export function setFramesEase(ease: string) {
-  tweenRange('Ease', () => ease);
+// key folds a curve being dragged into one undo step
+export function setFramesEase(ease: string, key?: string) {
+  tweenRange('Ease', () => ease, key);
 }
 
 export function setFramesLabel(label: string) {
