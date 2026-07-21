@@ -369,8 +369,11 @@
     const key = layer?.keyframes.filter((k) => k.frame <= cell.frame).pop();
     label = { x: x(cell.frame), y: cell.row * ROW_H - scrollY, value: key?.label ?? '' };
     await tick();
-    labelInput?.focus();
-    labelInput?.select();
+    // the menu that opened this hands the focus back as it closes, so the field takes it a frame later
+    requestAnimationFrame(() => {
+      labelInput?.focus();
+      labelInput?.select();
+    });
   }
 
   function finishLabel(keep: boolean) {
@@ -430,7 +433,7 @@
       bind:value={label.value}
       style="left: {Math.max(0, label.x)}px; top: {label.y + 2}px"
       placeholder="Label"
-      aria-label="Frame label"
+      aria-label="Label for the picked frames"
       onblur={() => finishLabel(true)}
       onkeydown={(e) => {
         e.stopPropagation();
