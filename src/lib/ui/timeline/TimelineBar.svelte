@@ -4,8 +4,16 @@
   import { frame, playing } from '$lib/stores/app';
   import { preferences, setGroup } from '$lib/stores/preferences';
   import { docVersion, editor } from '$lib/editor/editor';
-  import { fitTimeline, toggleOnion } from '$lib/editor/commands';
-  import { firstFrame, formatTime, goToFrame, lastFrame, stepFrame, togglePlay } from '$lib/anim/playback';
+  import {
+    firstFrame,
+    fitTimeline,
+    goToFrame,
+    lastFrame,
+    stepFrame,
+    toggleOnion,
+    togglePlay
+  } from '$lib/editor/commands';
+  import { formatTime } from '$lib/anim/playback';
   import { docLength } from '$lib/anim/timeline';
   import { MAX_FRAME_W, MIN_FRAME_W } from './metrics';
 

@@ -6,9 +6,8 @@
   import FrameGrid from './FrameGrid.svelte';
   import TimelineBar from './TimelineBar.svelte';
   import { docVersion, editor } from '$lib/editor/editor';
-  import { addFolder, addLayer, addRigLayer, deleteActiveLayer } from '$lib/editor/layers';
+  import { addFolder, addLayer, addRigLayer, deleteActiveLayer, goToFrame } from '$lib/editor/commands';
   import { docLength, layerRows } from '$lib/anim/timeline';
-  import { goToFrame } from '$lib/anim/playback';
   import { collapsedFolders, frame, timelineView } from '$lib/stores/app';
   import { preferences, setGroup } from '$lib/stores/preferences';
   import { EXTRA_FRAMES, MAX_FRAME_W, MIN_FRAME_W, ROW_H } from './metrics';

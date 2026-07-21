@@ -1,6 +1,9 @@
 import { dialog, setWorkspace, togglePanel, WORKSPACES, type MenuItem } from '$lib/stores/app';
 import { setGroup, type DockTab, type Preferences, type Workspace } from '$lib/stores/preferences';
 import {
+  addFolder,
+  addLayer,
+  addRigLayer,
   arrangeSelection,
   booleanSelection,
   breakApart,
@@ -37,7 +40,6 @@ import { clearGuides, toggleGuideLock } from './guides';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, selectAll } from './selection';
-import { addFolder, addLayer, addRigLayer } from './layers';
 import { alignSelection, alignToStage, distributeSelection } from './align';
 import type { HistoryState } from './history';
 

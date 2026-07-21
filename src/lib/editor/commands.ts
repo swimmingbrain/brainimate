@@ -811,3 +811,17 @@ export function insertKeyframeAt(layerId: string, at: number) {
     if (layer && hasFrames(layer)) insertKeyframe(layer, at);
   });
 }
+
+// the layer and playback commands live next to their state, the menus and buttons reach them from here
+export {
+  addFolder,
+  addLayer,
+  addRigLayer,
+  deleteActiveLayer,
+  deleteLayer,
+  duplicateLayer,
+  hideOtherLayers,
+  lockOtherLayers,
+  showAllLayers
+} from './layers';
+export { firstFrame, goToFrame, lastFrame, stepFrame, togglePlay } from '$lib/anim/playback';

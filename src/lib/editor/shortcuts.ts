@@ -4,23 +4,25 @@ import { anchorSelection, contextMenu, dialog, frameSelection, toolCursor, toolO
 import { BUCKET_CURSOR, INK_CURSOR } from '$lib/tools/cursors';
 import { TOOL_IDS, TOOL_INFO } from '$lib/tools/tool';
 import { keyDown, selectTool } from '$lib/tools';
-import { firstFrame, lastFrame, stepFrame, togglePlay } from '$lib/anim/playback';
 import {
   arrangeSelection,
   breakApart,
   clearColor,
   clearKeyframes,
   copySelectedFrames,
+  firstFrame,
   groupSelection,
   insertBlankKeyframes,
   insertFrames,
   insertKeyframes,
   joinSelectedPaths,
+  lastFrame,
   pasteSelectedFrames,
   removeFrames,
   ungroupSelection,
   redo,
   resetColors,
+  stepFrame,
   swapColors,
   toggleColorTarget,
   toggleGrid,
@@ -28,6 +30,7 @@ import {
   toggleOnion,
   toggleRulers,
   toggleSmartGuides,
+  togglePlay,
   undo
 } from './commands';
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
