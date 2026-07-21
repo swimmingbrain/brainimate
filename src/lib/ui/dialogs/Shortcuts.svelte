@@ -45,7 +45,10 @@
         { keys: ['Shift', 'F5'], what: 'Remove frame' },
         { keys: ['F6'], what: 'Insert keyframe' },
         { keys: ['F7'], what: 'Insert blank keyframe' },
-        { keys: ['Shift', 'F6'], what: 'Clear keyframe' }
+        { keys: ['Shift', 'F6'], what: 'Clear keyframe' },
+        { keys: ['Ctrl', 'Alt', 'C/V'], what: 'Copy and paste frames' },
+        { keys: ['Alt', 'Shift', 'O'], what: 'Onion skin' },
+        { keys: ['Ctrl', 'Wheel'], what: 'Zoom the frames' }
       ]
     },
     {
