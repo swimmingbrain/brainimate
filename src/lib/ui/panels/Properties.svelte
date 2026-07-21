@@ -7,6 +7,7 @@
   import ColorField from '../ColorField.svelte';
   import Slider from '../Slider.svelte';
   import ColorPopover from '../ColorPopover.svelte';
+  import FrameProps from './FrameProps.svelte';
   import type { Doc, Item, Paint, PathItem, Style } from '$lib/core/types';
   import { BLEND_MODES, paintColor, solid } from '$lib/core/style';
   import { around, decompose, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
@@ -25,7 +26,7 @@
     smoothSelectedPaths
   } from '$lib/editor/commands';
   import Icon from '$lib/icons/Icon.svelte';
-  import { frame, selection } from '$lib/stores/app';
+  import { frame, frameSelection, selection } from '$lib/stores/app';
   import { preferences, setGroup } from '$lib/stores/preferences';
 
   type Target = 'fill' | 'stroke' | 'bg';
@@ -183,6 +184,9 @@
 </script>
 
 <Panel>
+  {#if $frameSelection}
+    <FrameProps range={$frameSelection} />
+  {/if}
   {#if items.length === 0}
     <h3 class="section">Document</h3>
     <Field label="Name">
