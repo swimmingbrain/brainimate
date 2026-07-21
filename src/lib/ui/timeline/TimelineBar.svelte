@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '$lib/icons/Icon.svelte';
   import NumberField from '../NumberField.svelte';
-  import { frame, playing } from '$lib/stores/app';
+  import { contextMenu, frame, playing } from '$lib/stores/app';
   import { preferences, setGroup } from '$lib/stores/preferences';
   import { docVersion, editor } from '$lib/editor/editor';
   import {
@@ -28,6 +28,29 @@
     return docLength(editor.doc);
   });
 
+  // right click on the onion button: how the ghosts look
+  function onionMenu(e: MouseEvent) {
+    e.preventDefault();
+    contextMenu.set({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: 'Onion skin', checked: timeline.onion, action: toggleOnion },
+        { label: '', separator: true },
+        {
+          label: 'Outlines only',
+          checked: timeline.onionOutline,
+          action: () => setGroup('timeline', { onionOutline: !timeline.onionOutline })
+        },
+        {
+          label: 'Keyframes only',
+          checked: timeline.onionKeyframes,
+          action: () => setGroup('timeline', { onionKeyframes: !timeline.onionKeyframes })
+        }
+      ]
+    });
+  }
+
   function setFps(v: number) {
     editor.commit(
       'Frame rate',
@@ -45,7 +68,8 @@
       class="icon-btn"
       class:on={timeline.onion}
       onclick={toggleOnion}
-      title="Onion skin (Alt+Shift+O)"
+      oncontextmenu={onionMenu}
+      title="Onion skin (Alt+Shift+O), right click for options"
       aria-label="Onion skin"
       aria-pressed={timeline.onion}>
       <Icon name="onion" size={14} />
