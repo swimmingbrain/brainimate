@@ -32,12 +32,6 @@ export function docLength(doc: Doc): number {
   return layersLength(doc.layers);
 }
 
-// frames after the last keyframe that still show it
-export function holdOf(layer: Layer): number {
-  const last = layer.keyframes[layer.keyframes.length - 1];
-  return last ? layer.length - last.frame : layer.length;
-}
-
 // sorted, a keyframe at frame 0 and the length reaching past the last keyframe
 function tidy(layer: Layer) {
   layer.keyframes.sort((a, b) => a.frame - b.frame);
