@@ -15,7 +15,7 @@
 
 brainIMATE is an open source app for drawing and animating, like Adobe Animate and Illustrator, but in a browser tab. It is made for illustrators and for people who never animated before. There is no account and no server, everything stays in your browser.
 
-It is early. The drawing tools work, the timeline and the rig come next.
+It is early. The drawing tools and the timeline work, symbols and the rig come next.
 
 ## Features
 
@@ -23,7 +23,9 @@ It is early. The drawing tools work, the timeline and the rig come next.
 - Unite, subtract, intersect, exclude and divide shapes, holes stay part of their shape, outline strokes, simplify and smooth paths
 - Solid colors and linear or radial gradients, a color picker, swatches, paint bucket, ink bottle and eyedropper
 - Align, distribute and transform by numbers, rulers, guides, a grid and smart guides that snap
-- A timeline with layers, keyframes, tweens with easing and onion skin
+- A timeline with layers and folders, keyframes, labels and tweens that blend moves, turns, shapes and colors
+- Easing from simple in and out to your own curve, playback with a loop and onion skin before and after the playhead
+- Frames to copy, paste, move, duplicate and reverse, with auto key on the frame you draw on
 - Bones for characters, bound to the drawing and posed with inverse kinematics
 - Symbols you draw once and reuse, edited in place
 - Export to PNG, SVG, GIF, WebM and MP4, image sequences and sprite sheets
@@ -45,7 +47,11 @@ It is early. The drawing tools work, the timeline and the rig come next.
 | `X` `Shift+X` `D` | Fill or stroke in front, swap them, default colors |
 | `Ctrl+R` `Ctrl+;` `Ctrl+'` `Ctrl+U` | Rulers, guides, grid, smart guides |
 | `F5` `F6` `F7` | Insert frame, keyframe, blank keyframe |
-| `,` `.` `Enter` | Previous frame, next frame, play |
+| `Shift+F5` `Shift+F6` | Remove frame, clear keyframe |
+| `,` `.` `Enter` | Previous frame, next frame, play and pause |
+| `Shift+,` `Shift+.` | First and last frame |
+| `Ctrl+Alt+C` `Ctrl+Alt+V` | Copy and paste frames |
+| `Alt+Shift+O` | Onion skin |
 | `Ctrl+Z` `Ctrl+Shift+Z` | Undo, redo |
 | `?` | All shortcuts |
 
@@ -62,7 +68,8 @@ Open `http://localhost:5173`. `pnpm test` runs the tests, `pnpm check` the type 
 
 - The stage is two stacked canvases, the drawing below and the handles on top. Both are drawn only when something changed.
 - A drawing is a list of paths made of cubic curves, kept as plain objects. Undo stores immer patches, not copies.
-- A layer holds keyframes. Between two keyframes with a tween, the shapes are blended point by point.
+- A layer holds keyframes. Between two keyframes with a tween, items with the same id are blended: the transform as move, turn, scale and skew, the paths point by point, the colors in rgb. A frame is worked out once and kept, so playback only pays for frames it has not seen.
+- Onion skin draws the frames around the playhead offscreen, tints them and keeps the result until something changes.
 - Bones live on a rig layer. Each point of a bound shape follows a weighted mix of its bones.
 - Projects are json, zipped with fflate when they carry pictures or fonts.
 
