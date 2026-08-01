@@ -48,7 +48,9 @@
   // keyframes being dragged, by this many frames
   let shift = $state(0);
   let copying = $state(false);
-  let label = $state<{ x: number; y: number; value: string } | null>(null);
+  // where the label field shows, and what is typed into it
+  let label = $state<{ x: number; y: number } | null>(null);
+  let labelText = $state('');
 
   interface Cell {
     row: number;
@@ -367,7 +369,8 @@
   async function startLabel(cell: Cell) {
     const layer = editor.layerById(cell.layer.id);
     const key = layer?.keyframes.filter((k) => k.frame <= cell.frame).pop();
-    label = { x: x(cell.frame), y: cell.row * ROW_H - scrollY, value: key?.label ?? '' };
+    labelText = key?.label ?? '';
+    label = { x: x(cell.frame), y: cell.row * ROW_H - scrollY };
     await tick();
     // the menu that opened this hands the focus back as it closes, so the field takes it a frame later
     requestAnimationFrame(() => {
@@ -378,9 +381,8 @@
 
   function finishLabel(keep: boolean) {
     if (!label) return;
-    const value = label.value;
     label = null;
-    if (keep) setFramesLabel(value);
+    if (keep) setFramesLabel(labelText);
   }
 
   function oncontextmenu(e: MouseEvent) {
@@ -430,7 +432,7 @@
     <input
       class="label-input"
       bind:this={labelInput}
-      bind:value={label.value}
+      bind:value={labelText}
       style="left: {Math.max(0, label.x)}px; top: {label.y + 2}px"
       placeholder="Label"
       aria-label="Label for the picked frames"
