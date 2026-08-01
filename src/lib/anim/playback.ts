@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { frame, playing } from '$lib/stores/app';
+import { frame, frameSelection, playing } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 import { editor, hover } from '$lib/editor/editor';
 import { docLength } from './timeline';
@@ -76,14 +76,21 @@ export function togglePlay() {
   else play();
 }
 
+// picked frames the playhead leaves behind are let go, so the frame keys work on the playhead again
+function leave(f: number) {
+  const sel = get(frameSelection);
+  if (sel && (f < sel.from || f > sel.to)) frameSelection.set(null);
+}
+
 export function stepFrame(by: number) {
-  pause();
-  frame.update((f) => Math.max(0, f + by));
+  goToFrame(get(frame) + by);
 }
 
 export function goToFrame(f: number) {
   pause();
-  frame.set(Math.max(0, Math.round(f)));
+  const to = Math.max(0, Math.round(f));
+  leave(to);
+  frame.set(to);
 }
 
 export function firstFrame() {
