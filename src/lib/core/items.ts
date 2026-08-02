@@ -1,4 +1,4 @@
-import type { GroupItem, Item, Mat, PathData, PathItem, Style } from './types';
+import type { GroupItem, InstanceItem, Item, Mat, PathData, PathItem, Style } from './types';
 import { identity, multiply } from './mat';
 import { newId } from './ids';
 import { pathBounds, transformPath } from './path';
@@ -24,6 +24,27 @@ export function makePathItem(
     subpaths,
     style,
     skin: null
+  };
+}
+
+// an instance plays its symbol from the first frame on and loops
+export function makeInstance(symbol: string, name: string, transform: Mat = identity()): InstanceItem {
+  return {
+    id: newId(),
+    name,
+    type: 'instance',
+    transform,
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blend: 'normal',
+    symbol,
+    mode: 'loop',
+    first: 0,
+    skin: null,
+    tint: null,
+    tintAmount: 0,
+    alpha: 1
   };
 }
 
