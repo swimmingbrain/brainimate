@@ -3,6 +3,7 @@ import { identity, multiply } from './mat';
 import { newId } from './ids';
 import { pathBounds, transformPath } from './path';
 import { emptyBox, fromRect, transformBox, union, type Box } from './bbox';
+import { MAX_NESTING, instanceSlices, stageOffset, type LayerSlice } from '$lib/render/frame';
 
 export function makePathItem(
   name: string,
@@ -78,8 +79,25 @@ function textBox(item: Extract<Item, { type: 'text' }>): Box {
   return fromRect(x, 0, w, h);
 }
 
-// bounds in the space m maps the item's local space to, tight for paths
-export function itemBounds(item: Item, m: Mat): Box {
+// the slices of a symbol frame come back as the same objects, so their box is worked out once
+const sliceBoxes = new WeakMap<LayerSlice[], Box>();
+
+// the box of what an instance shows, in its own space
+function instanceBox(item: InstanceItem, offset: number, depth: number): Box {
+  const list = instanceSlices(item, offset);
+  const known = sliceBoxes.get(list);
+  if (known) return known;
+  let b = emptyBox();
+  for (const slice of list) {
+    for (const it of slice.items) b = union(b, itemBounds(it, it.transform, slice.offset, depth + 1));
+  }
+  sliceBoxes.set(list, b);
+  return b;
+}
+
+// bounds in the space m maps the item's local space to, tight for paths. offset is how many
+// frames past its keyframe the item is shown, instances need it, the stage knows it by default
+export function itemBounds(item: Item, m: Mat, offset?: number, depth = 0): Box {
   switch (item.type) {
     case 'path': {
       let b = pathBounds(transformPath(item.path, m));
@@ -88,15 +106,16 @@ export function itemBounds(item: Item, m: Mat): Box {
     }
     case 'group': {
       let b = emptyBox();
-      for (const child of item.children) b = union(b, itemBounds(child, multiply(m, child.transform)));
+      for (const child of item.children) b = union(b, itemBounds(child, multiply(m, child.transform), offset, depth));
       return b;
     }
     case 'text':
       return transformBox(textBox(item), m);
     case 'image':
       return transformBox(fromRect(0, 0, item.width, item.height), m);
-    default:
-      return emptyBox();
+    case 'instance':
+      if (depth >= MAX_NESTING) return emptyBox();
+      return transformBox(instanceBox(item, offset ?? stageOffset(item.id), depth), m);
   }
 }
 
