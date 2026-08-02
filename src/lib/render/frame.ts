@@ -1,5 +1,5 @@
 import { isDraft } from 'immer';
-import type { BonePose, Item, Keyframe, Layer } from '$lib/core/types';
+import type { BonePose, InstanceItem, Item, Keyframe, Layer, Symbol } from '$lib/core/types';
 import { applyEase } from '$lib/anim/easing';
 import { tweenItems, tweenPose } from '$lib/anim/tween';
 
@@ -119,4 +119,86 @@ export function poseAt(layer: Layer, frame: number): Record<string, BonePose> {
   if (!key) return {};
   const spot = tweenAt(layer, frame);
   return spot ? tweenPose(spot.key.pose, spot.next.pose, spot.t) : key.pose;
+}
+
+// symbols
+
+// a symbol holding an instance of itself would never end, drawing stops this deep
+export const MAX_NESTING = 12;
+
+// the symbols instances draw from, the editor hands in the ones of its document after every change
+let library: Record<string, Symbol> = {};
+
+export function setLibrary(symbols: Record<string, Symbol>) {
+  library = symbols;
+}
+
+export function symbolById(id: string): Symbol | null {
+  return library[id] ?? null;
+}
+
+// the frame of its symbol an instance shows, offset frames after the keyframe that holds it
+export function instanceFrame(item: Pick<InstanceItem, 'mode' | 'first'>, offset: number, length: number): number {
+  const len = Math.max(1, Math.round(length));
+  const first = Math.max(0, Math.round(item.first));
+  if (item.mode === 'single') return Math.min(first, len - 1);
+  if (item.mode === 'once') return Math.max(0, Math.min(first + offset, len - 1));
+  return (((first + offset) % len) + len) % len;
+}
+
+// a shown layer at a frame: its items and how many frames past their keyframe that frame is
+export interface LayerSlice {
+  layer: Layer;
+  items: Item[];
+  offset: number;
+}
+
+const slices = new WeakMap<Layer[], Map<number, LayerSlice[]>>();
+
+// the layers that draw at frame, bottom first, nested instances count their offset from these
+export function layerSlices(layers: Layer[], frame: number): LayerSlice[] {
+  const cached = isDraft(layers) ? null : slices.get(layers)?.get(frame);
+  if (cached) return cached;
+  const out: LayerSlice[] = [];
+  for (const layer of layers) {
+    if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
+    const items = itemsAt(layer, frame);
+    if (items.length === 0) continue;
+    out.push({ layer, items, offset: frame - (keyframeAt(layer, frame)?.frame ?? 0) });
+  }
+  if (!isDraft(layers)) {
+    let map = slices.get(layers);
+    if (!map) {
+      map = new Map();
+      slices.set(layers, map);
+    }
+    if (map.size >= CACHED_FRAMES) map.delete(map.keys().next().value as number);
+    map.set(frame, out);
+  }
+  return out;
+}
+
+// the frame of the symbol an instance shows, null when the symbol is gone
+export function instanceSymbolFrame(item: InstanceItem, offset: number): number | null {
+  const symbol = library[item.symbol];
+  if (!symbol) return null;
+  return instanceFrame(item, offset, layersLength(symbol.layers));
+}
+
+// what an instance shows: the layers of its symbol at the frame it maps to
+export function instanceSlices(item: InstanceItem, offset: number): LayerSlice[] {
+  const symbol = library[item.symbol];
+  if (!symbol) return [];
+  return layerSlices(symbol.layers, instanceFrame(item, offset, layersLength(symbol.layers)));
+}
+
+// how many frames past its keyframe an item on the stage is, the editor knows it for the frame it shows
+let offsetSource: (id: string) => number = () => 0;
+
+export function setOffsetSource(fn: (id: string) => number) {
+  offsetSource = fn;
+}
+
+export function stageOffset(id: string): number {
+  return offsetSource(id);
 }
