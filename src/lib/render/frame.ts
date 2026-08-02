@@ -3,6 +3,33 @@ import type { BonePose, Item, Keyframe, Layer } from '$lib/core/types';
 import { applyEase } from '$lib/anim/easing';
 import { tweenItems, tweenPose } from '$lib/anim/tween';
 
+// folders hold no frames of their own
+export function hasFrames(layer: Layer): boolean {
+  return layer.type !== 'folder';
+}
+
+// the frames the longest layer runs for, at least one
+export function layersLength(layers: Layer[]): number {
+  let n = 1;
+  for (const l of layers) if (hasFrames(l)) n = Math.max(n, l.length);
+  return n;
+}
+
+export function parentFolder(layers: Layer[], layer: Layer): Layer | null {
+  if (!layer.parent) return null;
+  const p = layers.find((l) => l.id === layer.parent);
+  return p && p.type === 'folder' ? p : null;
+}
+
+// a hidden folder hides what is in it
+export function isLayerShown(layers: Layer[], layer: Layer): boolean {
+  let depth = 0;
+  for (let l: Layer | null = layer; l && depth <= layers.length; l = parentFolder(layers, l), depth++) {
+    if (!l.visible) return false;
+  }
+  return true;
+}
+
 // index of the keyframe that holds at frame, the last one at or before it
 export function keyframeIndexAt(layer: Layer, frame: number): number {
   const keys = layer.keyframes;

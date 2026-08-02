@@ -1,12 +1,23 @@
 import type { Doc, Item, Keyframe, Layer } from '$lib/core/types';
 import { cloneItems } from '$lib/core/items';
 import { newId } from '$lib/core/ids';
-import { keyframeAt, keyframeIndexAt, nextKeyframe, poseAt, resolveItems, tweenAt } from '$lib/render/frame';
+import {
+  hasFrames,
+  isLayerShown,
+  keyframeAt,
+  keyframeIndexAt,
+  layersLength,
+  nextKeyframe,
+  parentFolder,
+  poseAt,
+  resolveItems,
+  tweenAt
+} from '$lib/render/frame';
 import { reverseEase } from './easing';
 
 // every function here changes the layer in place, the editor calls them on a draft inside one commit
 
-export { keyframeAt, keyframeIndexAt, nextKeyframe };
+export { hasFrames, isLayerShown, keyframeAt, keyframeIndexAt, layersLength, nextKeyframe, parentFolder };
 
 export function blankKeyframe(frame: number): Keyframe {
   return { frame, items: [], pose: {}, tween: null, label: '' };
@@ -16,17 +27,6 @@ export function isKeyframe(layer: Layer, frame: number): boolean {
   return layer.keyframes.some((k) => k.frame === frame);
 }
 
-// folders hold no frames of their own
-export function hasFrames(layer: Layer): boolean {
-  return layer.type !== 'folder';
-}
-
-// the frames the longest layer runs for, at least one
-export function layersLength(layers: Layer[]): number {
-  let n = 1;
-  for (const l of layers) if (hasFrames(l)) n = Math.max(n, l.length);
-  return n;
-}
 
 export function docLength(doc: Doc): number {
   return layersLength(doc.layers);
@@ -292,12 +292,6 @@ export function reverseFrames(layers: Layer[], range: FrameRange) {
 // folders: a layer's parent is the id of the folder it sits in. in the layers array (bottom first)
 // a folder's content sits right below the folder, so the timeline lists it right under the folder row
 
-export function parentFolder(layers: Layer[], layer: Layer): Layer | null {
-  if (!layer.parent) return null;
-  const p = layers.find((l) => l.id === layer.parent);
-  return p && p.type === 'folder' ? p : null;
-}
-
 // how many folders a layer sits in
 export function layerDepth(layers: Layer[], layer: Layer): number {
   let depth = 0;
@@ -323,15 +317,7 @@ export function descendantIds(layers: Layer[], folderId: string): string[] {
   return out;
 }
 
-// a hidden or locked folder hides or locks what is in it
-export function isLayerShown(layers: Layer[], layer: Layer): boolean {
-  let depth = 0;
-  for (let l: Layer | null = layer; l && depth <= layers.length; l = parentFolder(layers, l), depth++) {
-    if (!l.visible) return false;
-  }
-  return true;
-}
-
+// a locked folder locks what is in it
 export function isLayerLocked(layers: Layer[], layer: Layer): boolean {
   let depth = 0;
   for (let l: Layer | null = layer; l && depth <= layers.length; l = parentFolder(layers, l), depth++) {
