@@ -4,6 +4,8 @@ import type { Doc, Item, Layer } from './types';
 function migrateItem(item: Item) {
   if (item.type === 'path' && !Array.isArray(item.subpaths)) item.subpaths = [];
   if (item.type === 'group') item.children.forEach(migrateItem);
+  if (item.type === 'text' && typeof item.width !== 'number') item.width = null;
+  if (item.type === 'instance' && !Number.isFinite(item.tintAmount)) item.tintAmount = 0;
 }
 
 function migrateLayers(layers: Layer[]) {

@@ -25,4 +25,16 @@ describe('migrate', () => {
     const doc = migrateDoc({ layers: [], symbols: {}, guides: { h: [10, NaN], v: [5] } } as unknown as Doc);
     expect(doc.guides).toEqual({ h: [10], v: [5] });
   });
+
+  it('gives text a width and instances a tint amount', () => {
+    const text = { id: 't', type: 'text', text: 'hi' };
+    const instance = { id: 'i', type: 'instance', symbol: 's', tint: null };
+    const doc = migrateDoc({
+      layers: [],
+      symbols: { s: { id: 's', layers: [{ keyframes: [{ frame: 0, items: [text, instance] }] }] } }
+    } as unknown as Doc);
+    const items = doc.symbols.s.layers[0].keyframes[0].items;
+    expect(items[0].type === 'text' && items[0].width).toBeNull();
+    expect(items[1].type === 'instance' && items[1].tintAmount).toBe(0);
+  });
 });

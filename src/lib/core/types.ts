@@ -83,8 +83,12 @@ export interface TextItem extends ItemBase {
   weight: number;
   italic: boolean;
   align: 'left' | 'center' | 'right';
+  // a multiple of the size
   lineHeight: number;
+  // letter spacing in pixels at the item's size
   spacing: number;
+  // box text wraps its words at this width, point text has none
+  width: number | null;
   style: Style;
 }
 
@@ -99,9 +103,12 @@ export interface InstanceItem extends ItemBase {
   type: 'instance';
   symbol: string;
   mode: 'loop' | 'once' | 'single';
+  // the symbol frame the instance starts on, 0 based
   first: number;
   skin: Skin | null;
   tint: string | null;
+  // 0 shows the symbol as it is, 1 all in the tint color
+  tintAmount: number;
   alpha: number;
 }
 
