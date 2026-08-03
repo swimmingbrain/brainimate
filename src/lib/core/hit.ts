@@ -5,6 +5,7 @@ import { contains, expand } from './bbox';
 import { contours, itemBounds, localBounds } from './items';
 import { nearestSegment, transformPath } from './path';
 import { shapePath2D } from '$lib/render/pathcache';
+import { MAX_NESTING, instanceSlices, stageOffset } from '$lib/render/frame';
 
 // screen pixels, doubled for fingers and pens
 export const ANCHOR_TOLERANCE = 6;
@@ -46,26 +47,38 @@ function hitPath(item: PathItem, m: Mat, p: Vec, zoom: number, factor: number): 
   return ctx.isPointInStroke(shape, local.x, local.y);
 }
 
-// m is the item's world matrix, its own transform included
-export function hitItem(item: Item, m: Mat, p: Vec, zoom: number, factor = 1): boolean {
+// m is the item's world matrix, its own transform included. offset is how far past its keyframe
+// the item shows, instances pick their symbol frame with it
+export function hitItem(item: Item, m: Mat, p: Vec, zoom: number, factor = 1, offset?: number, depth = 0): boolean {
   if (!item.visible) return false;
   // cheap box test first, grown by the stroke band so an edge hit is not thrown away
   const pad = item.type === 'path' ? strokeTolerance(item, m, zoom, factor) / zoom : 0;
-  if (item.type !== 'group' && !contains(expand(itemBounds(item, m), pad), p)) return false;
+  if (item.type !== 'group' && !contains(expand(itemBounds(item, m, offset, depth), pad), p)) return false;
   switch (item.type) {
     case 'path':
       return hitPath(item, m, p, zoom, factor);
     case 'group':
       for (let i = item.children.length - 1; i >= 0; i--) {
         const child = item.children[i];
-        if (hitItem(child, multiply(m, child.transform), p, zoom, factor)) return true;
+        if (hitItem(child, multiply(m, child.transform), p, zoom, factor, offset, depth)) return true;
       }
       return false;
     case 'text':
     case 'image':
       return contains(localBounds(item), applyPoint(invert(m), p));
-    default:
+    case 'instance': {
+      if (depth >= MAX_NESTING) return false;
+      // the symbol's own layers, top first, a locked layer inside still counts as artwork
+      const list = instanceSlices(item, offset ?? stageOffset(item.id));
+      for (let l = list.length - 1; l >= 0; l--) {
+        const items = list[l].items;
+        for (let i = items.length - 1; i >= 0; i--) {
+          const child = items[i];
+          if (hitItem(child, multiply(m, child.transform), p, zoom, factor, list[l].offset, depth + 1)) return true;
+        }
+      }
       return false;
+    }
   }
 }
 
