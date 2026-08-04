@@ -18,7 +18,6 @@
   import { editor, hover } from '$lib/editor/editor';
   import { renderStage, setImageLoaded } from '$lib/render/renderer';
   import { onionFrames } from '$lib/render/onion';
-  import { docLength } from '$lib/anim/timeline';
   import { pause } from '$lib/anim/playback';
   import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
   import { doubleClick, drawToolOverlay, pointerDown, pointerMove, pointerUp } from '$lib/tools';
@@ -110,7 +109,7 @@
     if (!t.onion || get(playing) || (t.onionBefore === 0 && t.onionAfter === 0)) return null;
     const layers = editor.currentLayers();
     const at = editor.frame;
-    const ghosts = onionFrames(layers, at, t.onionBefore, t.onionAfter, t.onionKeyframes, docLength(editor.doc));
+    const ghosts = onionFrames(layers, at, t.onionBefore, t.onionAfter, t.onionKeyframes, editor.length());
     if (ghosts.before.length === 0 && ghosts.after.length === 0) return null;
     return {
       options: {

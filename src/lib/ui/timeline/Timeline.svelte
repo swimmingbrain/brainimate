@@ -7,7 +7,7 @@
   import TimelineBar from './TimelineBar.svelte';
   import { docVersion, editor } from '$lib/editor/editor';
   import { addFolder, addLayer, addRigLayer, deleteActiveLayer, goToFrame } from '$lib/editor/commands';
-  import { docLength, layerRows } from '$lib/anim/timeline';
+  import { layerRows } from '$lib/anim/timeline';
   import { collapsedFolders, frame, timelineView } from '$lib/stores/app';
   import { preferences, setGroup } from '$lib/stores/preferences';
   import { EXTRA_FRAMES, MAX_FRAME_W, MIN_FRAME_W, ROW_H } from './metrics';
@@ -24,7 +24,7 @@
   });
   const length = $derived.by(() => {
     void $docVersion;
-    return docLength(editor.doc);
+    return editor.length();
   });
   const scrollX = $derived($timelineView.scrollX);
   const scrollY = $derived($timelineView.scrollY);

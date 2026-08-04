@@ -14,7 +14,6 @@
     togglePlay
   } from '$lib/editor/commands';
   import { formatTime } from '$lib/anim/playback';
-  import { docLength } from '$lib/anim/timeline';
   import { MAX_FRAME_W, MIN_FRAME_W } from './metrics';
 
   const timeline = $derived($preferences.timeline);
@@ -25,7 +24,7 @@
   });
   const length = $derived.by(() => {
     void $docVersion;
-    return docLength(editor.doc);
+    return editor.length();
   });
 
   // right click on the onion button: how the ghosts look

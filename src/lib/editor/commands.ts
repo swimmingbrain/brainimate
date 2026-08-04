@@ -21,7 +21,6 @@ import { newId } from '$lib/core/ids';
 import {
   clearKeyframe,
   copyFrames,
-  docLength,
   duplicateKeyframes,
   hasFrames,
   insertBlankKeyframe,
@@ -777,7 +776,7 @@ export function reverseSelectedFrames() {
 export function selectAllFrames() {
   const rows = layerRows(editor.currentLayers(), get(collapsedFolders)).filter((r) => hasFrames(r.layer));
   if (rows.length === 0) return;
-  frameSelection.set({ layers: rows.map((r) => r.layer.id), from: 0, to: docLength(editor.doc) - 1 });
+  frameSelection.set({ layers: rows.map((r) => r.layer.id), from: 0, to: editor.length() - 1 });
 }
 
 // drags the picked keyframes along, alt leaves copies behind, the selection and the playhead follow
@@ -799,7 +798,7 @@ export function moveSelectedKeyframes(delta: number, copy: boolean) {
 export function fitTimeline() {
   const width = get(timelineView).width;
   if (width <= 0) return;
-  const fw = Math.max(4, Math.min(24, Math.floor(width / (docLength(editor.doc) + 2))));
+  const fw = Math.max(4, Math.min(24, Math.floor(width / (editor.length() + 2))));
   setGroup('timeline', { frameWidth: fw });
   timelineView.update((v) => ({ ...v, scrollX: 0 }));
 }

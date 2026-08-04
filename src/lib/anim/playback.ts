@@ -2,7 +2,6 @@ import { get } from 'svelte/store';
 import { frame, frameSelection, playing } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 import { editor, hover } from '$lib/editor/editor';
-import { docLength } from './timeline';
 
 // whole frames that fit into the time that passed, what is left over carries to the next tick.
 // after a hidden tab or a long stall it plays on from where it was instead of racing to catch up
@@ -47,14 +46,14 @@ function tick(now: number) {
   acc = taken.acc;
   if (taken.steps === 0) return;
   const loop = get(preferences).timeline.loop;
-  const next = playFrame(get(frame), taken.steps, docLength(editor.doc), loop);
+  const next = playFrame(get(frame), taken.steps, editor.length(), loop);
   frame.set(next.frame);
   if (next.stop) pause();
 }
 
 export function play() {
   if (get(playing)) return;
-  const length = docLength(editor.doc);
+  const length = editor.length();
   // from the last frame without loop it plays again from the start
   if (get(frame) >= length - 1 && !get(preferences).timeline.loop) frame.set(0);
   hover.set(null);
@@ -98,5 +97,5 @@ export function firstFrame() {
 }
 
 export function lastFrame() {
-  goToFrame(docLength(editor.doc) - 1);
+  goToFrame(editor.length() - 1);
 }
