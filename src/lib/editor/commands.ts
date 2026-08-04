@@ -17,6 +17,7 @@ import { cloneItem, contours, localBounds, makePathItem, parentMatrix } from '$l
 import { combine, divide, type BooleanOp, type Shape } from '$lib/core/boolean';
 import { joinTwo, simplifyPath, strokePieces } from '$lib/core/pathops';
 import { smoothPath } from '$lib/core/smooth';
+import { instanceParts } from '$lib/core/library';
 import { newId } from '$lib/core/ids';
 import {
   clearKeyframe,
@@ -305,7 +306,7 @@ export function groupSelection() {
 }
 
 // inside a commit: the items go and the new ones take the slot of slotId, which is one of them
-function replaceInDraft(draft: Doc, ids: string[], slotId: string, added: Item[]) {
+export function replaceInDraft(draft: Doc, ids: string[], slotId: string, added: Item[]) {
   const target = editor.draftFind(draft, slotId);
   if (!target) return;
   const list = target.list;
@@ -388,15 +389,26 @@ export function arrangeSelection(how: Arrange) {
   });
 }
 
-// breaks groups into their children and a path with holes into one path per contour
+// breaks groups into their children, an instance into what its symbol shows on this frame and a
+// path with holes into one path per contour
 export function breakApart() {
   const items = editor.selectedItems(false);
   const ids: string[] = [];
   let changed = false;
+  // worked out before the commit, the symbol frame of an instance depends on where it sits
+  const broken = new Map<string, Item[]>();
+  for (const it of items) if (it.type === 'instance') broken.set(it.id, instanceParts(it, editor.offsetOf(it.id)));
   editor.commit('Break apart', (draft) => {
     for (const it of items) {
       const found = editor.draftFind(draft, it.id);
       if (!found) continue;
+      const own = broken.get(it.id);
+      if (own) {
+        found.list.splice(found.index, 1, ...own);
+        ids.push(...own.map((part) => part.id));
+        changed = true;
+        continue;
+      }
       if (found.item.type === 'group') {
         ids.push(...ungroupInDraft(found.item, found.list, found.index));
         changed = true;

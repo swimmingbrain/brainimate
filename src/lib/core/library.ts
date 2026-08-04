@@ -1,5 +1,8 @@
 import type { Doc, InstanceItem, Item, Layer, Symbol } from './types';
 import { newId } from './ids';
+import { multiply } from './mat';
+import { withNewIds } from './items';
+import { instanceSlices } from '$lib/render/frame';
 
 // every item of every keyframe of the layers, groups opened
 export function eachItem(layers: Layer[], fn: (item: Item) => void) {
@@ -90,4 +93,19 @@ export function copySymbol(symbol: Symbol, name: string): Symbol {
     for (const key of layer.keyframes) renew(key.items);
   }
   return copy;
+}
+
+// what an instance shows on its frame as plain items with new ids, for break apart. the instance
+// matrix and alpha go into each of them
+export function instanceParts(item: InstanceItem, offset: number): Item[] {
+  const out: Item[] = [];
+  for (const slice of instanceSlices(item, offset)) {
+    for (const child of slice.items) {
+      const part = withNewIds(child);
+      part.transform = multiply(item.transform, child.transform);
+      part.opacity = child.opacity * item.opacity * item.alpha;
+      out.push(part);
+    }
+  }
+  return out;
 }
