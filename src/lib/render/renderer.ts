@@ -2,11 +2,13 @@ import type { Asset, Doc, ImageItem, InstanceItem, Item, Layer, Mat, PathItem, T
 import { multiply, scaleFactor } from '$lib/core/mat';
 import { canvasPaint, compositeOp, needsBox, type Ctx2D } from '$lib/core/style';
 import { compoundBounds } from '$lib/core/path';
-import { localBounds } from '$lib/core/items';
+import { itemBounds, localBounds } from '$lib/core/items';
+import { isEmpty } from '$lib/core/bbox';
 import { isLayerShown } from '$lib/anim/timeline';
 import { shapePath2D } from './pathcache';
 import { MAX_NESTING, instanceSlices, itemsAt, keyframeAt } from './frame';
 import { drawOnion, type OnionOptions } from './onion';
+import { context, sized, type Surface } from './surface';
 
 // css pixels of the canvas, dpr turns them into device pixels
 export interface RenderView {
@@ -151,11 +153,64 @@ function drawInstance(
   if (depth >= MAX_NESTING) return;
   const alpha = a * item.alpha;
   if (alpha <= 0) return;
+  if (!outline && item.tint && item.tintAmount > 0) {
+    drawTinted(ctx, item, m, alpha, mode, s, offset, depth);
+    return;
+  }
   // the symbol's items are not in the preview, a drag on the stage never reaches inside
   for (const slice of instanceSlices(item, offset)) {
     const own = outline ?? (slice.layer.outline ? slice.layer.color : null);
     for (const child of slice.items) drawItem(ctx, child, m, alpha, mode, own, s, slice.offset, depth + 1);
   }
+}
+
+// one scratch canvas per nesting level, a tinted instance inside a tinted one needs its own
+const tintSurfaces: (Surface | null)[] = [];
+
+// the symbol is drawn alone, the tint color laid over what it covered, and the result put down at
+// the instance alpha. only the device pixels the instance covers are touched
+function drawTinted(
+  ctx: Ctx2D,
+  item: InstanceItem,
+  m: Mat,
+  alpha: number,
+  mode: string,
+  s: DrawState,
+  offset: number,
+  depth: number
+) {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const box = itemBounds(item, m, offset, depth);
+  if (isEmpty(box)) return;
+  const x0 = Math.max(0, Math.floor(box.minX) - 2);
+  const y0 = Math.max(0, Math.floor(box.minY) - 2);
+  const x1 = Math.min(w, Math.ceil(box.maxX) + 2);
+  const y1 = Math.min(h, Math.ceil(box.maxY) + 2);
+  if (x1 <= x0 || y1 <= y0) return;
+  const surf = sized(tintSurfaces[depth] ?? null, w, h);
+  tintSurfaces[depth] = surf;
+  const t = context(surf);
+  t.setTransform(1, 0, 0, 1, 0, 0);
+  t.globalAlpha = 1;
+  t.globalCompositeOperation = 'source-over';
+  t.clearRect(x0, y0, x1 - x0, y1 - y0);
+  for (const slice of instanceSlices(item, offset)) {
+    for (const child of slice.items) drawItem(t, child, m, 1, 'normal', null, s, slice.offset, depth + 1);
+  }
+  t.setTransform(1, 0, 0, 1, 0, 0);
+  t.globalCompositeOperation = 'source-atop';
+  t.globalAlpha = Math.min(1, item.tintAmount);
+  t.fillStyle = item.tint!;
+  t.fillRect(x0, y0, x1 - x0, y1 - y0);
+  t.globalCompositeOperation = 'source-over';
+  t.globalAlpha = 1;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = alpha;
+  ctx.globalCompositeOperation = compositeOp(mode);
+  ctx.drawImage(surf, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+  ctx.restore();
 }
 
 // offset is how many frames past its keyframe the item shows, instances pick their symbol frame by it
