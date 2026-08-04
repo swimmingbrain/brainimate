@@ -1,6 +1,7 @@
 import type { Layer } from '$lib/core/types';
 import type { Ctx2D } from '$lib/core/style';
 import { hasFrames, isLayerShown } from '$lib/anim/timeline';
+import { context, surface, type Surface } from './surface';
 
 export interface OnionOptions {
   // the ghost frames, nearest to the playhead first
@@ -43,21 +44,6 @@ export function onionFrames(
 // 0.5 right next to the playhead, 0.15 less for every step further away
 export function onionAlpha(distance: number): number {
   return Math.max(0.05, 0.5 - 0.15 * (distance - 1));
-}
-
-type Surface = OffscreenCanvas | HTMLCanvasElement;
-type SurfaceCtx = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
-
-function surface(w: number, h: number): Surface {
-  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  return c;
-}
-
-function context(s: Surface): SurfaceCtx {
-  return s.getContext('2d') as SurfaceCtx;
 }
 
 // one ghost layer per frame is drawn into scratch, tinted and laid onto the composite. the
