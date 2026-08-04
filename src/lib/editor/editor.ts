@@ -6,7 +6,7 @@ import { newId } from '$lib/core/ids';
 import { identity, multiply } from '$lib/core/mat';
 import { cloneItem, contourOf, findItem, itemBounds, parentMatrix, type Found } from '$lib/core/items';
 import { emptyBox, union, type Box } from '$lib/core/bbox';
-import { itemsAt, tweenAt } from '$lib/render/frame';
+import { itemsAt, keyframeAt, layersLength, setLibrary, setOffsetSource, tweenAt } from '$lib/render/frame';
 import { isLayerLocked, isLayerShown, keyframeForEdit } from '$lib/anim/timeline';
 import { rebaseEdit } from '$lib/anim/tween';
 import { activeLayer, anchorSelection, dirty, docName, frame, frameSelection, selection, stageSize } from '$lib/stores/app';
@@ -20,6 +20,21 @@ export const docVersion = writable(0);
 export const historyState = writable<HistoryState>({ canUndo: false, canRedo: false, undoLabel: null, redoLabel: null });
 // the item under the pointer, drawn with a highlight
 export const hover = writable<string | null>(null);
+
+// one level of editing a symbol in place
+export interface EditLevel {
+  symbolId: string;
+  // the instance opened, null when the symbol is edited on its own
+  instanceId: string | null;
+  // the instance's world matrix when it was opened, from symbol space to the document
+  base: Mat;
+  // frame and active layer of the level below, given back on the way out
+  frame: number;
+  layer: string | null;
+}
+
+// the symbols being edited in place, the outermost first
+export const editStack = writable<EditLevel[]>([]);
 
 export function makeLayer(name: string, color: string, type: Layer['type'] = 'normal'): Layer {
   return {
@@ -68,10 +83,14 @@ class Editor {
   contentDirty = true;
   overlayDirty = true;
   frame = 0;
+  editStack: EditLevel[] = [];
+  // frames past their keyframe of the items on the stage, worked out once per frame and timeline
+  private offsets: { layers: Layer[]; frame: number; map: Map<string, number> } | null = null;
 
   constructor() {
     this.doc = makeDoc(1920, 1080, get(preferences).timeline.fps);
     activeLayer.set(this.doc.layers[0].id);
+    setOffsetSource((id) => this.offsetOf(id));
     frame.subscribe((f) => {
       this.frame = f;
       this.pruneSelection();
@@ -96,6 +115,7 @@ class Editor {
 
   newDoc(width: number, height: number, fps: number) {
     this.doc = makeDoc(width, height, fps);
+    this.setStack([]);
     this.history.clear();
     this.clearPreview();
     selection.set(new Set());
@@ -137,6 +157,11 @@ class Editor {
     return result.label;
   }
 
+  // panels and the stage read everything again
+  refresh() {
+    this.changed();
+  }
+
   private changed() {
     this.sync();
     this.pruneSelection();
@@ -149,6 +174,10 @@ class Editor {
   private sync() {
     const size = get(stageSize);
     const d = this.doc;
+    setLibrary(d.symbols);
+    // an undo can take away a symbol that is open, editing it ends there
+    const gone = this.editStack.findIndex((l) => !d.symbols[l.symbolId]);
+    if (gone >= 0) this.setStack(this.editStack.slice(0, gone));
     if (size.width !== d.width || size.height !== d.height || size.background !== d.bg) {
       stageSize.set({ width: d.width, height: d.height, background: d.bg });
     }
@@ -190,9 +219,87 @@ class Editor {
     this.markAll();
   }
 
-  // the layers of what is being edited, a symbol's layers once editing in place exists
+  private setStack(stack: EditLevel[]) {
+    this.editStack = stack;
+    editStack.set(stack);
+  }
+
+  // the symbol open for editing in place, null on the main timeline
+  editing(): EditLevel | null {
+    return this.editStack[this.editStack.length - 1] ?? null;
+  }
+
+  // the layers of what is being edited, the main timeline or the open symbol
   currentLayers(): Layer[] {
-    return this.doc.layers;
+    const top = this.editing();
+    return (top && this.doc.symbols[top.symbolId]?.layers) || this.doc.layers;
+  }
+
+  // frames the timeline being edited runs for
+  length(): number {
+    return layersLength(this.currentLayers());
+  }
+
+  // maps the space of the timeline being edited to the document, identity on the main timeline
+  base(): Mat {
+    return this.editing()?.base ?? identity();
+  }
+
+  // opens a symbol for editing in place, base places its origin in the document
+  enterSymbol(symbolId: string, instanceId: string | null, base: Mat) {
+    const symbol = this.doc.symbols[symbolId];
+    if (!symbol) return;
+    this.clearPreview();
+    const level: EditLevel = { symbolId, instanceId, base, frame: this.frame, layer: get(activeLayer) };
+    this.setStack([...this.editStack, level]);
+    selection.set(new Set());
+    anchorSelection.set([]);
+    frameSelection.set(null);
+    hover.set(null);
+    const layers = symbol.layers;
+    const top = [...layers].reverse().find((l) => l.type === 'normal') ?? layers[layers.length - 1];
+    activeLayer.set(top?.id ?? null);
+    frame.set(Math.min(this.frame, layersLength(symbol.layers) - 1));
+    this.changed();
+  }
+
+  // back to the level with depth symbols open, 0 is the main timeline, the instance left gets selected
+  exitTo(depth: number) {
+    if (depth < 0 || depth >= this.editStack.length) return;
+    const back = this.editStack[depth];
+    this.clearPreview();
+    this.setStack(this.editStack.slice(0, depth));
+    anchorSelection.set([]);
+    frameSelection.set(null);
+    hover.set(null);
+    activeLayer.set(back.layer);
+    frame.set(back.frame);
+    selection.set(back.instanceId && this.locate(back.instanceId) ? new Set([back.instanceId]) : new Set());
+    this.changed();
+  }
+
+  exitSymbol() {
+    this.exitTo(this.editStack.length - 1);
+  }
+
+  // how many frames past its keyframe an item on the stage is, instances map their frame by it
+  offsetOf(id: string): number {
+    const layers = this.currentLayers();
+    if (!this.offsets || this.offsets.layers !== layers || this.offsets.frame !== this.frame) {
+      const map = new Map<string, number>();
+      const walk = (items: Item[], offset: number) => {
+        for (const item of items) {
+          map.set(item.id, offset);
+          if (item.type === 'group') walk(item.children, offset);
+        }
+      };
+      for (const layer of layers) {
+        const key = keyframeAt(layer, this.frame);
+        if (key && key.frame < this.frame) walk(this.layerItems(layer), this.frame - key.frame);
+      }
+      this.offsets = { layers, frame: this.frame, map };
+    }
+    return this.offsets.map.get(id) ?? 0;
   }
 
   layerById(id: string): Layer | null {
@@ -292,7 +399,8 @@ class Editor {
 
   // the layers of a draft that match currentLayers
   draftLayers(draft: Doc): Layer[] {
-    return draft.layers;
+    const top = this.editing();
+    return (top && draft.symbols[top.symbolId]?.layers) || draft.layers;
   }
 
   // the items list of a draft layer at the current frame, a keyframe is added first when needed
