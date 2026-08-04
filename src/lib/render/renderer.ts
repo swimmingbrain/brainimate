@@ -1,11 +1,11 @@
-import type { Asset, Doc, ImageItem, Item, Layer, Mat, PathItem, TextItem } from '$lib/core/types';
+import type { Asset, Doc, ImageItem, InstanceItem, Item, Layer, Mat, PathItem, TextItem } from '$lib/core/types';
 import { multiply, scaleFactor } from '$lib/core/mat';
 import { canvasPaint, compositeOp, needsBox, type Ctx2D } from '$lib/core/style';
 import { compoundBounds } from '$lib/core/path';
 import { localBounds } from '$lib/core/items';
 import { isLayerShown } from '$lib/anim/timeline';
 import { shapePath2D } from './pathcache';
-import { itemsAt } from './frame';
+import { MAX_NESTING, instanceSlices, itemsAt, keyframeAt } from './frame';
 import { drawOnion, type OnionOptions } from './onion';
 
 // css pixels of the canvas, dpr turns them into device pixels
@@ -27,6 +27,8 @@ export interface RenderOptions {
   // items a tool is drawing out, on top of their layer
   added?: { layerId: string; item: Item }[];
   assets?: Record<string, Asset>;
+  // an item left out, the one being typed into or the instance being edited in place
+  hide?: string | null;
 }
 
 export interface StageOptions extends RenderOptions {
@@ -134,8 +136,41 @@ function drawImage(ctx: Ctx2D, item: ImageItem, m: Mat, outline: string | null, 
   if (img) ctx.drawImage(img, 0, 0, item.width, item.height);
 }
 
-function drawItem(ctx: Ctx2D, item: Item, parent: Mat, alpha: number, blend: string, outline: string | null, s: DrawState) {
-  if (!item.visible) return;
+// the symbol's layers at the frame the instance maps to, with the instance matrix and alpha
+function drawInstance(
+  ctx: Ctx2D,
+  item: InstanceItem,
+  m: Mat,
+  a: number,
+  mode: string,
+  outline: string | null,
+  s: DrawState,
+  offset: number,
+  depth: number
+) {
+  if (depth >= MAX_NESTING) return;
+  const alpha = a * item.alpha;
+  if (alpha <= 0) return;
+  // the symbol's items are not in the preview, a drag on the stage never reaches inside
+  for (const slice of instanceSlices(item, offset)) {
+    const own = outline ?? (slice.layer.outline ? slice.layer.color : null);
+    for (const child of slice.items) drawItem(ctx, child, m, alpha, mode, own, s, slice.offset, depth + 1);
+  }
+}
+
+// offset is how many frames past its keyframe the item shows, instances pick their symbol frame by it
+function drawItem(
+  ctx: Ctx2D,
+  item: Item,
+  parent: Mat,
+  alpha: number,
+  blend: string,
+  outline: string | null,
+  s: DrawState,
+  offset: number,
+  depth: number
+) {
+  if (!item.visible || item.id === s.opts.hide) return;
   const a = alpha * item.opacity;
   if (a <= 0) return;
   const m = multiply(parent, item.transform);
@@ -147,19 +182,22 @@ function drawItem(ctx: Ctx2D, item: Item, parent: Mat, alpha: number, blend: str
     case 'path':
       drawPath(ctx, item, m, outline, s);
       break;
-    case 'group':
+    case 'group': {
+      // only the items of the timeline being edited have previews
+      const preview = depth === 0 ? s.opts.preview : undefined;
       for (const child of item.children) {
-        drawItem(ctx, s.opts.preview?.get(child.id) ?? child, m, a, mode, outline, s);
+        drawItem(ctx, preview?.get(child.id) ?? child, m, a, mode, outline, s, offset, depth);
       }
       break;
+    }
     case 'text':
       drawText(ctx, item, m, outline);
       break;
     case 'image':
       drawImage(ctx, item, m, outline, s);
       break;
-    default:
-      // instances are drawn once symbols exist
+    case 'instance':
+      drawInstance(ctx, item, m, a, mode, outline, s, offset, depth);
       break;
   }
 }
@@ -171,11 +209,14 @@ export function renderLayers(ctx: Ctx2D, layers: Layer[], base: Mat, opts: Rende
   for (const layer of layers) {
     if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
     const outline = opts.outline || layer.outline ? layer.color : null;
+    const offset = opts.frame - (keyframeAt(layer, opts.frame)?.frame ?? 0);
     for (const item of itemsAt(layer, opts.frame)) {
-      drawItem(ctx, opts.preview?.get(item.id) ?? item, base, 1, 'normal', outline, s);
+      drawItem(ctx, opts.preview?.get(item.id) ?? item, base, 1, 'normal', outline, s, offset, 0);
     }
     if (opts.added) {
-      for (const added of opts.added) if (added.layerId === layer.id) drawItem(ctx, added.item, base, 1, 'normal', outline, s);
+      for (const added of opts.added) {
+        if (added.layerId === layer.id) drawItem(ctx, added.item, base, 1, 'normal', outline, s, offset, 0);
+      }
     }
   }
   ctx.restore();
