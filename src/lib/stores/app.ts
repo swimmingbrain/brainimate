@@ -33,6 +33,7 @@ export type Dialog =
   | { kind: 'export' }
   | { kind: 'new-doc' }
   | { kind: 'doc-settings' }
+  | { kind: 'symbol' }
   | { kind: 'confirm'; title: string; message: string; confirm: string; danger?: boolean; onconfirm: () => void };
 
 export const dialog = writable<Dialog | null>(null);
