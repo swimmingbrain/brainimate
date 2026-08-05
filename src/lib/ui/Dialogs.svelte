@@ -3,9 +3,10 @@
   import Shortcuts from './dialogs/Shortcuts.svelte';
   import About from './dialogs/About.svelte';
   import Confirm from './dialogs/Confirm.svelte';
+  import ConvertSymbol from './dialogs/ConvertSymbol.svelte';
   import { addToast, dialog } from '$lib/stores/app';
 
-  const READY = ['preferences', 'shortcuts', 'about', 'confirm'];
+  const READY = ['preferences', 'shortcuts', 'about', 'confirm', 'symbol'];
 
   function close() {
     dialog.set(null);
@@ -37,6 +38,8 @@
         danger={$dialog.danger}
         onconfirm={$dialog.onconfirm}
         onclose={close} />
+    {:else if $dialog.kind === 'symbol'}
+      <ConvertSymbol onclose={close} />
     {/if}
   {/key}
 {/if}
