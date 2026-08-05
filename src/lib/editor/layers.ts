@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import type { Item, Layer } from '$lib/core/types';
 import { newId } from '$lib/core/ids';
 import { descendantIds, moveLayer } from '$lib/anim/timeline';
-import { activeLayer, addToast, collapsedFolders, frameSelection, selection } from '$lib/stores/app';
+import { activeLayer, addToast, collapsedFolders, dialog, frameSelection, selection } from '$lib/stores/app';
 import { LAYER_COLORS, editor, makeLayer } from './editor';
 
 // the next free number for names like 'Layer 3' or 'Folder 2'
@@ -45,14 +45,26 @@ export function addRigLayer() {
   addAboveActive(makeLayer(nextName(editor.currentLayers(), 'Rig'), nextColor(), 'rig'), 'New rig layer');
 }
 
-// a folder goes with everything in it, one layer that holds frames always stays
-export function deleteLayer(id: string) {
+// a folder goes with everything in it once that is confirmed, one layer that holds frames always stays
+export function deleteLayer(id: string, confirmed = false) {
   const layers = editor.currentLayers();
   const index = layers.findIndex((l) => l.id === id);
   if (index < 0) return;
   const gone = new Set([id, ...descendantIds(layers, id)]);
   if (!layers.some((l) => !gone.has(l.id) && l.type === 'normal')) {
     addToast('The last layer stays', 'warning');
+    return;
+  }
+  if (gone.size > 1 && !confirmed) {
+    const count = gone.size - 1;
+    dialog.set({
+      kind: 'confirm',
+      title: 'Delete folder',
+      message: `${layers[index].name} holds ${count} ${count === 1 ? 'layer' : 'layers'}, they go with it.`,
+      confirm: 'Delete',
+      danger: true,
+      onconfirm: () => deleteLayer(id, true)
+    });
     return;
   }
   editor.commit(gone.size > 1 ? 'Delete folder' : 'Delete layer', (draft) => {
