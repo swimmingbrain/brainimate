@@ -18,7 +18,7 @@ import { rectPath } from '$lib/core/shapes';
 import { defaultStyle } from '$lib/core/style';
 import { translate } from '$lib/core/mat';
 import { itemsAt } from '$lib/render/frame';
-import { activeLayer, frame, frameClipboard, frameSelection } from '$lib/stores/app';
+import { activeLayer, dialog, frame, frameClipboard, frameSelection } from '$lib/stores/app';
 import { setGroup } from '$lib/stores/preferences';
 
 function rect(x = 0) {
@@ -138,6 +138,12 @@ describe('layer commands', () => {
     moveLayerTo(layer, folder, 'into');
     expect(editor.doc.layers.find((l) => l.id === layer)?.parent).toBe(folder);
     deleteLayer(folder);
+    // a folder with layers asks first
+    const asked = get(dialog);
+    expect(asked?.kind).toBe('confirm');
+    expect(editor.doc.layers).toHaveLength(3);
+    if (asked?.kind === 'confirm') asked.onconfirm();
+    dialog.set(null);
     expect(editor.doc.layers).toHaveLength(1);
     editor.undo();
     expect(editor.doc.layers).toHaveLength(3);
