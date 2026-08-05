@@ -36,6 +36,7 @@ import {
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, nudge, selectAll } from './selection';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
+import { openConvertDialog } from './symbols';
 
 // fields keep their keys, menus and dialogs handle their own
 function ignored(e: KeyboardEvent): boolean {
@@ -123,6 +124,7 @@ function bindings(): KeybindingsMap {
     F6: run(insertKeyframes),
     'Shift+F6': run(clearKeyframes),
     F7: run(insertBlankKeyframes),
+    F8: run(openConvertDialog),
     Enter: run(togglePlay),
     'Alt+Shift+KeyO': run(toggleOnion),
     '$mod+Alt+KeyC': run(copySelectedFrames),

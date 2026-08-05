@@ -41,6 +41,7 @@ import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, selectAll } from './selection';
 import { alignSelection, alignToStage, distributeSelection } from './align';
+import { newSymbol, openConvertDialog } from './symbols';
 import type { HistoryState } from './history';
 
 export interface TopMenu {
@@ -177,7 +178,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         { label: 'Keyframe', shortcut: 'F6', action: insertKeyframes },
         { label: 'Blank keyframe', shortcut: 'F7', action: insertBlankKeyframes },
         SEP,
-        soon('Symbol...', 'Ctrl+F8'),
+        { label: 'New symbol', action: newSymbol },
         soon('Text')
       ]
     },
@@ -186,7 +187,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
       items: [
         { label: 'Group', shortcut: 'Ctrl+G', disabled: none, action: groupSelection },
         { label: 'Ungroup', shortcut: 'Ctrl+Shift+G', disabled: none, action: ungroupSelection },
-        soon('Convert to symbol...', 'F8'),
+        { label: 'Convert to symbol...', shortcut: 'F8', disabled: none, action: openConvertDialog },
         { label: 'Break apart', shortcut: 'Ctrl+B', disabled: none, action: breakApart },
         SEP,
         {
