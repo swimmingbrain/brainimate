@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import type { Item, Mat, Vec } from '$lib/core/types';
-import { applyPoint, identity, multiply } from '$lib/core/mat';
+import { applyPoint, identity, invert, multiply } from '$lib/core/mat';
 import { boxCenter, isEmpty, type Box } from '$lib/core/bbox';
 import { contours, itemBounds } from '$lib/core/items';
 import { preferences, type Preferences } from '$lib/stores/preferences';
@@ -137,16 +137,24 @@ export function collectCandidates(prefs: Preferences, exclude: Set<string>, guid
   if (!prefs.snapping.enabled) return c;
   if (prefs.grid.snap) c.grid = prefs.grid.size;
   const doc = editor.doc;
-  if (guides && prefs.guides.snap && prefs.guides.show) {
-    for (const x of doc.guides.v) c.xs.push({ value: x, kind: 'guide' });
-    for (const y of doc.guides.h) c.ys.push({ value: y, kind: 'guide' });
+  // guides and the stage are in the document, inside an open symbol they are seen from its space,
+  // which only keeps them straight lines while the symbol is not turned
+  const inv = invert(editor.base());
+  const straight = Math.abs(inv[1]) < 1e-9 && Math.abs(inv[2]) < 1e-9;
+  const x = (v: number) => inv[0] * v + inv[4];
+  const y = (v: number) => inv[3] * v + inv[5];
+  if (straight && guides && prefs.guides.snap && prefs.guides.show) {
+    for (const v of doc.guides.v) c.xs.push({ value: x(v), kind: 'guide' });
+    for (const v of doc.guides.h) c.ys.push({ value: y(v), kind: 'guide' });
   }
   if (!prefs.snapping.smartGuides) return c;
   // the stage edges and its middle
-  c.xs.push({ value: 0, kind: 'stage' }, { value: doc.width / 2, kind: 'center' });
-  c.xs.push({ value: doc.width, kind: 'stage' });
-  c.ys.push({ value: 0, kind: 'stage' }, { value: doc.height / 2, kind: 'center' });
-  c.ys.push({ value: doc.height, kind: 'stage' });
+  if (straight) {
+    c.xs.push({ value: x(0), kind: 'stage' }, { value: x(doc.width / 2), kind: 'center' });
+    c.xs.push({ value: x(doc.width), kind: 'stage' });
+    c.ys.push({ value: y(0), kind: 'stage' }, { value: y(doc.height / 2), kind: 'center' });
+    c.ys.push({ value: y(doc.height), kind: 'stage' });
+  }
   const budget = { left: MAX_ANCHORS };
   for (const layer of editor.currentLayers()) {
     if (!editor.isEditable(layer)) continue;
@@ -167,6 +175,7 @@ function candidates(exclude: Set<string>, guides: boolean): SnapCandidates {
   const key = [
     get(docVersion),
     editor.frame,
+    editor.editStack.length,
     guides,
     [...exclude].sort().join(','),
     JSON.stringify([prefs.snapping, prefs.grid.snap, prefs.grid.size, prefs.guides.snap, prefs.guides.show])
