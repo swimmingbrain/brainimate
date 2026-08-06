@@ -26,6 +26,7 @@
   import { pointerFactor } from '$lib/core/hit';
   import { finishGuideDrag, guideAt, guideState, guidesLocked, type GuideAxis } from '$lib/editor/guides';
   import { clearSnap, snapPoint } from '$lib/editor/snap';
+  import { multiply } from '$lib/core/mat';
 
   const RULER = 20;
   // the tools that can grab a guide on the stage
@@ -149,7 +150,9 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     drawEditorOverlay(ctx, v, dpr, colors);
-    ctx.setTransform(dpr * v.zoom, 0, 0, dpr * v.zoom, dpr * v.panX, dpr * v.panY);
+    // the tools draw in the space they work in
+    const m = multiply([dpr * v.zoom, 0, 0, dpr * v.zoom, dpr * v.panX, dpr * v.panY], editor.base());
+    ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
     drawToolOverlay(ctx);
     if (get(preferences).rulers.show) drawRulers(ctx, v);
   }
@@ -237,7 +240,13 @@
     ctx.stroke();
   }
 
+  // in the space of the timeline being edited, a symbol open in place has its own
   function toolEvent(e: PointerEvent | MouseEvent): ToolEvent {
+    return makeEvent(e, overlay!.getBoundingClientRect(), get(view), editor.base());
+  }
+
+  // guides and rulers stay in document space
+  function docEvent(e: PointerEvent | MouseEvent): ToolEvent {
     return makeEvent(e, overlay!.getBoundingClientRect(), get(view));
   }
 
@@ -250,13 +259,13 @@
   }
 
   // a guide the pointer can grab: visible, unlocked, a selection tool, and no item on top of it
-  function grabbableGuide(ev: ToolEvent): { axis: GuideAxis; index: number } | null {
+  function grabbableGuide(ev: ToolEvent, at: ToolEvent): { axis: GuideAxis; index: number } | null {
     const prefs = get(preferences);
     if (!prefs.guides.show || prefs.guides.lock || !GUIDE_TOOLS.includes(get(activeTool))) return null;
     const g = editor.doc.guides;
     if (g.h.length === 0 && g.v.length === 0) return null;
     const factor = pointerFactor(ev.pointerType);
-    const hit = guideAt(ev, ev.zoom, factor);
+    const hit = guideAt(at, at.zoom, factor);
     if (!hit || pickItem(ev, ev.zoom, factor)) return null;
     return hit;
   }
@@ -272,7 +281,8 @@
     const drag = guideState.drag;
     if (!drag) return;
     const axis = drag.axis === 'h' ? 'y' : 'x';
-    const p = snapPoint(ev, { zoom: ev.zoom, axis, guides: false, show: true });
+    // the snap targets are in the space of an open symbol, a guide lives in the document
+    const p = editor.editing() ? ev : snapPoint(ev, { zoom: ev.zoom, axis, guides: false, show: true });
     drag.value = axis === 'y' ? p.y : p.x;
     drag.remove = drag.axis === 'h' ? ev.sy < RULER : ev.sx < RULER;
     editor.markOverlay();
@@ -294,15 +304,16 @@
     }
     if (e.button !== 0) return;
     const ev = toolEvent(e);
+    const at = docEvent(e);
     const ruler = rulerAt(ev.sx, ev.sy);
     if (ruler) {
       if (guidesLocked()) addToast('Guides are locked');
-      else startGuide(ruler, -1, ev);
+      else startGuide(ruler, -1, at);
       return;
     }
-    const guide = grabbableGuide(ev);
+    const guide = grabbableGuide(ev, at);
     if (guide) {
-      startGuide(guide.axis, guide.index, ev);
+      startGuide(guide.axis, guide.index, at);
       return;
     }
     pointerDown(ev);
@@ -318,12 +329,12 @@
     const ev = toolEvent(e);
     pointerAt = { x: ev.sx, y: ev.sy };
     if (guideState.drag) {
-      dragGuide(ev);
+      dragGuide(docEvent(e));
       return;
     }
     // a hover only needs the latest position, a drag gets every point in between
     if (e.buttons === 0) {
-      const guide = rulerAt(ev.sx, ev.sy) ? null : grabbableGuide(ev);
+      const guide = rulerAt(ev.sx, ev.sy) ? null : grabbableGuide(ev, docEvent(e));
       guideCursor = guide?.axis ?? null;
       pointerMove(ev);
     } else {
@@ -340,7 +351,7 @@
       return;
     }
     if (guideState.drag) {
-      dragGuide(toolEvent(e));
+      dragGuide(docEvent(e));
       finishGuideDrag();
       clearSnap();
       guideCursor = null;

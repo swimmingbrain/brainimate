@@ -1,5 +1,7 @@
 import type { Component } from 'svelte';
 import type { View } from '$lib/stores/app';
+import type { Mat } from '$lib/core/types';
+import { applyPoint, invert, isIdentity, scaleFactor } from '$lib/core/mat';
 
 export const TOOL_IDS = [
   'select',
@@ -117,13 +119,20 @@ export function toolBase(id: ToolId): Pick<Tool, 'id' | 'name' | 'icon' | 'short
   return { id, name: info.name, icon: info.icon, shortcut: info.shortcut, cursor: info.cursor };
 }
 
-export function makeEvent(e: PointerEvent | MouseEvent, rect: DOMRect, v: View): ToolEvent {
+// space maps the timeline being edited to the document, inside a symbol the tools work in its space
+export function makeEvent(e: PointerEvent | MouseEvent, rect: DOMRect, v: View, space?: Mat): ToolEvent {
   const sx = e.clientX - rect.left;
   const sy = e.clientY - rect.top;
   const pointer = typeof PointerEvent !== 'undefined' && e instanceof PointerEvent ? e : null;
+  let p = { x: (sx - v.panX) / v.zoom, y: (sy - v.panY) / v.zoom };
+  let zoom = v.zoom;
+  if (space && !isIdentity(space)) {
+    p = applyPoint(invert(space), p);
+    zoom *= scaleFactor(space);
+  }
   return {
-    x: (sx - v.panX) / v.zoom,
-    y: (sy - v.panY) / v.zoom,
+    x: p.x,
+    y: p.y,
     sx,
     sy,
     shift: e.shiftKey,
@@ -132,7 +141,7 @@ export function makeEvent(e: PointerEvent | MouseEvent, rect: DOMRect, v: View):
     pressure: pointer && pointer.pointerType === 'pen' ? pointer.pressure : 0.5,
     button: e.button,
     pointerType: pointer?.pointerType ?? 'mouse',
-    zoom: v.zoom
+    zoom
   };
 }
 
