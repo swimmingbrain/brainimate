@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import type { Item, Mat, PathItem, Vec } from '$lib/core/types';
-import { applyPoint, multiply } from '$lib/core/mat';
-import { corners, isEmpty, type Box } from '$lib/core/bbox';
+import { applyPoint, invert, multiply } from '$lib/core/mat';
+import { corners, fromRect, isEmpty, transformBox, type Box } from '$lib/core/bbox';
 import { contours, localBounds } from '$lib/core/items';
 import { shapePath2D } from './pathcache';
 import { editor, hover } from '$lib/editor/editor';
@@ -28,13 +28,15 @@ export interface OverlayColors {
   accent: string;
 }
 
-// screen = view * world, in css pixels, the context already holds the dpr
+// screen = view * base * world, in css pixels, the context already holds the dpr. base takes the
+// space of an open symbol to the document
 function screenMatrix(v: View, world: Mat): Mat {
-  return multiply([v.zoom, 0, 0, v.zoom, v.panX, v.panY], world);
+  return multiply([v.zoom, 0, 0, v.zoom, v.panX, v.panY], multiply(editor.base(), world));
 }
 
 function toScreen(v: View, p: Vec): Vec {
-  return { x: p.x * v.zoom + v.panX, y: p.y * v.zoom + v.panY };
+  const q = applyPoint(editor.base(), p);
+  return { x: q.x * v.zoom + v.panX, y: q.y * v.zoom + v.panY };
 }
 
 function screenPath(item: PathItem, m: Mat): Path2D {
@@ -181,23 +183,23 @@ function drawSnap(ctx: CanvasRenderingContext2D, v: View) {
   const r = snapState.result;
   if (!r) return;
   const doc = editor.doc;
+  // the lines run across the stage, inside an open symbol across the stage seen from its space
+  const stage = transformBox(fromRect(0, 0, doc.width, doc.height), invert(editor.base()));
   ctx.strokeStyle = SMART_GUIDE;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (const line of r.lines) {
-    if (line.axis === 'x') {
-      const x = Math.round(line.value * v.zoom + v.panX) + 0.5;
-      const y0 = Math.min(0, r.y) * v.zoom + v.panY;
-      const y1 = Math.max(doc.height, r.y) * v.zoom + v.panY;
-      ctx.moveTo(x, y0);
-      ctx.lineTo(x, y1);
-    } else {
-      const y = Math.round(line.value * v.zoom + v.panY) + 0.5;
-      const x0 = Math.min(0, r.x) * v.zoom + v.panX;
-      const x1 = Math.max(doc.width, r.x) * v.zoom + v.panX;
-      ctx.moveTo(x0, y);
-      ctx.lineTo(x1, y);
-    }
+    const lo = { x: Math.min(stage.minX, r.x), y: Math.min(stage.minY, r.y) };
+    const hi = { x: Math.max(stage.maxX, r.x), y: Math.max(stage.maxY, r.y) };
+    const from = line.axis === 'x' ? { x: line.value, y: lo.y } : { x: lo.x, y: line.value };
+    const to = line.axis === 'x' ? { x: line.value, y: hi.y } : { x: hi.x, y: line.value };
+    const a = toScreen(v, from);
+    const b = toScreen(v, to);
+    // a straight line lands on the middle of a pixel to stay sharp
+    if (Math.abs(a.x - b.x) < 1e-6) a.x = b.x = Math.round(a.x) + 0.5;
+    if (Math.abs(a.y - b.y) < 1e-6) a.y = b.y = Math.round(a.y) + 0.5;
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
   }
   ctx.stroke();
   if (!r.label) return;
@@ -252,14 +254,23 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
 
   const mq = overlayState.marquee;
   if (mq && !isEmpty(mq)) {
-    const a = toScreen(v, { x: mq.minX, y: mq.minY });
-    const b = toScreen(v, { x: mq.maxX, y: mq.maxY });
+    // corners one by one, inside a turned symbol the box is turned too
+    const pts = corners(mq).map((p) => toScreen(v, p));
+    const straight = Math.abs(pts[0].y - pts[1].y) < 1e-6;
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const x = straight ? Math.round(p.x) + 0.5 : p.x;
+      const y = straight ? Math.round(p.y) + 0.5 : p.y;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
     ctx.fillStyle = 'rgba(209, 154, 102, 0.08)';
-    ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+    ctx.fill();
     ctx.strokeStyle = colors.accent;
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
-    ctx.strokeRect(Math.round(a.x) + 0.5, Math.round(a.y) + 0.5, Math.round(b.x - a.x), Math.round(b.y - a.y));
+    ctx.stroke();
     ctx.setLineDash([]);
   }
   drawSnap(ctx, v);
