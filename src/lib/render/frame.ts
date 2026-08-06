@@ -128,9 +128,22 @@ export const MAX_NESTING = 12;
 
 // the symbols instances draw from, the editor hands in the ones of its document after every change
 let library: Record<string, Symbol> = {};
+// counts the changes, for cache keys that are strings
+let stamp = 0;
 
 export function setLibrary(symbols: Record<string, Symbol>) {
+  if (symbols === library) return;
   library = symbols;
+  stamp++;
+}
+
+export function libraryStamp(): number {
+  return stamp;
+}
+
+// a new object after every change to the symbols, caches of drawn instances key on it
+export function currentLibrary(): Record<string, Symbol> {
+  return library;
 }
 
 export function symbolById(id: string): Symbol | null {

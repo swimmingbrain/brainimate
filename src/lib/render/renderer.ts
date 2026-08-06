@@ -6,7 +6,7 @@ import { itemBounds, localBounds } from '$lib/core/items';
 import { isEmpty } from '$lib/core/bbox';
 import { isLayerShown } from '$lib/anim/timeline';
 import { shapePath2D } from './pathcache';
-import { MAX_NESTING, instanceSlices, itemsAt, keyframeAt } from './frame';
+import { MAX_NESTING, currentLibrary, instanceSlices, itemsAt, keyframeAt, libraryStamp } from './frame';
 import { drawOnion, type OnionOptions } from './onion';
 import { context, sized, type Surface } from './surface';
 
@@ -40,7 +40,20 @@ export interface StageOptions extends RenderOptions {
   colors: { pasteboard: string; shadow: string };
   // ghosts of the frames around this one under the artwork, key says when they need drawing again
   onion?: { options: OnionOptions; key: string } | null;
+  // a symbol open in place: what is around it shows dimmed and its layers are drawn through base
+  edit?: { base: Mat; dim: DimLevel[] } | null;
 }
+
+// one level around an open symbol, the main timeline or the symbol it sits in, without the instance opened
+export interface DimLevel {
+  layers: Layer[];
+  frame: number;
+  // that level's space to the document
+  base: Mat;
+  skip: string | null;
+}
+
+export const DIM_ALPHA = 0.35;
 
 // per draw call state, set once so the item functions do not need a long argument list
 interface DrawState {
@@ -309,6 +322,45 @@ function drawGrid(ctx: Ctx2D, v: RenderView, grid: { size: number; color: string
   ctx.restore();
 }
 
+let dimSurface: Surface | null = null;
+let dimKey: unknown[] = [];
+
+function sameKey(a: unknown[], b: unknown[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+// everything around an open symbol, drawn once offscreen and laid down faint. it only changes when
+// the document, the view or the frames of the levels do, so drags inside the symbol stay cheap
+function drawDimmed(ctx: Ctx2D, levels: DimLevel[], view: Mat, opts: RenderOptions) {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const key: unknown[] = [w, h, ...view, opts.outline, opts.assets, currentLibrary()];
+  for (const l of levels) key.push(l.layers, l.frame, l.skip, ...l.base);
+  if (!dimSurface || dimSurface.width !== w || dimSurface.height !== h || !sameKey(key, dimKey)) {
+    dimSurface = sized(dimSurface, w, h);
+    const t = context(dimSurface);
+    t.setTransform(1, 0, 0, 1, 0, 0);
+    t.globalAlpha = 1;
+    t.globalCompositeOperation = 'source-over';
+    t.clearRect(0, 0, w, h);
+    for (const l of levels) {
+      renderLayers(t, l.layers, multiply(view, l.base), {
+        frame: l.frame,
+        outline: opts.outline,
+        assets: opts.assets,
+        hide: l.skip
+      });
+    }
+    dimKey = key;
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = DIM_ALPHA;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(dimSurface, 0, 0);
+  ctx.restore();
+}
+
 // pasteboard, the stage with its shadow, the artwork and the grid on top
 export function renderStage(ctx: Ctx2D, doc: Doc, layers: Layer[], v: RenderView, opts: StageOptions) {
   const dpr = v.dpr;
@@ -338,9 +390,14 @@ export function renderStage(ctx: Ctx2D, doc: Doc, layers: Layer[], v: RenderView
     ctx.rect(x, y, w, h);
     ctx.clip();
   }
-  const base: Mat = [dpr * v.zoom, 0, 0, dpr * v.zoom, dpr * v.panX, dpr * v.panY];
+  const view: Mat = [dpr * v.zoom, 0, 0, dpr * v.zoom, dpr * v.panX, dpr * v.panY];
+  let base = view;
+  if (opts.edit) {
+    drawDimmed(ctx, opts.edit.dim, view, opts);
+    base = multiply(view, opts.edit.base);
+  }
   if (opts.onion) {
-    const key = `${opts.onion.key}|${v.zoom}|${v.panX}|${v.panY}|${dpr}|${opts.outline}`;
+    const key = `${opts.onion.key}|${base.join(',')}|${opts.outline}|${libraryStamp()}`;
     drawOnion(ctx, layers, key, opts.onion.options, (target, frame, outline) => {
       renderLayers(target, layers, base, { frame, outline: outline || opts.outline, assets: opts.assets });
     });

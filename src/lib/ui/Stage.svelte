@@ -16,7 +16,7 @@
   import { preferences, setGroup, type Preferences } from '$lib/stores/preferences';
   import { fitView, isAutoFit, setAutoFit, setRedraw, setViewport, zoomAround } from '$lib/editor/view';
   import { editor, hover } from '$lib/editor/editor';
-  import { renderStage, setImageLoaded } from '$lib/render/renderer';
+  import { renderStage, setImageLoaded, type DimLevel } from '$lib/render/renderer';
   import { onionFrames } from '$lib/render/onion';
   import { pause } from '$lib/anim/playback';
   import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
@@ -26,7 +26,8 @@
   import { pointerFactor } from '$lib/core/hit';
   import { finishGuideDrag, guideAt, guideState, guidesLocked, type GuideAxis } from '$lib/editor/guides';
   import { clearSnap, snapPoint } from '$lib/editor/snap';
-  import { multiply } from '$lib/core/mat';
+  import { identity, multiply } from '$lib/core/mat';
+  import type { Mat } from '$lib/core/types';
 
   const RULER = 20;
   // the tools that can grab a guide on the stage
@@ -123,6 +124,23 @@
     };
   }
 
+  // the levels around an open symbol, each one without the instance that was opened in it
+  function editLevels(): { base: Mat; dim: DimLevel[] } | null {
+    const stack = editor.editStack;
+    if (stack.length === 0) return null;
+    const doc = editor.doc;
+    const dim = stack.map((level, i) => {
+      const below = i > 0 ? stack[i - 1] : null;
+      return {
+        layers: below ? (doc.symbols[below.symbolId]?.layers ?? []) : doc.layers,
+        frame: level.frame,
+        base: below ? below.base : identity(),
+        skip: level.instanceId
+      };
+    });
+    return { base: editor.base(), dim };
+  }
+
   function drawContent(ctx: CanvasRenderingContext2D) {
     const v = get(view);
     const prefs = get(preferences);
@@ -140,7 +158,8 @@
         pasteboard: prefs.stage.pasteboard,
         grid: prefs.grid.show ? { size: prefs.grid.size, color: prefs.grid.color } : null,
         colors,
-        onion: onionFor(prefs)
+        onion: onionFor(prefs),
+        edit: editLevels()
       }
     );
   }
