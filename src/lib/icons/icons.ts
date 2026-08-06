@@ -31,6 +31,8 @@ export const ICONS: Record<string, string> = {
   trash: '<path d="M2.5 4h11M6 4V2.8h4V4M4 4v9.2h8V4M6.5 6.5v4.5M9.5 6.5v4.5"/>',
   folder: '<path d="M1.8 12.8v-9.6h4.2l1.5 2h6.7v7.6z"/>',
   layer: '<path d="M8 2 14 5 8 8 2 5z"/><path d="M2 8l6 3 6-3"/><path d="M2 11l6 3 6-3"/>',
+  symbol: '<circle cx="10.5" cy="5.5" r="3.5"/><path d="M8 9.2V14H2V8h4.8"/>',
+  duplicate: '<rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1"/><path d="M10.5 3V2H2v8.5h1"/>',
   rig: '<circle cx="8" cy="3.5" r="1.5"/><circle cx="3.5" cy="12.5" r="1.5"/><circle cx="12.5" cy="12.5" r="1.5"/><path d="M7.3 4.8 4.2 11.2M8.7 4.8l3.1 6.4"/>',
   play: '<path d="M5 3.2v9.6L12.8 8z" fill="currentColor"/>',
   pause: '<rect x="4" y="3.5" width="2.6" height="9" rx=".5" fill="currentColor" stroke="none"/><rect x="9.4" y="3.5" width="2.6" height="9" rx=".5" fill="currentColor" stroke="none"/>',
