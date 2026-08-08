@@ -1,4 +1,4 @@
-import type { GroupItem, InstanceItem, Item, Mat, PathData, PathItem, Style } from './types';
+import type { GroupItem, InstanceItem, Item, Mat, PathData, PathItem, Style, TextItem } from './types';
 import { identity, multiply } from './mat';
 import { newId } from './ids';
 import { pathBounds, transformPath } from './path';
@@ -25,6 +25,37 @@ export function makePathItem(
     subpaths,
     style,
     skin: null
+  };
+}
+
+// point text without a width, box text wraps at it
+export function makeTextItem(
+  text: string,
+  font: string,
+  size: number,
+  style: Style,
+  transform: Mat = identity(),
+  width: number | null = null
+): TextItem {
+  return {
+    id: newId(),
+    name: 'Text',
+    type: 'text',
+    transform,
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blend: 'normal',
+    text,
+    font,
+    size,
+    weight: 400,
+    italic: false,
+    align: 'left',
+    lineHeight: 1.2,
+    spacing: 0,
+    width,
+    style
   };
 }
 
