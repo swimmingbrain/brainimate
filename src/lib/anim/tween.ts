@@ -178,6 +178,8 @@ export function tweenItem(a: Item, b: Item, t: number): Item {
     }
     case 'text': {
       const q = b as typeof a;
+      // box text keeps wrapping while the box changes, point text stays point text
+      const width = a.width !== null && q.width !== null ? lerp(a.width, q.width, t) : a.width;
       return {
         ...a,
         transform,
@@ -185,6 +187,7 @@ export function tweenItem(a: Item, b: Item, t: number): Item {
         size: lerp(a.size, q.size, t),
         lineHeight: lerp(a.lineHeight, q.lineHeight, t),
         spacing: lerp(a.spacing, q.spacing, t),
+        width,
         style: tweenStyle(a.style, q.style, t)
       };
     }
@@ -194,7 +197,19 @@ export function tweenItem(a: Item, b: Item, t: number): Item {
     }
     case 'instance': {
       const q = b as typeof a;
-      return { ...a, transform, opacity, first: Math.round(lerp(a.first, q.first, t)), alpha: lerp(a.alpha, q.alpha, t) };
+      // a tint that only one side has fades in or out by its amount
+      const tint = a.tint && q.tint ? mixHex(a.tint, q.tint, t) : (a.tint ?? q.tint);
+      const from = a.tint ? a.tintAmount : 0;
+      const to = q.tint ? q.tintAmount : 0;
+      return {
+        ...a,
+        transform,
+        opacity,
+        first: Math.round(lerp(a.first, q.first, t)),
+        alpha: lerp(a.alpha, q.alpha, t),
+        tint,
+        tintAmount: lerp(from, to, t)
+      };
     }
   }
 }
