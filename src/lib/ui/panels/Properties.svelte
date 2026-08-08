@@ -8,7 +8,8 @@
   import Slider from '../Slider.svelte';
   import ColorPopover from '../ColorPopover.svelte';
   import FrameProps from './FrameProps.svelte';
-  import type { Doc, Item, Paint, PathItem, Style } from '$lib/core/types';
+  import InstanceProps from './InstanceProps.svelte';
+  import type { Doc, InstanceItem, Item, Paint, PathItem, Style } from '$lib/core/types';
   import { BLEND_MODES, paintColor, solid } from '$lib/core/style';
   import { around, decompose, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
   import { boxCenter, isEmpty } from '$lib/core/bbox';
@@ -50,6 +51,7 @@
     return $selection.size > 0 ? editor.selectedItems(false) : [];
   });
   const paths = $derived(items.filter((it): it is PathItem => it.type === 'path'));
+  const instances = $derived(items.filter((it): it is InstanceItem => it.type === 'instance'));
   const style = $derived(paths[0]?.style ?? null);
   const first = $derived(items[0] ?? null);
 
@@ -320,17 +322,23 @@
           onchange={(on) => setStyle('scaleStroke', on, 'Scale strokes')} />
       </Field>
     {/if}
+    {#if instances.length > 0 && instances.length === items.length}
+      <InstanceProps items={instances} />
+    {/if}
     {#if first}
-      <Field label="Opacity">
-        <Slider
-          value={Math.round(first.opacity * 100)}
-          min={0}
-          max={100}
-          precision={0}
-          unit="%"
-          label="Opacity"
-          onchange={(v) => setItems((it) => (it.opacity = v / 100), 'Opacity', 'prop-opacity')} />
-      </Field>
+      <!-- instances have their alpha above, a second opacity would only confuse -->
+      {#if instances.length !== items.length}
+        <Field label="Opacity">
+          <Slider
+            value={Math.round(first.opacity * 100)}
+            min={0}
+            max={100}
+            precision={0}
+            unit="%"
+            label="Opacity"
+            onchange={(v) => setItems((it) => (it.opacity = v / 100), 'Opacity', 'prop-opacity')} />
+        </Field>
+      {/if}
       <Field label="Blend">
         <SelectField
           value={first.blend}
