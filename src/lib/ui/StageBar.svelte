@@ -18,8 +18,15 @@
   import { zoomFit, zoomTo } from '$lib/editor/view';
   import { activeTool, outlineMode, view, type MenuItem } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
+  import { docVersion, editStack, editor } from '$lib/editor/editor';
 
   const ZOOMS = [25, 50, 100, 200, 400, 800];
+
+  // read again after renames
+  function symbolName(id: string): string {
+    void $docVersion;
+    return editor.doc.symbols[id]?.name ?? 'Symbol';
+  }
 
   // the active tool's settings, or just its name when it has none
   const Options = $derived(getTool($activeTool)?.options);
@@ -51,12 +58,33 @@
 </script>
 
 <div class="stagebar">
-  <div class="crumbs">
-    <span class="crumb">
-      <Icon name="layer" size={13} />
-      Scene 1
-    </span>
-  </div>
+  <nav class="crumbs" aria-label="Editing">
+    {#if $editStack.length === 0}
+      <span class="crumb">
+        <Icon name="layer" size={13} />
+        Scene 1
+      </span>
+    {:else}
+      <button class="crumb link" title="Back to the scene" onclick={() => editor.exitTo(0)}>
+        <Icon name="layer" size={13} />
+        Scene 1
+      </button>
+      {#each $editStack as level, i (i)}
+        <Icon name="chevron-right" size={11} />
+        {#if i === $editStack.length - 1}
+          <span class="crumb current">
+            <Icon name="symbol" size={13} />
+            {symbolName(level.symbolId)}
+          </span>
+        {:else}
+          <button class="crumb link" title="Back to this symbol" onclick={() => editor.exitTo(i + 1)}>
+            <Icon name="symbol" size={13} />
+            {symbolName(level.symbolId)}
+          </button>
+        {/if}
+      {/each}
+    {/if}
+  </nav>
 
   <div class="options">
     <span class="tool-name">{TOOL_INFO[$activeTool].name}</span>
@@ -135,6 +163,29 @@
 
   .crumb :global(svg) {
     color: var(--text-muted);
+  }
+
+  .crumbs > :global(svg) {
+    color: var(--text-muted);
+  }
+
+  .crumb.link {
+    padding: 2px 4px;
+    margin: 0 -4px;
+    color: var(--text-secondary);
+  }
+
+  .crumb.link:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .crumb.current {
+    color: var(--accent);
+  }
+
+  .crumb.current :global(svg) {
+    color: var(--accent);
   }
 
   .options {
