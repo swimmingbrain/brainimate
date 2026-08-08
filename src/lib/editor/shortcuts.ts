@@ -36,7 +36,7 @@ import {
 import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, nudge, selectAll } from './selection';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
-import { openConvertDialog } from './symbols';
+import { leaveSymbol, openConvertDialog } from './symbols';
 
 // fields keep their keys, menus and dialogs handle their own
 function ignored(e: KeyboardEvent): boolean {
@@ -64,6 +64,8 @@ function escape() {
   }
   anchorSelection.set([]);
   frameSelection.set(null);
+  // with nothing selected escape leaves an open symbol
+  if (leaveSymbol()) return;
   clearSelection();
 }
 
