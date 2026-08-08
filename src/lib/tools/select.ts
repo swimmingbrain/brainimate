@@ -25,6 +25,7 @@ import { HANDLE_SIZE, overlayState } from '$lib/render/overlay';
 import { clearSnap, snapEvent, snapPoint } from '$lib/editor/snap';
 import { selection, toolCursor } from '$lib/stores/app';
 import { itemsInBox, pickChain, pickForSelect } from './pick';
+import { editInstance } from '$lib/editor/symbols';
 import { BEND_CURSOR, CORNER_CURSOR, ROTATE_CURSOR, resizeCursor } from './cursors';
 import { toolBase, type Tool, type ToolEvent, type ToolId } from './tool';
 
@@ -404,14 +405,24 @@ export function createSelectTool(id: ToolId): Tool {
       editor.markAll();
     },
 
-    // a double click enters a group one level, the item inside it under the pointer gets selected
+    // a double click enters a group one level, the item inside it under the pointer gets selected.
+    // on an instance it opens the symbol in place, on the empty stage it goes back out of one
     dblclick(e) {
       const chain = pickChain(e, e.zoom, pointerFactor(e.pointerType));
+      if (chain.length === 0) {
+        if (editor.editing()) editor.exitSymbol();
+        return;
+      }
       const sel = get(selection);
       let deepest = -1;
       chain.forEach((item, i) => {
         if (sel.has(item.id)) deepest = i;
       });
+      const current = chain[Math.max(0, deepest)];
+      if (current.type === 'instance') {
+        editInstance(current.id);
+        return;
+      }
       const next = chain[deepest + 1];
       if (next && deepest >= 0) select([next.id]);
     },
