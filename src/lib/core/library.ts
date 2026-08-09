@@ -26,17 +26,26 @@ export function nextSymbolName(symbols: Record<string, Symbol>, base = 'Symbol')
   return `${base} ${n + 1}`;
 }
 
-// how many instances show the symbol, on the main timeline and inside other symbols. an instance
+// how many instances show each symbol, on the main timeline and inside other symbols. an instance
 // held over several keyframes keeps its id, so it counts once
-export function symbolUses(doc: Doc, id: string): number {
+export function useCounts(doc: Doc): Map<string, number> {
   const seen = new Set<string>();
+  const counts = new Map<string, number>();
   const count = (layers: Layer[], scope: string) =>
     eachItem(layers, (item) => {
-      if (item.type === 'instance' && item.symbol === id) seen.add(`${scope}:${item.id}`);
+      if (item.type !== 'instance') return;
+      const key = `${scope}:${item.id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      counts.set(item.symbol, (counts.get(item.symbol) ?? 0) + 1);
     });
   count(doc.layers, '');
   for (const s of Object.values(doc.symbols)) count(s.layers, s.id);
-  return seen.size;
+  return counts;
+}
+
+export function symbolUses(doc: Doc, id: string): number {
+  return useCounts(doc).get(id) ?? 0;
 }
 
 // the symbols an instance of from shows somewhere inside, nested ones too
