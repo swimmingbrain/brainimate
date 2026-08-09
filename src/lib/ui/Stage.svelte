@@ -14,7 +14,15 @@
     type View
   } from '$lib/stores/app';
   import { preferences, setGroup, type Preferences } from '$lib/stores/preferences';
-  import { fitView, isAutoFit, setAutoFit, setRedraw, setViewport, zoomAround } from '$lib/editor/view';
+  import {
+    fitView,
+    isAutoFit,
+    setAutoFit,
+    setRedraw,
+    setStageElement,
+    setViewport,
+    zoomAround
+  } from '$lib/editor/view';
   import { editor, hover } from '$lib/editor/editor';
   import { renderStage, setImageLoaded, type DimLevel } from '$lib/render/renderer';
   import { onionFrames } from '$lib/render/onion';
@@ -454,6 +462,7 @@
     ];
     setRedraw(markDirty);
     setImageLoaded(markDirty);
+    setStageElement(host);
 
     let raf = 0;
     const loop = () => {
@@ -476,6 +485,7 @@
       for (const off of unsubscribe) off();
       setRedraw(null);
       setImageLoaded(null);
+      setStageElement(null);
     };
   });
 </script>

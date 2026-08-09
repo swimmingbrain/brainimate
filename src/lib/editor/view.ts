@@ -12,6 +12,21 @@ const viewport = { width: 0, height: 0 };
 
 let redraw: (() => void) | null = null;
 
+// the stage element, for points dropped onto it from elsewhere
+let stageElement: HTMLElement | null = null;
+
+export function setStageElement(el: HTMLElement | null) {
+  stageElement = el;
+}
+
+// the document point under a pointer anywhere on the page, null when it is not over the stage
+export function stagePoint(clientX: number, clientY: number): { x: number; y: number } | null {
+  if (!stageElement) return null;
+  const r = stageElement.getBoundingClientRect();
+  if (clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return null;
+  return screenToWorld(get(view), clientX - r.left, clientY - r.top);
+}
+
 // the stage refits on every resize until someone zooms or pans by hand
 let autoFit = true;
 
