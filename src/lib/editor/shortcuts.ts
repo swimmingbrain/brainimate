@@ -1,6 +1,14 @@
 import { get } from 'svelte/store';
 import { createKeybindingsHandler, type KeybindingsMap } from 'tinykeys';
-import { anchorSelection, contextMenu, dialog, frameSelection, toolCursor, toolOptions } from '$lib/stores/app';
+import {
+  anchorSelection,
+  contextMenu,
+  dialog,
+  frameSelection,
+  toggleLibrary,
+  toolCursor,
+  toolOptions
+} from '$lib/stores/app';
 import { BUCKET_CURSOR, INK_CURSOR } from '$lib/tools/cursors';
 import { TOOL_IDS, TOOL_INFO } from '$lib/tools/tool';
 import { keyDown, selectTool } from '$lib/tools';
@@ -127,6 +135,7 @@ function bindings(): KeybindingsMap {
     'Shift+F6': run(clearKeyframes),
     F7: run(insertBlankKeyframes),
     F8: run(openConvertDialog),
+    '$mod+l': run(toggleLibrary),
     Enter: run(togglePlay),
     'Alt+Shift+KeyO': run(toggleOnion),
     '$mod+Alt+KeyC': run(copySelectedFrames),

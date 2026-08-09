@@ -280,6 +280,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
       items: [
         ...PANELS.map((panel) => ({
           label: panel.label,
+          shortcut: panel.id === 'library' ? 'Ctrl+L' : undefined,
           checked: !p.panels.hidden.includes(panel.id),
           action: () => togglePanel(panel.id)
         })),
