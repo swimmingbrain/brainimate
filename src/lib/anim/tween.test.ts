@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { GroupItem, PathItem } from '$lib/core/types';
-import { cloneItem, makePathItem } from '$lib/core/items';
+import type { GroupItem, InstanceItem, PathItem, TextItem } from '$lib/core/types';
+import { cloneItem, makeInstance, makePathItem, makeTextItem } from '$lib/core/items';
 import { rectPath } from '$lib/core/shapes';
 import { defaultStyle, solid } from '$lib/core/style';
 import { compose, decompose, multiply, rotate, scale, translate } from '$lib/core/mat';
@@ -150,6 +150,26 @@ describe('tween items', () => {
     const mid = tweenItem(group, later, 0.5) as GroupItem;
     expect(mid.opacity).toBeCloseTo(0.5);
     expect(mid.children[0].transform[5]).toBeCloseTo(20);
+  });
+
+  it('blends the move, first frame, alpha and tint of an instance', () => {
+    const a = makeInstance('s', 'Ball', translate(0, 0));
+    const b = { ...cloneItem(a), transform: translate(100, 0), first: 4, alpha: 0.2, tint: '#ff0000', tintAmount: 1 };
+    const mid = tweenItem(a, b, 0.5) as InstanceItem;
+    expect(mid.transform[4]).toBeCloseTo(50);
+    expect(mid.first).toBe(2);
+    expect(mid.alpha).toBeCloseTo(0.6);
+    // the tint fades in from nothing
+    expect(mid.tint).toBe('#ff0000');
+    expect(mid.tintAmount).toBeCloseTo(0.5);
+  });
+
+  it('blends the size, spacing and width of box text', () => {
+    const a = makeTextItem('Hi', 'Inter', 20, defaultStyle(solid('#000000'), null), translate(0, 0), 100);
+    const b = { ...cloneItem(a), size: 40, spacing: 4, width: 200, style: defaultStyle(solid('#ffffff'), null) };
+    const mid = tweenItem(a, b, 0.5) as TextItem;
+    expect([mid.size, mid.spacing, mid.width]).toEqual([30, 2, 150]);
+    expect(mid.style.fill?.type === 'solid' && mid.style.fill.color).toBe('#808080');
   });
 });
 
