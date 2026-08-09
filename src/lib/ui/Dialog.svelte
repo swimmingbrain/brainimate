@@ -52,9 +52,11 @@
     }
   }
 
+  // a field marked autofocus gets the focus, else the first thing that can take it
   $effect(() => {
     const items = focusable();
-    (items[0] ?? panel)?.focus();
+    const wanted = panel?.querySelector<HTMLElement>('[autofocus]');
+    (wanted ?? items[0] ?? panel)?.focus();
   });
 </script>
 
