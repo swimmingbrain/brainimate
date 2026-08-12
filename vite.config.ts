@@ -8,9 +8,10 @@ export default defineConfig({
   worker: {
     format: 'es'
   },
-  // paper only loads on the first boolean, found that late vite would reload the page in dev
+  // paper only loads on the first boolean and opentype.js with the first text, found that late
+  // vite would reload the page in dev
   optimizeDeps: {
-    include: ['paper/dist/paper-core']
+    include: ['paper/dist/paper-core', 'opentype.js']
   },
   server: {
     watch: {
