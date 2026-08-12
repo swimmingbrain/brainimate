@@ -4,6 +4,7 @@ import { newId } from './ids';
 import { pathBounds, transformPath } from './path';
 import { emptyBox, fromRect, transformBox, union, type Box } from './bbox';
 import { MAX_NESTING, instanceSlices, stageOffset, type LayerSlice } from '$lib/render/frame';
+import { itemLayout } from './fonts';
 
 export function makePathItem(
   name: string,
@@ -100,12 +101,15 @@ export function withNewIds<T extends Item>(item: T): T {
   return copy;
 }
 
-// a rough box for text until real font metrics arrive with the text tool
-function textBox(item: Extract<Item, { type: 'text' }>): Box {
+// the line boxes of the laid out text, a rough guess while its font still loads
+function textBox(item: TextItem): Box {
+  const layout = itemLayout(item);
+  if (layout) return layout.bounds;
   const lines = item.text.split('\n');
   const longest = Math.max(1, ...lines.map((l) => l.length));
-  const w = longest * item.size * 0.55;
+  const w = item.width ?? longest * item.size * 0.55;
   const h = lines.length * item.size * item.lineHeight;
+  if (item.width !== null) return fromRect(0, 0, w, h);
   const x = item.align === 'center' ? -w / 2 : item.align === 'right' ? -w : 0;
   return fromRect(x, 0, w, h);
 }
