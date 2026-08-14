@@ -48,7 +48,10 @@
     };
   });
 
-  const color = $derived(item ? (paintColor(item.style.fill) ?? paintColor(item.style.stroke) ?? '#000000') : '#000000');
+  const color = $derived.by(() => {
+    if (!item) return '#000000';
+    return paintColor(item.style.fill) ?? paintColor(item.style.stroke) ?? '#000000';
+  });
 
   // an undo while typing changes the text under the field
   $effect(() => {
