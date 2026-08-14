@@ -36,6 +36,8 @@
   import { clearSnap, snapPoint } from '$lib/editor/snap';
   import { identity, multiply } from '$lib/core/mat';
   import { setFontLoaded } from '$lib/core/fonts';
+  import { textEditing } from '$lib/editor/text';
+  import TextEditor from './TextEditor.svelte';
   import type { Mat } from '$lib/core/types';
 
   const RULER = 20;
@@ -168,7 +170,8 @@
         grid: prefs.grid.show ? { size: prefs.grid.size, color: prefs.grid.color } : null,
         colors,
         onion: onionFor(prefs),
-        edit: editLevels()
+        edit: editLevels(),
+        hide: get(textEditing)
       }
     );
   }
@@ -459,7 +462,8 @@
       outlineMode.subscribe(markDirty),
       playing.subscribe(markDirty),
       activeTool.subscribe(() => editor.markOverlay()),
-      anchorSelection.subscribe(() => editor.markOverlay())
+      anchorSelection.subscribe(() => editor.markOverlay()),
+      textEditing.subscribe(markDirty)
     ];
     setRedraw(markDirty);
     setImageLoaded(markDirty);
@@ -515,6 +519,11 @@
       if (e.button === 1) e.preventDefault();
     }}
     oncontextmenu={(e) => e.preventDefault()}></canvas>
+  {#if $textEditing}
+    {#key $textEditing}
+      <TextEditor id={$textEditing} />
+    {/key}
+  {/if}
 </div>
 
 <style>
