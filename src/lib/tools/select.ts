@@ -26,6 +26,7 @@ import { clearSnap, snapEvent, snapPoint } from '$lib/editor/snap';
 import { selection, toolCursor } from '$lib/stores/app';
 import { itemsInBox, pickChain, pickForSelect } from './pick';
 import { editInstance } from '$lib/editor/symbols';
+import { startTextEdit } from '$lib/editor/text';
 import { BEND_CURSOR, CORNER_CURSOR, ROTATE_CURSOR, resizeCursor } from './cursors';
 import { toolBase, type Tool, type ToolEvent, type ToolId } from './tool';
 
@@ -421,6 +422,10 @@ export function createSelectTool(id: ToolId): Tool {
       const current = chain[Math.max(0, deepest)];
       if (current.type === 'instance') {
         editInstance(current.id);
+        return;
+      }
+      if (current.type === 'text') {
+        startTextEdit(current.id);
         return;
       }
       const next = chain[deepest + 1];
