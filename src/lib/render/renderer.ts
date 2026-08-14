@@ -5,7 +5,8 @@ import { compoundBounds } from '$lib/core/path';
 import { itemBounds, localBounds } from '$lib/core/items';
 import { isEmpty } from '$lib/core/bbox';
 import { isLayerShown } from '$lib/anim/timeline';
-import { shapePath2D } from './pathcache';
+import { shapePath2D, textPath2D } from './pathcache';
+import { cssFamily, itemLayout } from '$lib/core/fonts';
 import { MAX_NESTING, currentLibrary, instanceSlices, itemsAt, keyframeAt, libraryStamp } from './frame';
 import { drawOnion, type OnionOptions } from './onion';
 import { context, sized, type Surface } from './surface';
@@ -117,10 +118,46 @@ function drawPath(ctx: Ctx2D, item: PathItem, m: Mat, outline: string | null, s:
   }
 }
 
-function drawText(ctx: Ctx2D, item: TextItem, m: Mat, outline: string | null) {
+// the glyph outlines of the laid out text, filled and stroked like a path
+function drawText(ctx: Ctx2D, item: TextItem, m: Mat, outline: string | null, s: DrawState) {
+  const layout = itemLayout(item);
+  if (!layout) {
+    drawTextFallback(ctx, item, m, outline);
+    return;
+  }
   setMatrix(ctx, m);
-  ctx.font = `${item.italic ? 'italic ' : ''}${item.weight} ${item.size}px ${item.font}`;
-  ctx.textAlign = item.align;
+  const shape = textPath2D(layout);
+  const scale = Math.max(scaleFactor(m), 1e-9);
+  if (outline) {
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 1 / scale;
+    ctx.setLineDash([]);
+    ctx.stroke(shape);
+    return;
+  }
+  const style = item.style;
+  const box = needsBox(style.fill) || needsBox(style.stroke) ? layout.bounds : null;
+  if (style.fill) {
+    ctx.fillStyle = canvasPaint(ctx, style.fill, box);
+    ctx.fill(shape);
+  }
+  if (style.stroke && style.width > 0) {
+    const k = style.scaleStroke ? 1 : s.viewScale / scale;
+    ctx.strokeStyle = canvasPaint(ctx, style.stroke, box);
+    ctx.lineWidth = style.width * k;
+    ctx.lineCap = style.cap;
+    ctx.lineJoin = style.join;
+    ctx.miterLimit = 10;
+    ctx.setLineDash(style.dash.length > 0 ? style.dash.map((d) => d * k) : []);
+    ctx.stroke(shape);
+  }
+}
+
+// while the font file loads the browser draws the text as well as it can
+function drawTextFallback(ctx: Ctx2D, item: TextItem, m: Mat, outline: string | null) {
+  setMatrix(ctx, m);
+  ctx.font = `${item.italic ? 'italic ' : ''}${item.weight} ${item.size}px ${cssFamily(item.font)}`;
+  ctx.textAlign = item.width !== null ? 'left' : item.align;
   ctx.textBaseline = 'top';
   if ('letterSpacing' in ctx) ctx.letterSpacing = `${item.spacing}px`;
   const lines = item.text.split('\n');
@@ -259,7 +296,7 @@ function drawItem(
       break;
     }
     case 'text':
-      drawText(ctx, item, m, outline);
+      drawText(ctx, item, m, outline, s);
       break;
     case 'image':
       drawImage(ctx, item, m, outline, s);
