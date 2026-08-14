@@ -4,7 +4,8 @@ import { applyPoint, invert, multiply, scaleFactor } from './mat';
 import { contains, expand } from './bbox';
 import { contours, itemBounds, localBounds } from './items';
 import { nearestSegment, transformPath } from './path';
-import { shapePath2D } from '$lib/render/pathcache';
+import { shapePath2D, textPath2D } from '$lib/render/pathcache';
+import { itemLayout } from './fonts';
 import { MAX_NESTING, instanceSlices, stageOffset } from '$lib/render/frame';
 
 // screen pixels, doubled for fingers and pens
@@ -51,8 +52,11 @@ function hitPath(item: PathItem, m: Mat, p: Vec, zoom: number, factor: number): 
 // the item shows, instances pick their symbol frame with it
 export function hitItem(item: Item, m: Mat, p: Vec, zoom: number, factor = 1, offset?: number, depth = 0): boolean {
   if (!item.visible) return false;
-  // cheap box test first, grown by the stroke band so an edge hit is not thrown away
-  const pad = item.type === 'path' ? strokeTolerance(item, m, zoom, factor) / zoom : 0;
+  // cheap box test first, grown by the stroke band so an edge hit is not thrown away, and for text
+  // by a bit for letters that reach out of their line
+  let pad = 0;
+  if (item.type === 'path') pad = strokeTolerance(item, m, zoom, factor) / zoom;
+  else if (item.type === 'text') pad = item.size * 0.3 * scaleFactor(m);
   if (item.type !== 'group' && !contains(expand(itemBounds(item, m, offset, depth), pad), p)) return false;
   switch (item.type) {
     case 'path':
@@ -63,7 +67,16 @@ export function hitItem(item: Item, m: Mat, p: Vec, zoom: number, factor = 1, of
         if (hitItem(child, multiply(m, child.transform), p, zoom, factor, offset, depth)) return true;
       }
       return false;
-    case 'text':
+    case 'text': {
+      // the line boxes, plus the glyphs that reach out of them
+      const local = applyPoint(invert(m), p);
+      if (contains(localBounds(item), local)) return true;
+      const layout = itemLayout(item);
+      const ctx = hitContext();
+      if (!layout || !ctx) return false;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      return ctx.isPointInPath(textPath2D(layout), local.x, local.y);
+    }
     case 'image':
       return contains(localBounds(item), applyPoint(invert(m), p));
     case 'instance': {
