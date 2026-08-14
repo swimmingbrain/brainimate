@@ -1,4 +1,5 @@
 import type { PathData } from '$lib/core/types';
+import { glyphOutlines, type TextLayout } from '$lib/core/text';
 
 // keyed by the path object itself: an edit makes a new path object, so a stale entry is never read
 const cache = new WeakMap<PathData, Path2D>();
@@ -40,5 +41,18 @@ export function shapePath2D(path: PathData, subpaths: PathData[]): Path2D {
   shape.addPath(path2D(path));
   for (const sub of subpaths) shape.addPath(path2D(sub));
   compound.set(subpaths, { path, shape });
+  return shape;
+}
+
+const texts = new WeakMap<TextLayout, Path2D>();
+
+// every glyph of a laid out text in one Path2D, holes stay empty like in a compound path
+export function textPath2D(layout: TextLayout): Path2D {
+  let shape = texts.get(layout);
+  if (!shape) {
+    shape = new Path2D();
+    for (const glyph of glyphOutlines(layout)) for (const contour of glyph) shape.addPath(path2D(contour));
+    texts.set(layout, shape);
+  }
   return shape;
 }
