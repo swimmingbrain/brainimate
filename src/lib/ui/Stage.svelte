@@ -35,6 +35,7 @@
   import { finishGuideDrag, guideAt, guideState, guidesLocked, type GuideAxis } from '$lib/editor/guides';
   import { clearSnap, snapPoint } from '$lib/editor/snap';
   import { identity, multiply } from '$lib/core/mat';
+  import { setFontLoaded } from '$lib/core/fonts';
   import type { Mat } from '$lib/core/types';
 
   const RULER = 20;
@@ -463,6 +464,7 @@
     setRedraw(markDirty);
     setImageLoaded(markDirty);
     setStageElement(host);
+    setFontLoaded(markDirty);
 
     let raf = 0;
     const loop = () => {
@@ -486,6 +488,7 @@
       setRedraw(null);
       setImageLoaded(null);
       setStageElement(null);
+      setFontLoaded(null);
     };
   });
 </script>
