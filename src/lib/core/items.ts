@@ -1,4 +1,4 @@
-import type { GroupItem, InstanceItem, Item, Mat, PathData, PathItem, Style, TextItem } from './types';
+import type { GroupItem, ImageItem, InstanceItem, Item, Mat, PathData, PathItem, Style, TextItem } from './types';
 import { identity, multiply } from './mat';
 import { newId } from './ids';
 import { pathBounds, transformPath } from './path';
@@ -57,6 +57,29 @@ export function makeTextItem(
     spacing: 0,
     width,
     style
+  };
+}
+
+// a picture from an asset, its top left corner on the item origin
+export function makeImageItem(
+  asset: string,
+  name: string,
+  width: number,
+  height: number,
+  transform: Mat = identity()
+): ImageItem {
+  return {
+    id: newId(),
+    name,
+    type: 'image',
+    transform,
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blend: 'normal',
+    asset,
+    width,
+    height
   };
 }
 
