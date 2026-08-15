@@ -45,6 +45,7 @@ import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, nudge, selectAll } from './selection';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { leaveSymbol, openConvertDialog } from './symbols';
+import { outlineSelectedText } from './outlines';
 
 // fields keep their keys, menus and dialogs handle their own
 function ignored(e: KeyboardEvent): boolean {
@@ -136,6 +137,7 @@ function bindings(): KeybindingsMap {
     F7: run(insertBlankKeyframes),
     F8: run(openConvertDialog),
     '$mod+l': run(toggleLibrary),
+    '$mod+Shift+o': run(outlineSelectedText),
     Enter: run(togglePlay),
     'Alt+Shift+KeyO': run(toggleOnion),
     '$mod+Alt+KeyC': run(copySelectedFrames),

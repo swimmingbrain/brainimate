@@ -42,6 +42,8 @@ import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
 import { clearSelection, deleteSelection, selectAll } from './selection';
 import { alignSelection, alignToStage, distributeSelection } from './align';
 import { newSymbol, openConvertDialog } from './symbols';
+import { outlineSelectedText } from './outlines';
+import { selectTool } from '$lib/tools';
 import type { HistoryState } from './history';
 
 export interface TopMenu {
@@ -179,7 +181,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         { label: 'Blank keyframe', shortcut: 'F7', action: insertBlankKeyframes },
         SEP,
         { label: 'New symbol', action: newSymbol },
-        soon('Text')
+        { label: 'Text', shortcut: 'T', action: () => selectTool('text') }
       ]
     },
     {
@@ -266,7 +268,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
             { label: 'Exclude', disabled: none, action: () => booleanSelection('exclude') },
             { label: 'Divide', disabled: none, action: () => booleanSelection('divide') },
             SEP,
-            soon('Create outlines', 'Ctrl+Shift+O')
+            { label: 'Create outlines', shortcut: 'Ctrl+Shift+O', disabled: none, action: outlineSelectedText }
           ]
         },
         {
