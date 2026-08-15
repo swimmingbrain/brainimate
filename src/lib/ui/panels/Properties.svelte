@@ -9,7 +9,7 @@
   import ColorPopover from '../ColorPopover.svelte';
   import FrameProps from './FrameProps.svelte';
   import InstanceProps from './InstanceProps.svelte';
-  import type { Doc, InstanceItem, Item, Paint, PathItem, Style } from '$lib/core/types';
+  import type { Doc, InstanceItem, Item, Paint, PathItem, Style, TextItem } from '$lib/core/types';
   import { BLEND_MODES, paintColor, solid } from '$lib/core/style';
   import { around, decompose, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
   import { boxCenter, isEmpty } from '$lib/core/bbox';
@@ -52,7 +52,9 @@
   });
   const paths = $derived(items.filter((it): it is PathItem => it.type === 'path'));
   const instances = $derived(items.filter((it): it is InstanceItem => it.type === 'instance'));
-  const style = $derived(paths[0]?.style ?? null);
+  // paths and text share fill and stroke
+  const styled = $derived(items.filter((it): it is PathItem | TextItem => it.type === 'path' || it.type === 'text'));
+  const style = $derived(styled[0]?.style ?? null);
   const first = $derived(items[0] ?? null);
 
   const bounds = $derived.by(() => {
@@ -129,9 +131,9 @@
 
   function setStyle<K extends keyof Style>(key: K, value: Style[K], label: string) {
     editor.updateItems(
-      paths.map((p) => p.id),
+      styled.map((p) => p.id),
       (item) => {
-        if (item.type === 'path') item.style[key] = value;
+        if (item.type === 'path' || item.type === 'text') item.style[key] = value;
       },
       label,
       `style-${key}`
