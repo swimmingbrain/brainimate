@@ -43,6 +43,7 @@ import { clearSelection, deleteSelection, selectAll } from './selection';
 import { alignSelection, alignToStage, distributeSelection } from './align';
 import { newSymbol, openConvertDialog } from './symbols';
 import { outlineSelectedText } from './outlines';
+import { FONT_ACCEPT, IMAGE_ACCEPT, openImport } from './importer';
 import { selectTool } from '$lib/tools';
 import type { HistoryState } from './history';
 
@@ -89,7 +90,14 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         soon('Save', 'Ctrl+S'),
         soon('Save as...', 'Ctrl+Shift+S'),
         SEP,
-        { label: 'Import', children: [soon('SVG...'), soon('Image...'), soon('Font...')] },
+        {
+          label: 'Import',
+          children: [
+            soon('SVG...'),
+            { label: 'Image...', action: () => openImport(IMAGE_ACCEPT) },
+            { label: 'Font...', action: () => openImport(FONT_ACCEPT) }
+          ]
+        },
         { label: 'Export...', shortcut: 'Ctrl+Shift+E', action: () => dialog.set({ kind: 'export' }) },
         SEP,
         { label: 'Document settings...', action: showDocumentSettings }

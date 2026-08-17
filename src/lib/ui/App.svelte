@@ -13,6 +13,7 @@
   import Timeline from './timeline/Timeline.svelte';
   import { MAX_DOCK, MAX_TIMELINE, MIN_DOCK, MIN_TIMELINE, preferences, setGroup } from '$lib/stores/preferences';
   import { installShortcuts } from '$lib/editor/shortcuts';
+  import { filesPicked, setImportInput } from '$lib/editor/importer';
 
   // what the stage keeps at the least when the dock or the timeline grow
   const MIN_STAGE_W = 320;
@@ -33,7 +34,16 @@
     setGroup('panels', { timelineHeight: Math.max(MIN_TIMELINE, Math.min(panels.timelineHeight - delta, limit)) });
   }
 
-  onMount(() => installShortcuts());
+  let importInput = $state<HTMLInputElement | null>(null);
+
+  onMount(() => {
+    setImportInput(importInput);
+    const off = installShortcuts();
+    return () => {
+      off();
+      setImportInput(null);
+    };
+  });
 </script>
 
 <div class="editor-app">
@@ -76,8 +86,20 @@
 
 <ContextMenu />
 <Dialogs />
+<input
+  class="import-input"
+  type="file"
+  aria-label="Import file"
+  tabindex="-1"
+  bind:this={importInput}
+  onchange={(e) => filesPicked([...(e.currentTarget.files ?? [])])}
+  oncancel={() => filesPicked([])} />
 
 <style>
+  .import-input {
+    display: none;
+  }
+
   .editor-app {
     height: 100vh;
     display: flex;
