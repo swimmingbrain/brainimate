@@ -9,6 +9,7 @@ import { emptyBox, union, type Box } from '$lib/core/bbox';
 import { itemsAt, keyframeAt, layersLength, setLibrary, setOffsetSource, tweenAt } from '$lib/render/frame';
 import { isLayerLocked, isLayerShown, keyframeForEdit } from '$lib/anim/timeline';
 import { rebaseEdit } from '$lib/anim/tween';
+import { registerAssetFonts } from '$lib/core/fonts';
 import { activeLayer, anchorSelection, dirty, docName, frame, frameSelection, selection, stageSize } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 
@@ -84,6 +85,8 @@ class Editor {
   overlayDirty = true;
   frame = 0;
   editStack: EditLevel[] = [];
+  // the assets the document's fonts were last read from
+  private fontAssets: Doc['assets'] | null = null;
   // frames past their keyframe of the items on the stage, worked out once per frame and timeline
   private offsets: { layers: Layer[]; frame: number; map: Map<string, number> } | null = null;
 
@@ -175,6 +178,10 @@ class Editor {
     const size = get(stageSize);
     const d = this.doc;
     setLibrary(d.symbols);
+    if (d.assets !== this.fontAssets) {
+      this.fontAssets = d.assets;
+      void registerAssetFonts(d.assets);
+    }
     // an undo can take away a symbol that is open, editing it ends there
     const gone = this.editStack.findIndex((l) => !d.symbols[l.symbolId]);
     if (gone >= 0) this.setStack(this.editStack.slice(0, gone));
