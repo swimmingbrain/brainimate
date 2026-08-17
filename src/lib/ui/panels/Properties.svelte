@@ -10,7 +10,8 @@
   import FrameProps from './FrameProps.svelte';
   import InstanceProps from './InstanceProps.svelte';
   import TextProps from './TextProps.svelte';
-  import type { Doc, InstanceItem, Item, Paint, PathItem, Style, TextItem } from '$lib/core/types';
+  import ImageProps from './ImageProps.svelte';
+  import type { Doc, ImageItem, InstanceItem, Item, Paint, PathItem, Style, TextItem } from '$lib/core/types';
   import { BLEND_MODES, paintColor, solid } from '$lib/core/style';
   import { around, decompose, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
   import { boxCenter, isEmpty } from '$lib/core/bbox';
@@ -54,6 +55,7 @@
   const paths = $derived(items.filter((it): it is PathItem => it.type === 'path'));
   const instances = $derived(items.filter((it): it is InstanceItem => it.type === 'instance'));
   const texts = $derived(items.filter((it): it is TextItem => it.type === 'text'));
+  const images = $derived(items.filter((it): it is ImageItem => it.type === 'image'));
   // paths and text share fill and stroke
   const styled = $derived(items.filter((it): it is PathItem | TextItem => it.type === 'path' || it.type === 'text'));
   const style = $derived(styled[0]?.style ?? null);
@@ -331,6 +333,9 @@
     {/if}
     {#if texts.length > 0 && texts.length === items.length}
       <TextProps items={texts} />
+    {/if}
+    {#if images.length > 0 && images.length === items.length}
+      <ImageProps items={images} />
     {/if}
     {#if first}
       <!-- instances have their alpha above, a second opacity would only confuse -->
