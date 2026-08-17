@@ -38,6 +38,7 @@
   import { setFontLoaded } from '$lib/core/fonts';
   import { textEditing } from '$lib/editor/text';
   import TextEditor from './TextEditor.svelte';
+  import { importFiles } from '$lib/editor/importer';
   import type { Mat } from '$lib/core/types';
 
   const RULER = 20;
@@ -426,6 +427,29 @@
     return el.closest('[role="dialog"], [role="menu"]') !== null;
   }
 
+  // files dragged over the stage, the drop point is where they land
+  let dropping = $state(false);
+
+  function hasFiles(e: DragEvent): boolean {
+    return [...(e.dataTransfer?.types ?? [])].includes('Files');
+  }
+
+  function ondragover(e: DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    dropping = true;
+  }
+
+  function ondrop(e: DragEvent) {
+    dropping = false;
+    const files = [...(e.dataTransfer?.files ?? [])];
+    if (files.length === 0) return;
+    e.preventDefault();
+    const ev = toolEvent(e);
+    void importFiles(files, { x: ev.x, y: ev.y });
+  }
+
   // only space lives here, every other key goes through the shortcuts
   function onkeydown(e: KeyboardEvent) {
     if (busy(e.target)) return;
@@ -499,7 +523,15 @@
 
 <svelte:window {onkeydown} {onkeyup} onblur={() => (spaceHeld = false)} />
 
-<div class="stage" bind:this={host} style="cursor: {cursor}">
+<div
+  class="stage"
+  class:dropping
+  bind:this={host}
+  style="cursor: {cursor}"
+  role="application"
+  {ondragover}
+  ondragleave={() => (dropping = false)}
+  {ondrop}>
   <canvas class="content" bind:this={content}></canvas>
   <canvas
     class="overlay"
@@ -545,5 +577,13 @@
 
   .overlay {
     touch-action: none;
+  }
+
+  .stage.dropping::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px dashed var(--accent);
+    pointer-events: none;
   }
 </style>
