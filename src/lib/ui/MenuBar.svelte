@@ -4,14 +4,12 @@
   import { outlineMode, selection, workspace } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
   import { historyState } from '$lib/editor/editor';
-  import { hasClipboard } from '$lib/editor/clipboard';
   import { alignToStage } from '$lib/editor/align';
 
   const menus = $derived(
     buildMenus($preferences, $outlineMode, $workspace, {
       history: $historyState,
       hasSelection: $selection.size > 0,
-      hasClipboard: $hasClipboard,
       alignToStage: $alignToStage
     })
   );

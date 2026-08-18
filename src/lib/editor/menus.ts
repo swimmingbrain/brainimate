@@ -38,7 +38,7 @@ import {
 } from './commands';
 import { clearGuides, toggleGuideLock } from './guides';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
-import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
+import { copy, cut, duplicate, pasteFromSystem } from './clipboard';
 import { clearSelection, deleteSelection, selectAll } from './selection';
 import { alignSelection, alignToStage, distributeSelection } from './align';
 import { newSymbol, openConvertDialog } from './symbols';
@@ -73,7 +73,6 @@ const PANELS: { id: DockTab; label: string }[] = [
 export interface MenuContext {
   history: HistoryState;
   hasSelection: boolean;
-  hasClipboard: boolean;
   alignToStage: boolean;
 }
 
@@ -119,10 +118,10 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
           action: redo
         },
         SEP,
-        { label: 'Cut', shortcut: 'Ctrl+X', disabled: none, action: cut },
-        { label: 'Copy', shortcut: 'Ctrl+C', disabled: none, action: copy },
-        { label: 'Paste', shortcut: 'Ctrl+V', disabled: !ctx.hasClipboard, action: paste },
-        { label: 'Paste in place', shortcut: 'Ctrl+Shift+V', disabled: !ctx.hasClipboard, action: pasteInPlace },
+        { label: 'Cut', shortcut: 'Ctrl+X', disabled: none, action: () => cut() },
+        { label: 'Copy', shortcut: 'Ctrl+C', disabled: none, action: () => copy() },
+        { label: 'Paste', shortcut: 'Ctrl+V', action: () => pasteFromSystem() },
+        { label: 'Paste in place', shortcut: 'Ctrl+Shift+V', action: () => pasteFromSystem(true) },
         { label: 'Duplicate', shortcut: 'Ctrl+D', disabled: none, action: duplicate },
         { label: 'Delete', shortcut: 'Delete', disabled: none, action: deleteSelection },
         SEP,

@@ -41,14 +41,14 @@ import {
   togglePlay,
   undo
 } from './commands';
-import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
+import { copy, cut, duplicate, pasteEvent, pasteFromSystem } from './clipboard';
 import { clearSelection, deleteSelection, nudge, selectAll } from './selection';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { leaveSymbol, openConvertDialog } from './symbols';
 import { outlineSelectedText } from './outlines';
 
 // fields keep their keys, menus and dialogs handle their own
-function ignored(e: KeyboardEvent): boolean {
+function ignored(e: Event): boolean {
   const el = e.target instanceof HTMLElement ? e.target : null;
   if (!el) return false;
   if (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return true;
@@ -89,10 +89,11 @@ function bindings(): KeybindingsMap {
     '$mod+z': run(undo),
     '$mod+Shift+z': run(redo),
     '$mod+y': run(redo),
-    '$mod+c': run(copy),
-    '$mod+x': run(cut),
-    '$mod+v': run(paste),
-    '$mod+Shift+v': run(pasteInPlace),
+    // the browser fires its copy, cut and paste events after these, they do the work
+    '$mod+c': () => expectClipboard('copy'),
+    '$mod+x': () => expectClipboard('cut'),
+    '$mod+v': () => expectClipboard('paste'),
+    '$mod+Shift+v': () => expectClipboard('paste', true),
     '$mod+d': run(duplicate),
     '$mod+a': run(selectAll),
     '$mod+Shift+a': run(clearSelection),
@@ -168,6 +169,37 @@ function bindings(): KeybindingsMap {
   return map;
 }
 
+// a clipboard key waits for the browser's own event, which brings the system clipboard along. when
+// none comes, the clipboard api and the copy kept in the app do the work
+let expected: { kind: 'copy' | 'cut' | 'paste'; inPlace: boolean } | null = null;
+
+function expectClipboard(kind: 'copy' | 'cut' | 'paste', inPlace = false) {
+  const mine = { kind, inPlace };
+  expected = mine;
+  setTimeout(() => {
+    if (expected !== mine) return;
+    expected = null;
+    if (kind === 'copy') copy();
+    else if (kind === 'cut') cut();
+    else void pasteFromSystem(inPlace);
+  }, 80);
+}
+
+// text picked on the page copies as text
+function pickedText(): boolean {
+  const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+  return !!sel && !sel.isCollapsed && sel.toString().trim() !== '';
+}
+
+function onclipboard(e: ClipboardEvent) {
+  const wanted = expected;
+  expected = null;
+  if (ignored(e) || (e.type !== 'paste' && pickedText())) return;
+  if (e.type === 'copy') copy(e);
+  else if (e.type === 'cut') cut(e);
+  else pasteEvent(e, wanted?.kind === 'paste' && wanted.inPlace);
+}
+
 // the active tool sees each key first and keeps it by calling preventDefault
 export function installShortcuts(): () => void {
   const handler = createKeybindingsHandler(bindings(), { ignore: () => false });
@@ -178,5 +210,9 @@ export function installShortcuts(): () => void {
     handler(e);
   };
   window.addEventListener('keydown', onkeydown);
-  return () => window.removeEventListener('keydown', onkeydown);
+  for (const type of ['copy', 'cut', 'paste'] as const) window.addEventListener(type, onclipboard);
+  return () => {
+    window.removeEventListener('keydown', onkeydown);
+    for (const type of ['copy', 'cut', 'paste'] as const) window.removeEventListener(type, onclipboard);
+  };
 }
