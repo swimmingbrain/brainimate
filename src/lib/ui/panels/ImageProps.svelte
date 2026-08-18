@@ -60,18 +60,17 @@
     try {
       const pic = await readPicture(file);
       const next = makeAsset('image', file.name, pic.data);
+      // the asset and the items change in one undo step
       editor.commit('Replace image', (draft) => {
         if (!draft.assets[next.id]) draft.assets[next.id] = next;
+        for (const it of items) {
+          const found = editor.draftFind(draft, it.id);
+          if (found?.item.type !== 'image') continue;
+          found.item.asset = next.id;
+          found.item.name = file.name;
+          if (pic.width > 0) found.item.height = (found.item.width * pic.height) / pic.width;
+        }
       });
-      set(
-        (it) => {
-          it.asset = next.id;
-          it.name = file.name;
-          if (pic.width > 0) it.height = (it.width * pic.height) / pic.width;
-        },
-        'Replace image',
-        'image-replace'
-      );
     } catch {
       addToast(`${file.name} could not be read as a picture`, 'error');
     }
