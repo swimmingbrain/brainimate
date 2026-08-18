@@ -4,15 +4,17 @@ import { multiply } from './mat';
 import { withNewIds } from './items';
 import { instanceSlices } from '$lib/render/frame';
 
+// every item of a list, groups opened
+export function walkItems(items: Item[], fn: (item: Item) => void) {
+  for (const item of items) {
+    fn(item);
+    if (item.type === 'group') walkItems(item.children, fn);
+  }
+}
+
 // every item of every keyframe of the layers, groups opened
 export function eachItem(layers: Layer[], fn: (item: Item) => void) {
-  const walk = (items: Item[]) => {
-    for (const item of items) {
-      fn(item);
-      if (item.type === 'group') walk(item.children);
-    }
-  };
-  for (const layer of layers) for (const key of layer.keyframes) walk(key.items);
+  for (const layer of layers) for (const key of layer.keyframes) walkItems(key.items, fn);
 }
 
 // the next free 'Symbol 3' like name
