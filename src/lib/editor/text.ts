@@ -39,6 +39,24 @@ export function createText(p: Vec, width: number | null = null): string | null {
   return item.id;
 }
 
+// pasted words become point text, centered on at
+export function placeText(text: string, at: Vec): string | null {
+  const layer = editor.activeLayer();
+  if (!layer || !editor.isEditable(layer)) {
+    addToast(editor.lockReason(layer), 'warning');
+    return null;
+  }
+  const d = get(textDefaults);
+  const item = makeTextItem(text, d.font, d.size, defaultStyle(textFill(), null), translate(at.x, at.y));
+  item.weight = d.weight;
+  item.italic = d.italic;
+  item.align = 'center';
+  item.name = text.trim().split('\n')[0].slice(0, 24) || 'Text';
+  void loadFont(d.font, d.weight, d.italic);
+  editor.insertItem(layer.id, item, 'Paste text');
+  return item.id;
+}
+
 export function startTextEdit(id: string): boolean {
   const item = editor.itemById(id, false);
   if (item?.type !== 'text') return false;
