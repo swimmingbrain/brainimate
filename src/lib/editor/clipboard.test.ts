@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { get } from 'svelte/store';
 import { editor } from './editor';
-import { copy, cut, duplicate, paste, pasteInPlace } from './clipboard';
+import { copy, cut, duplicate, paste, pasteInPlace, readPayload } from './clipboard';
+import { convertToSymbol } from './symbols';
 import { makePathItem } from '$lib/core/items';
 import { rectPath } from '$lib/core/shapes';
 import { defaultStyle } from '$lib/core/style';
@@ -59,5 +60,24 @@ describe('clipboard', () => {
     expect(copy.type === 'path' && copy.subpaths).toHaveLength(1);
     const original = all.find((it) => it.id === ring.id)!;
     expect(copy.type === 'path' && original.type === 'path' && copy.subpaths[0] !== original.subpaths[0]).toBe(true);
+  });
+
+  it('reads only its own payload back from clipboard text', () => {
+    expect(readPayload('hello')).toBeNull();
+    expect(readPayload('{"items":[]}')).toBeNull();
+    expect(readPayload('{"brainimate":1,"items":[]}')).toEqual({ brainimate: 1, items: [], symbols: {}, assets: {} });
+  });
+
+  it('takes the symbols of copied instances along into another document', () => {
+    const id = convertToSymbol('Ball', 'center')!;
+    copy();
+    editor.newDoc(800, 600, 24);
+    expect(editor.doc.symbols[id]).toBeUndefined();
+    paste();
+    expect(editor.doc.symbols[id]?.name).toBe('Ball');
+    const pasted = items()[0];
+    expect(pasted.type === 'instance' && pasted.symbol).toBe(id);
+    editor.undo();
+    expect(editor.doc.symbols[id]).toBeUndefined();
   });
 });
