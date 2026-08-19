@@ -51,6 +51,10 @@ paper 0.12.18: boolean operations on paths (unite, subtract, intersect, exclude,
 MIT
 https://github.com/paperjs/paper.js
 
+opentype.js 2.0.0: reads font files for the glyph outlines of text and for create outlines, loaded with the first text
+MIT
+https://github.com/opentypejs/opentype.js
+
 Two more are build tools rather than runtime dependencies, but what they produce ends up in
 the site, so they belong here too:
 
@@ -64,5 +68,33 @@ tailwindcss 4: the reset the theme is built on, compiled into app.css
 MIT
 https://github.com/tailwindlabs/tailwindcss
 
-Fonts are loaded at runtime from Google Fonts and are not redistributed here:
+The fonts of the interface are loaded at runtime from Google Fonts and are not redistributed here:
 Instrument Serif, JetBrains Mono and Inter, all under the SIL Open Font License 1.1.
+
+The fonts text can be set in are bundled in static/fonts (latin subsets, copied out of the
+Fontsource packages by pnpm fonts). Each is under the SIL Open Font License 1.1, the full text
+is in node_modules/@fontsource/<font>/LICENSE after an install:
+
+Inter, from @fontsource/inter 5.3.0
+OFL-1.1, Copyright 2016 The Inter Project Authors
+https://github.com/rsms/inter
+
+Instrument Serif, from @fontsource/instrument-serif 5.3.0
+OFL-1.1, Copyright 2022 The Instrument Serif Project Authors
+https://github.com/Instrument/instrument-serif
+
+JetBrains Mono, from @fontsource/jetbrains-mono 5.3.0
+OFL-1.1, Copyright 2020 The JetBrains Mono Project Authors
+https://github.com/JetBrains/JetBrainsMono
+
+Lora, from @fontsource/lora 5.3.0
+OFL-1.1, Copyright 2011 The Lora Project Authors, with Reserved Font Name "Lora"
+https://github.com/cyrealtype/Lora-Cyrillic
+
+Poppins, from @fontsource/poppins 5.3.0
+OFL-1.1, Copyright 2020 The Poppins Project Authors
+https://github.com/itfoundry/Poppins
+
+Bebas Neue, from @fontsource/bebas-neue 5.3.0
+OFL-1.1, Copyright 2019 The Bebas Neue Project Authors
+https://github.com/dharmatype/Bebas-Neue
