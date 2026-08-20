@@ -23,11 +23,13 @@ export function setImportInput(el: HTMLInputElement | null) {
   input = el;
 }
 
-// the input calls this with what was picked, or nothing when the picker was closed
+// the input calls this with what was picked, or nothing when the picker was closed. files nobody
+// waits for are imported
 export function filesPicked(files: File[]) {
   const done = waiting;
   waiting = null;
-  done?.(files);
+  if (done) done(files);
+  else if (files.length > 0) void importFiles(files);
 }
 
 export function pickFiles(accept: string, multiple = true): Promise<File[]> {
