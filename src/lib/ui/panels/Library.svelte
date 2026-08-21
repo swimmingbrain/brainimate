@@ -8,6 +8,7 @@
   import { isEmpty, translateBox } from '$lib/core/bbox';
   import { useCounts } from '$lib/core/library';
   import { THUMB_H, THUMB_W, symbolBounds, symbolThumb } from '$lib/render/thumbs';
+  import { fontVersion } from '$lib/core/fonts';
   import { docVersion, editor } from '$lib/editor/editor';
   import { stagePoint } from '$lib/editor/view';
   import { clearSnap, snapPoint } from '$lib/editor/snap';
@@ -184,7 +185,7 @@
             width={THUMB_W * 2}
             height={THUMB_H * 2}
             style="width: {THUMB_W}px; height: {THUMB_H}px"
-            use:thumb={{ symbol, version: $docVersion }}></canvas>
+            use:thumb={{ symbol, version: $docVersion + $fontVersion }}></canvas>
           {#if renaming === symbol.id}
             <input
               class="rename"

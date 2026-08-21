@@ -1,4 +1,6 @@
+import { get } from 'svelte/store';
 import type { Asset, Mat, Symbol } from '$lib/core/types';
+import { fontVersion } from '$lib/core/fonts';
 import { emptyBox, isEmpty, union, type Box } from '$lib/core/bbox';
 import { itemBounds } from '$lib/core/items';
 import { nestedSymbols } from '$lib/core/library';
@@ -13,8 +15,8 @@ const SCALE = 2;
 const PAD = 3;
 
 // a symbol object changes with every edit of it, so it is the key. one with instances inside is
-// drawn again when another symbol changed too
-const cache = new WeakMap<Symbol, { stamp: number; nested: boolean; canvas: Surface }>();
+// drawn again when another symbol changed too, and all of them once a font arrived
+const cache = new WeakMap<Symbol, { stamp: number; fonts: number; nested: boolean; canvas: Surface }>();
 
 // the box of what the symbol shows on its first frame, in its own space
 export function symbolBounds(symbol: Symbol, frame = 0): Box {
@@ -27,7 +29,8 @@ export function symbolBounds(symbol: Symbol, frame = 0): Box {
 
 export function symbolThumb(symbol: Symbol, assets: Record<string, Asset>): Surface {
   const hit = cache.get(symbol);
-  if (hit && (!hit.nested || hit.stamp === libraryStamp())) return hit.canvas;
+  const fonts = get(fontVersion);
+  if (hit && hit.fonts === fonts && (!hit.nested || hit.stamp === libraryStamp())) return hit.canvas;
   const canvas = hit?.canvas ?? surface(THUMB_W * SCALE, THUMB_H * SCALE);
   const ctx = context(canvas);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -44,6 +47,6 @@ export function symbolThumb(symbol: Symbol, assets: Record<string, Asset>): Surf
     renderLayers(ctx, symbol.layers, base, { frame: 0, outline: false, assets });
   }
   const nested = nestedSymbols(currentLibrary(), symbol.id).size > 0;
-  cache.set(symbol, { stamp: libraryStamp(), nested, canvas });
+  cache.set(symbol, { stamp: libraryStamp(), fonts, nested, canvas });
   return canvas;
 }
