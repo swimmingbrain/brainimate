@@ -160,6 +160,7 @@ export function togglePanel(tab: DockTab) {
 // the library tab comes to the front, or goes away when it already is there
 export function toggleLibrary() {
   const p = get(preferences).panels;
-  if (p.bottomTab === 'library' && !p.hidden.includes('library')) setGroup('panels', { hidden: [...p.hidden, 'library'] });
+  const front = p.bottomTab === 'library' && !p.hidden.includes('library');
+  if (front) setGroup('panels', { hidden: [...p.hidden, 'library'] });
   else showDockTab('library');
 }

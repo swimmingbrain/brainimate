@@ -31,7 +31,11 @@
   }
 </script>
 
-<Dialog title="Convert to symbol" description="The selection becomes a symbol you can place again." width={380} {onclose}>
+<Dialog
+  title="Convert to symbol"
+  description="The selection becomes a symbol you can place again."
+  width={380}
+  {onclose}>
   <label class="row">
     <span class="label">Name</span>
     <!-- svelte-ignore a11y_autofocus -->

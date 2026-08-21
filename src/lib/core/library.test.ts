@@ -28,7 +28,11 @@ function symbol(id: string, name: string, items: Item[][]): Symbol {
 describe('library', () => {
   it('names a new symbol after the highest number in use', () => {
     expect(nextSymbolName({})).toBe('Symbol 1');
-    const symbols = { a: symbol('a', 'Symbol 1', [[]]), b: symbol('b', 'Symbol 4', [[]]), c: symbol('c', 'Head', [[]]) };
+    const symbols = {
+      a: symbol('a', 'Symbol 1', [[]]),
+      b: symbol('b', 'Symbol 4', [[]]),
+      c: symbol('c', 'Head', [[]])
+    };
     expect(nextSymbolName(symbols)).toBe('Symbol 5');
   });
 
