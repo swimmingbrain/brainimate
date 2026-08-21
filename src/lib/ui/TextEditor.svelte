@@ -53,9 +53,11 @@
     return paintColor(item.style.fill) ?? paintColor(item.style.stroke) ?? '#000000';
   });
 
-  // an undo while typing changes the text under the field
+  // an undo while typing changes the text under the field, or takes the text away, or a symbol
+  // opened or closed takes it out of the timeline being edited
   $effect(() => {
-    if (area && item && area.value !== item.text) area.value = item.text;
+    if (!item) endTextEdit();
+    else if (area && area.value !== item.text) area.value = item.text;
   });
 
   onMount(() => {
