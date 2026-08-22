@@ -15,7 +15,9 @@
   import { BLEND_MODES, paintColor, solid } from '$lib/core/style';
   import { around, decompose, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
   import { boxCenter, isEmpty } from '$lib/core/bbox';
-  import { docVersion, editor } from '$lib/editor/editor';
+  import { docVersion, editStack, editor } from '$lib/editor/editor';
+  import { renameSymbol } from '$lib/editor/symbols';
+  import { symbolUses } from '$lib/core/library';
   import { selectionFrame, transformSelection } from '$lib/editor/selection';
   import {
     booleanSelection,
@@ -95,6 +97,14 @@
     { icon: 'exclude', label: 'Exclude', op: 'exclude' },
     { icon: 'divide', label: 'Divide', op: 'divide' }
   ] as const;
+
+  // the symbol open in place, its name shows above the document
+  const open = $derived.by(() => {
+    void $docVersion;
+    const top = $editStack[$editStack.length - 1];
+    const symbol = top ? editor.doc.symbols[top.symbolId] : null;
+    return symbol ? { id: symbol.id, name: symbol.name } : null;
+  });
 
   const doc = $derived.by(() => {
     void $docVersion;
@@ -194,6 +204,22 @@
 <Panel>
   {#if $frameSelection}
     <FrameProps range={$frameSelection} />
+  {/if}
+  {#if items.length === 0 && open}
+    <h3 class="section">Symbol</h3>
+    <Field label="Name">
+      <input
+        class="text"
+        value={open.name}
+        aria-label="Symbol name"
+        onchange={(e) => renameSymbol(open.id, e.currentTarget.value)} />
+    </Field>
+    <Field label="Instances">
+      <span class="value">{symbolUses(doc, open.id)}</span>
+    </Field>
+    <div class="ops">
+      <button class="back" onclick={() => editor.exitSymbol()}>Back out of the symbol</button>
+    </div>
   {/if}
   {#if items.length === 0}
     <h3 class="section">Document</h3>
@@ -517,6 +543,19 @@
   .op:disabled {
     opacity: 0.35;
     cursor: default;
+  }
+
+  .back {
+    padding: 3px 10px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+  }
+
+  .back:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
   }
 
   .op-sep {
