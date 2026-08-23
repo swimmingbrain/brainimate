@@ -16,7 +16,8 @@ function image(asset: string): ImageItem {
     blend: 'normal',
     asset,
     width: 10,
-    height: 10
+    height: 10,
+    skin: null
   };
 }
 

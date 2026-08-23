@@ -43,7 +43,7 @@ export interface Style {
 }
 
 export interface Skin {
-  // one entry per anchor, a list of bone weights (max 3) that sum to 1
+  // one entry per anchor, the outline first and then the subpaths, up to 4 bone weights that sum to 1
   weights: { bone: string; w: number }[][];
   // if set, the whole item follows this bone and weights is empty
   rigid: string | null;
@@ -90,6 +90,8 @@ export interface TextItem extends ItemBase {
   // box text wraps its words at this width, point text has none
   width: number | null;
   style: Style;
+  // text only follows a bone rigidly
+  skin: Skin | null;
 }
 
 export interface ImageItem extends ItemBase {
@@ -97,6 +99,8 @@ export interface ImageItem extends ItemBase {
   asset: string;
   width: number;
   height: number;
+  // a picture only follows a bone rigidly
+  skin: Skin | null;
 }
 
 export interface InstanceItem extends ItemBase {
@@ -122,6 +126,8 @@ export interface Bone {
   x: number;
   y: number;
   length: number;
+  // how far the bone reaches out to the artwork around it when binding, in its own units
+  radius: number;
   // local radians, rest pose
   rotation: number;
   // world matrix at bind time

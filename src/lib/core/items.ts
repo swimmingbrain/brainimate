@@ -56,7 +56,8 @@ export function makeTextItem(
     lineHeight: 1.2,
     spacing: 0,
     width,
-    style
+    style,
+    skin: null
   };
 }
 
@@ -79,7 +80,8 @@ export function makeImageItem(
     blend: 'normal',
     asset,
     width,
-    height
+    height,
+    skin: null
   };
 }
 
