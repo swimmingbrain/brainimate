@@ -10,11 +10,12 @@ import { itemsAt, keyframeAt, layersLength, setLibrary, setOffsetSource, tweenAt
 import { isLayerLocked, isLayerShown, keyframeForEdit } from '$lib/anim/timeline';
 import { rebaseEdit } from '$lib/anim/tween';
 import { registerAssetFonts } from '$lib/core/fonts';
+import { PALETTE } from '$lib/core/palette';
 import { activeLayer, anchorSelection, dirty, docName, frame, frameSelection, selection, stageSize } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 
 // outline and highlight colors, a new layer takes the next one
-export const LAYER_COLORS = ['#5b7fc9', '#4f9e8a', '#c47f8f', '#c9b45b', '#8f6bb8', '#6fae6f', '#c99a5b', '#b06b9e'];
+export const LAYER_COLORS = PALETTE;
 
 // bumped on every change to the document, panels re-read editor.doc when it moves
 export const docVersion = writable(0);
