@@ -37,4 +37,15 @@ describe('migrate', () => {
     expect(items[0].type === 'text' && items[0].width).toBeNull();
     expect(items[1].type === 'instance' && items[1].tintAmount).toBe(0);
   });
+
+  it('gives bones a reach and items an empty skin', () => {
+    const bone = { id: 'b', name: 'Bone', parent: null, x: 0, y: 0, length: 100, rotation: 0 };
+    const image = { id: 'i', type: 'image', asset: 'a', width: 1, height: 1 };
+    const doc = migrateDoc({
+      layers: [{ type: 'rig', keyframes: [{ frame: 0, items: [image] }], bones: [bone] }],
+      symbols: {}
+    } as unknown as Doc);
+    expect(doc.layers[0].bones[0].radius).toBeCloseTo(35);
+    expect(doc.layers[0].keyframes[0].items[0].skin).toBeNull();
+  });
 });
