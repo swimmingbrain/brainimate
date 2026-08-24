@@ -80,3 +80,82 @@ export function originOf(world: Mat): Vec {
 export function tipOf(world: Mat, bone: Bone): Vec {
   return applyPoint(world, { x: bone.length, y: 0 });
 }
+
+export interface BoneOptions {
+  name: string;
+  color: string;
+  // the reach as a share of the length
+  reach?: number;
+}
+
+// a bone from one world point to another under parent, its local placement comes through the
+// parent's world matrix at pose, so it lands where it was clicked even on a posed rig
+export function addBone(bones: Bone[], parentId: string | null, from: Vec, to: Vec, pose: Pose, opts: BoneOptions): Bone {
+  const parent = boneById(bones, parentId);
+  const parentWorld = parent ? worldAt(bones, parent, pose) : identity();
+  const inv = invert(parentWorld);
+  const o = applyPoint(inv, from);
+  const d = applyVector(inv, { x: to.x - from.x, y: to.y - from.y });
+  const length = Math.hypot(d.x, d.y);
+  const bone: Bone = {
+    id: newId(),
+    name: opts.name,
+    parent: parent?.id ?? null,
+    x: o.x,
+    y: o.y,
+    length,
+    radius: length * (opts.reach ?? DEFAULT_RADIUS),
+    rotation: Math.atan2(d.y, d.x),
+    bind: identity(),
+    pinned: false,
+    color: opts.color
+  };
+  bone.bind = multiply(parentWorld, localMatrix(bone));
+  bones.push(bone);
+  return bone;
+}
+
+// the bone goes, its children hang on its parent and stay where they are at rest
+export function removeBone(bones: Bone[], id: string) {
+  const index = bones.findIndex((b) => b.id === id);
+  if (index < 0) return;
+  const bone = bones[index];
+  const parent = boneById(bones, bone.parent);
+  const parentInv = parent ? invert(restWorld(bones, parent)) : identity();
+  for (const child of childrenOf(bones, id)) {
+    const d = decompose(multiply(parentInv, restWorld(bones, child)));
+    child.x = d.x;
+    child.y = d.y;
+    child.rotation = d.rotation;
+    child.parent = parent?.id ?? null;
+  }
+  bones.splice(index, 1);
+}
+
+// a new chain takes the next palette color, a branch the color of the bone it grows from
+export function nextBoneColor(bones: Bone[], parentId: string | null = null): string {
+  const parent = boneById(bones, parentId);
+  if (parent) return parent.color;
+  return PALETTE[rootsOf(bones).length % PALETTE.length];
+}
+
+// 'Bone 4' like names, counting the bones of every rig layer
+export function nextBoneName(bones: Bone[]): string {
+  let n = 0;
+  for (const b of bones) {
+    const m = /^Bone (\d+)$/.exec(b.name);
+    if (m) n = Math.max(n, Number(m[1]));
+  }
+  return `Bone ${n + 1}`;
+}
+
+// every bone of the rig layers of a timeline
+export function timelineBones(layers: Layer[]): Bone[] {
+  const out: Bone[] = [];
+  for (const l of layers) if (l.type === 'rig') out.push(...l.bones);
+  return out;
+}
+
+export function rigLayerOf(layers: Layer[], boneId: string): Layer | null {
+  return layers.find((l) => l.type === 'rig' && l.bones.some((b) => b.id === boneId)) ?? null;
+}
