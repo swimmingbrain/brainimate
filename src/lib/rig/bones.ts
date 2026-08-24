@@ -159,3 +159,64 @@ export function timelineBones(layers: Layer[]): Bone[] {
 export function rigLayerOf(layers: Layer[], boneId: string): Layer | null {
   return layers.find((l) => l.type === 'rig' && l.bones.some((b) => b.id === boneId)) ?? null;
 }
+
+// screen pixels, the callers divide by the zoom
+export const JOINT_TOLERANCE = 6;
+export const BODY_TOLERANCE = 5;
+
+// a joint is where a bone starts, the free end of a bone with no children is one too
+export interface Joint {
+  bone: Bone;
+  end: 'origin' | 'tip';
+  point: Vec;
+}
+
+export function jointsOf(bones: Bone[], worlds: Map<string, Mat>): Joint[] {
+  const out: Joint[] = [];
+  for (const bone of bones) {
+    const m = worlds.get(bone.id);
+    if (!m) continue;
+    out.push({ bone, end: 'origin', point: originOf(m) });
+    if (childrenOf(bones, bone.id).length === 0) out.push({ bone, end: 'tip', point: tipOf(m, bone) });
+  }
+  return out;
+}
+
+// the closest joint within tolerance world units, a bone's start wins over a tip on the same spot
+export function hitJoint(joints: Joint[], p: Vec, tolerance: number): Joint | null {
+  let best: Joint | null = null;
+  let bestD = tolerance;
+  for (const j of joints) {
+    const d = Math.hypot(j.point.x - p.x, j.point.y - p.y);
+    if (d < bestD - 1e-6 || (d <= bestD && best?.end === 'tip' && j.end === 'origin')) {
+      best = j;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+// distance from p to the segment a b, and how far along it the closest point is
+export function segmentDistance(p: Vec, a: Vec, b: Vec): { d: number; t: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const l2 = dx * dx + dy * dy;
+  const t = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+  return { d: Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y), t };
+}
+
+// the bone whose body passes closest to p within tolerance world units
+export function hitBody(bones: Bone[], worlds: Map<string, Mat>, p: Vec, tolerance: number): Bone | null {
+  let best: Bone | null = null;
+  let bestD = tolerance;
+  for (const bone of bones) {
+    const m = worlds.get(bone.id);
+    if (!m) continue;
+    const { d } = segmentDistance(p, originOf(m), tipOf(m, bone));
+    if (d <= bestD) {
+      best = bone;
+      bestD = d;
+    }
+  }
+  return best;
+}
