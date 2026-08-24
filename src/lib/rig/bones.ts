@@ -2,6 +2,8 @@ import type { Bone, BonePose, Layer, Mat, Vec } from '$lib/core/types';
 import { applyPoint, applyVector, decompose, identity, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
 import { PALETTE } from '$lib/core/palette';
 import { newId } from '$lib/core/ids';
+import { isDraft } from 'immer';
+import { poseAt } from '$lib/render/frame';
 
 export type Pose = Record<string, BonePose>;
 
@@ -219,4 +221,76 @@ export function hitBody(bones: Bone[], worlds: Map<string, Mat>, p: Vec, toleran
     }
   }
   return best;
+}
+
+// the pose a rig layer has at frame, tweened between its keyframes like items are
+export function resolvePose(layer: Layer, frame: number): Pose {
+  return poseAt(layer, frame);
+}
+
+// the bones of a timeline in one pose, with what skinning needs ready
+export interface Rig {
+  bones: Bone[];
+  pose: Pose;
+  world: Map<string, Mat>;
+  // world * inverse(bind), what a bound point goes through
+  skin: Map<string, Mat>;
+}
+
+// a pose a tool is dragging, shown instead of what the rig layer holds at the frame
+export interface PoseOverride {
+  layerId: string;
+  pose: Pose;
+}
+
+export function makeRig(bones: Bone[], pose: Pose): Rig {
+  const world = worldMatrices(bones, pose);
+  const skin = new Map<string, Mat>();
+  for (const b of bones) skin.set(b.id, multiply(world.get(b.id)!, invert(b.bind)));
+  return { bones, pose, world, skin };
+}
+
+function sameLayers(a: Layer[], b: Layer[]): boolean {
+  return a.length === b.length && a.every((l, i) => l === b[i]);
+}
+
+const CACHED_FRAMES = 32;
+// keyed by the first rig layer, the same rig object comes back until a rig layer changes, so the
+// skinned shapes worked out for it stay valid
+const rigs = new WeakMap<Layer, Map<number, { layers: Layer[]; rig: Rig }>>();
+let dragged: { override: PoseOverride; layers: Layer[]; frame: number; rig: Rig } | null = null;
+
+// every rig layer of a timeline posed at frame, null when there are no bones
+export function rigFor(layers: Layer[], frame: number, override: PoseOverride | null = null): Rig | null {
+  const own = layers.filter((l) => l.type === 'rig' && l.bones.length > 0);
+  if (own.length === 0) return null;
+  const draft = own.some((l) => isDraft(l));
+  if (!draft && override) {
+    if (dragged && dragged.override === override && dragged.frame === frame && sameLayers(dragged.layers, own)) {
+      return dragged.rig;
+    }
+  } else if (!draft) {
+    const hit = rigs.get(own[0])?.get(frame);
+    if (hit && sameLayers(hit.layers, own)) return hit.rig;
+  }
+  const bones: Bone[] = [];
+  const pose: Pose = {};
+  for (const l of own) {
+    bones.push(...l.bones);
+    Object.assign(pose, override && override.layerId === l.id ? override.pose : resolvePose(l, frame));
+  }
+  const rig = makeRig(bones, pose);
+  if (draft) return rig;
+  if (override) {
+    dragged = { override, layers: own, frame, rig };
+    return rig;
+  }
+  let map = rigs.get(own[0]);
+  if (!map) {
+    map = new Map();
+    rigs.set(own[0], map);
+  }
+  if (map.size >= CACHED_FRAMES) map.delete(map.keys().next().value as number);
+  map.set(frame, { layers: own, rig });
+  return rig;
 }
