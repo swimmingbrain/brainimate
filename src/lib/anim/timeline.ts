@@ -116,6 +116,21 @@ export function keyframeForEdit(layer: Layer, frame: number, autoKey: boolean): 
   return keyframeAt(layer, frame) ?? insertKeyframe(layer, frame);
 }
 
+// rig layers tween by default: the keyframe before a new one tweens into it, unless it already has an ease
+export function tweenInto(layer: Layer, frame: number, ease: string) {
+  const i = layer.keyframes.findIndex((k) => k.frame === frame);
+  const prev = i > 0 ? layer.keyframes[i - 1] : null;
+  if (prev && !prev.tween) prev.tween = { ease };
+}
+
+// the keyframe a pose change at frame lands in, a new one on a rig layer gets the tween into it
+export function poseKeyframe(layer: Layer, frame: number, autoKey: boolean, ease: string): Keyframe {
+  const had = isKeyframe(layer, frame);
+  const key = keyframeForEdit(layer, frame, autoKey);
+  if (!had && key.frame === frame && layer.type === 'rig') tweenInto(layer, frame, ease);
+  return key;
+}
+
 // on the keyframe whose span holds frame, null turns the tween off
 export function setTween(layer: Layer, frame: number, ease: string | null) {
   const key = keyframeAt(layer, frame);
