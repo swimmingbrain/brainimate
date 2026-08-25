@@ -115,3 +115,77 @@ export function nearestBone(p: Vec, bones: Bone[], matrices?: Map<string, Mat>):
   }
   return best;
 }
+
+// sum w_i * world_i * inverse(bind_i), a bone the rig does not have is left out
+export function blend(weights: Weight[], rig: Rig): Mat {
+  const out: Mat = [0, 0, 0, 0, 0, 0];
+  let total = 0;
+  for (const { bone, w } of weights) {
+    const m = rig.skin.get(bone);
+    if (!m) continue;
+    for (let i = 0; i < 6; i++) out[i] += w * m[i];
+    total += w;
+  }
+  if (total <= 0) return identity();
+  if (Math.abs(total - 1) > 1e-9) for (let i = 0; i < 6; i++) out[i] /= total;
+  return out;
+}
+
+// the anchor with its point and both handle points through one affine matrix
+export function mapAnchor(a: Anchor, m: Mat): Anchor {
+  const p = applyPoint(m, a);
+  const i = applyVector(m, { x: a.ix, y: a.iy });
+  const o = applyVector(m, { x: a.ox, y: a.oy });
+  return { x: p.x, y: p.y, ix: i.x, iy: i.y, ox: o.x, oy: o.y, kind: a.kind };
+}
+
+// the matrix a rigid skin puts on top of the item's world matrix
+export function rigidDelta(skin: Skin, rig: Rig): Mat {
+  return (skin.rigid && rig.skin.get(skin.rigid)) || identity();
+}
+
+// a contour with each anchor through its own matrix, first is where its weights start in the skin
+function mapContour(path: PathData, first: number, matrixAt: (index: number) => Mat): PathData {
+  return { closed: path.closed, anchors: path.anchors.map((a, i) => mapAnchor(a, matrixAt(first + i))) };
+}
+
+function contoursOf(item: PathItem): PathData[] {
+  return [item.path, ...item.subpaths];
+}
+
+// each contour through matrixAt, the outline and then the subpaths
+function mapContours(item: PathItem, matrixAt: (index: number) => Mat): { path: PathData; subpaths: PathData[] } {
+  let first = 0;
+  const out = contoursOf(item).map((c) => {
+    const mapped = mapContour(c, first, matrixAt);
+    first += c.anchors.length;
+    return mapped;
+  });
+  return { path: out[0], subpaths: out.slice(1) };
+}
+
+// linear blend skinning: every anchor and its two handle points in world space through the blend of
+// its bones, p' = sum w_i * world_i * inverse(bind_i) * p. a rigid skin moves it all with one bone
+export function deform(item: PathItem, rig: Rig, world: Mat): { path: PathData; subpaths: PathData[] } {
+  const skin = item.skin;
+  if (!skin) return mapContours(item, () => world);
+  if (skin.rigid) {
+    const m = multiply(rigidDelta(skin, rig), world);
+    return mapContours(item, () => m);
+  }
+  return mapContours(item, (i) => multiply(blend(skin.weights[i] ?? [], rig), world));
+}
+
+// the same blend seen from the item's own space: inverse(world) * blend * world, per anchor
+export function localBlends(item: PathItem, rig: Rig, world: Mat): Mat[] {
+  const skin = item.skin;
+  const n = anchorList(item).length;
+  if (!skin || skin.rigid) return new Array(n).fill(identity());
+  const inv = invert(world);
+  const out: Mat[] = [];
+  for (let i = 0; i < n; i++) {
+    const b = blend(skin.weights[i] ?? [], rig);
+    out.push(isIdentity(b) ? identity() : multiply(inv, multiply(b, world)));
+  }
+  return out;
+}
