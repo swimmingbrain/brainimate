@@ -189,3 +189,84 @@ export function localBlends(item: PathItem, rig: Rig, world: Mat): Mat[] {
   }
   return out;
 }
+
+function sameMat(a: Mat, b: Mat): boolean {
+  for (let i = 0; i < 6; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+// a rigidly bound item's transform with the bone's move on top, seen from inside its groups
+function rigidTransform(t: Mat, parent: Mat, delta: Mat): Mat {
+  if (isIdentity(delta)) return t;
+  if (isIdentity(parent)) return multiply(delta, t);
+  return multiply(invert(parent), multiply(delta, multiply(parent, t)));
+}
+
+// per item and rig, a rig object stays the same until a rig layer or the frame changes, an edit makes
+// a new item object, so nothing stale is ever read
+const shapes = new WeakMap<Item, { rig: Rig; parent: Mat; out: Item }>();
+
+// the item as the rig shows it: a skinned path with its anchors moved in its own space, a rigidly bound
+// item with the bone's move on its transform. parent is the matrix of the groups around it, preview
+// swaps in the copies a tool is dragging. what comes back draws, hits and measures like any item
+export function posed(item: Item, parent: Mat, rig: Rig, preview?: Map<string, Item>): Item {
+  if (item.type === 'group') return posedGroup(item, parent, rig, preview);
+  const skin = item.skin;
+  if (!skin) return item;
+  const hit = shapes.get(item);
+  if (hit && hit.rig === rig && sameMat(hit.parent, parent)) return hit.out;
+  let out: Item = item;
+  if (skin.rigid) {
+    out = { ...item, transform: rigidTransform(item.transform, parent, rigidDelta(skin, rig)) };
+  } else if (item.type === 'path') {
+    const blends = localBlends(item, rig, multiply(parent, item.transform));
+    out = { ...item, ...mapContours(item, (i) => blends[i]) };
+  }
+  shapes.set(item, { rig, parent, out });
+  return out;
+}
+
+function posedGroup(group: Extract<Item, { type: 'group' }>, parent: Mat, rig: Rig, preview?: Map<string, Item>): Item {
+  const world = multiply(parent, group.transform);
+  let changed = false;
+  const children = group.children.map((c) => {
+    const src = preview?.get(c.id) ?? c;
+    // a group bound as a whole takes its children along, they are not bound on their own
+    const out = group.skin?.rigid ? src : posed(src, world, rig, preview);
+    if (out !== c) changed = true;
+    return out;
+  });
+  if (group.skin?.rigid) {
+    return { ...group, children, transform: rigidTransform(group.transform, parent, rigidDelta(group.skin, rig)) };
+  }
+  return changed ? { ...group, children } : group;
+}
+
+// the items of a keyframe as the rig shows them
+export function posedList(items: Item[], rig: Rig | null, preview?: Map<string, Item>): Item[] {
+  if (!rig) return items;
+  let changed = false;
+  const out = items.map((item) => {
+    const src = preview?.get(item.id) ?? item;
+    const p = posed(src, identity(), rig, preview);
+    if (p !== item) changed = true;
+    return p;
+  });
+  return changed ? out : items;
+}
+
+// roughly how the rig moves the item as a whole in world space: the bone's move for a rigid skin,
+// the average blend of the anchors for a smooth one. a move of what shows is turned into a move of
+// the rest shape through it
+export function skinDelta(item: Item, parent: Mat, rig: Rig | null): Mat {
+  const skin = item.skin;
+  if (!rig || !skin) return identity();
+  if (skin.rigid) return rigidDelta(skin, rig);
+  if (skin.weights.length === 0) return identity();
+  const out: Mat = [0, 0, 0, 0, 0, 0];
+  for (const w of skin.weights) {
+    const b = blend(w, rig);
+    for (let i = 0; i < 6; i++) out[i] += b[i] / skin.weights.length;
+  }
+  return out;
+}
