@@ -270,3 +270,55 @@ export function skinDelta(item: Item, parent: Mat, rig: Rig | null): Mat {
   }
   return out;
 }
+
+// the blends of the anchors as the skin has them, seen from the item's space
+function skinBlends(skin: Skin, rig: Rig, world: Mat, count: number): Mat[] {
+  const inv = invert(world);
+  const out: Mat[] = [];
+  for (let i = 0; i < count; i++) {
+    const b = blend(skin.weights[i] ?? [], rig);
+    out.push(isIdentity(b) ? identity() : multiply(inv, multiply(b, world)));
+  }
+  return out;
+}
+
+// where contour sub starts in the skin's list of anchors
+function firstAnchor(item: PathItem, sub: number): number {
+  let first = 0;
+  for (let s = 0; s < sub; s++) first += (s === 0 ? item.path : item.subpaths[s - 1]).anchors.length;
+  return first;
+}
+
+// a contour edited the way it shows, carried back to the rest shape through the blend of each anchor,
+// so editing a bent arm keeps working. anchor i of the contour goes back through the weights at i
+export function restContour(item: PathItem, parent: Mat, rig: Rig, sub: number, shown: PathData): PathData {
+  const skin = item.skin;
+  if (!skin || skin.rigid) return shown;
+  const first = firstAnchor(item, sub);
+  const blends = skinBlends(skin, rig, multiply(parent, item.transform), first + shown.anchors.length);
+  return {
+    closed: shown.closed,
+    anchors: shown.anchors.map((a, i) => {
+      const m = blends[first + i];
+      return isIdentity(m) ? { ...a } : mapAnchor(a, invert(m));
+    })
+  };
+}
+
+// the skin with weights for an anchor put in on segment index of contour sub at t, mixed from its two
+// neighbors, so the new anchor bends along with them
+export function insertWeights(item: PathItem, sub: number, index: number, t: number): Skin | null {
+  const skin = item.skin;
+  if (!skin || skin.rigid) return skin;
+  const contour = sub === 0 ? item.path : item.subpaths[sub - 1];
+  if (!contour) return skin;
+  const first = firstAnchor(item, sub);
+  const a = skin.weights[first + index] ?? [];
+  const b = skin.weights[first + ((index + 1) % contour.anchors.length)] ?? [];
+  const mixed = new Map<string, number>();
+  for (const x of a) mixed.set(x.bone, (mixed.get(x.bone) ?? 0) + x.w * (1 - t));
+  for (const x of b) mixed.set(x.bone, (mixed.get(x.bone) ?? 0) + x.w * t);
+  const weights = skin.weights.slice();
+  weights.splice(first + index + 1, 0, normalize([...mixed].map(([bone, w]) => ({ bone, w }))));
+  return { weights, rigid: null };
+}
