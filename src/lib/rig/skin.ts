@@ -1,5 +1,6 @@
 import type { Anchor, Bone, Item, Mat, PathData, PathItem, Skin, Vec } from '$lib/core/types';
 import { applyPoint, applyVector, identity, invert, isIdentity, multiply, scaleFactor } from '$lib/core/mat';
+import { split, type Cubic } from '$lib/core/bezier';
 import { segmentDistance, type Rig } from './bones';
 
 export type Weight = { bone: string; w: number };
@@ -178,16 +179,9 @@ export function deform(item: PathItem, rig: Rig, world: Mat): { path: PathData; 
 
 // the same blend seen from the item's own space: inverse(world) * blend * world, per anchor
 export function localBlends(item: PathItem, rig: Rig, world: Mat): Mat[] {
-  const skin = item.skin;
   const n = anchorList(item).length;
-  if (!skin || skin.rigid) return new Array(n).fill(identity());
-  const inv = invert(world);
-  const out: Mat[] = [];
-  for (let i = 0; i < n; i++) {
-    const b = blend(skin.weights[i] ?? [], rig);
-    out.push(isIdentity(b) ? identity() : multiply(inv, multiply(b, world)));
-  }
-  return out;
+  if (!item.skin || item.skin.rigid) return new Array(n).fill(identity());
+  return skinBlends(item.skin, rig, world, n);
 }
 
 function sameMat(a: Mat, b: Mat): boolean {
@@ -321,4 +315,66 @@ export function insertWeights(item: PathItem, sub: number, index: number, t: num
   const weights = skin.weights.slice();
   weights.splice(first + index + 1, 0, normalize([...mixed].map(([bone, w]) => ({ bone, w }))));
   return { weights, rigid: null };
+}
+
+// a bend needs anchors to bend at: segments longer than step world units are split into equal pieces,
+// at most maxPieces. a straight segment gets handles along its line, so the shape stays as it is at
+// rest and turns into a smooth curve once the bones turn
+export function refinePath(path: PathData, world: Mat, step: number, maxPieces = 12): PathData {
+  const src = path.anchors;
+  const n = src.length;
+  const count = n < 2 ? 0 : path.closed ? n : n - 1;
+  const out = src.map((a) => ({ ...a }));
+  const added: Anchor[][] = src.map(() => []);
+  for (let i = 0; i < count; i++) {
+    const j = (i + 1) % n;
+    const a = src[i];
+    const b = src[j];
+    const straight = a.ox === 0 && a.oy === 0 && b.ix === 0 && b.iy === 0;
+    let c: Cubic = [
+      { x: a.x, y: a.y },
+      straight ? { x: a.x + (b.x - a.x) / 3, y: a.y + (b.y - a.y) / 3 } : { x: a.x + a.ox, y: a.y + a.oy },
+      straight ? { x: a.x + ((b.x - a.x) * 2) / 3, y: a.y + ((b.y - a.y) * 2) / 3 } : { x: b.x + b.ix, y: b.y + b.iy },
+      { x: b.x, y: b.y }
+    ];
+    const w = c.map((p) => applyPoint(world, p));
+    const chord = Math.hypot(w[3].x - w[0].x, w[3].y - w[0].y);
+    const net = Math.hypot(w[1].x - w[0].x, w[1].y - w[0].y) + Math.hypot(w[2].x - w[1].x, w[2].y - w[1].y);
+    const length = (chord + net + Math.hypot(w[3].x - w[2].x, w[3].y - w[2].y)) / 2;
+    const pieces = Math.min(maxPieces, Math.ceil(length / Math.max(step, 1e-6)));
+    if (pieces <= 1) continue;
+    const parts: Cubic[] = [];
+    for (let k = pieces; k > 1; k--) {
+      const [left, right] = split(c, 1 / k);
+      parts.push(left);
+      c = right;
+    }
+    parts.push(c);
+    out[i].ox = parts[0][1].x - a.x;
+    out[i].oy = parts[0][1].y - a.y;
+    out[j].ix = parts[pieces - 1][2].x - b.x;
+    out[j].iy = parts[pieces - 1][2].y - b.y;
+    for (let k = 1; k < pieces; k++) {
+      const p = parts[k - 1][3];
+      added[i].push({
+        x: p.x,
+        y: p.y,
+        ix: parts[k - 1][2].x - p.x,
+        iy: parts[k - 1][2].y - p.y,
+        ox: parts[k][1].x - p.x,
+        oy: parts[k][1].y - p.y,
+        kind: 'smooth'
+      });
+    }
+  }
+  const anchors: Anchor[] = [];
+  out.forEach((a, i) => anchors.push(a, ...added[i]));
+  return { anchors, closed: path.closed };
+}
+
+// a quarter of the shortest bone, so a bend has a few anchors on each side of a joint
+export function refineStep(bones: Bone[], matrices?: Map<string, Mat>): number {
+  let shortest = Infinity;
+  for (const b of bones) shortest = Math.min(shortest, b.length * scaleFactor(matrices?.get(b.id) ?? b.bind));
+  return Number.isFinite(shortest) ? Math.max(6, shortest / 4) : Infinity;
 }
