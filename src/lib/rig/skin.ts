@@ -1,6 +1,8 @@
 import type { Anchor, Bone, Item, Mat, PathData, PathItem, Skin, Vec } from '$lib/core/types';
 import { applyPoint, applyVector, identity, invert, isIdentity, multiply, scaleFactor } from '$lib/core/mat';
 import { split, type Cubic } from '$lib/core/bezier';
+import { corners, isEmpty } from '$lib/core/bbox';
+import { itemBounds } from '$lib/core/items';
 import { segmentDistance, type Rig } from './bones';
 
 export type Weight = { bone: string; w: number };
@@ -377,4 +379,90 @@ export function refineStep(bones: Bone[], matrices?: Map<string, Mat>): number {
   let shortest = Infinity;
   for (const b of bones) shortest = Math.min(shortest, b.length * scaleFactor(matrices?.get(b.id) ?? b.bind));
   return Number.isFinite(shortest) ? Math.max(6, shortest / 4) : Infinity;
+}
+
+export type BindMode = 'smooth' | 'rigid' | 'auto';
+
+// the corners of the item's box in world space
+function boxPoints(item: Item, world: Mat): Vec[] {
+  const b = itemBounds(item, world);
+  return isEmpty(b) ? [] : corners(b);
+}
+
+function centerOf(points: Vec[]): Vec {
+  if (points.length === 0) return { x: 0, y: 0 };
+  return {
+    x: points.reduce((s, p) => s + p.x, 0) / points.length,
+    y: points.reduce((s, p) => s + p.y, 0) / points.length
+  };
+}
+
+// the bone an item follows rigidly: the one whose reach holds it, else the closest one
+function rigidBoneFor(item: Item, world: Mat, bones: Bone[], matrices?: Map<string, Mat>): string | null {
+  const pts = boxPoints(item, world);
+  return holdingBone(pts, bones, matrices) ?? nearestBone(centerOf(pts), bones, matrices);
+}
+
+function rigidBind(item: Item, parent: Mat, bone: string, rig: Rig, fresh: boolean): Item {
+  const skin: Skin = { weights: [], rigid: bone };
+  // an item bound now stays where it is, its rest place is taken back through the bone's move
+  const d = rig.skin.get(bone);
+  const transform = fresh && d ? rigidTransform(item.transform, parent, invert(d)) : item.transform;
+  if (item.type === 'group') return { ...item, transform, skin, children: item.children.map(unbindItem) };
+  return { ...item, transform, skin } as Item;
+}
+
+function smoothBind(item: PathItem, parent: Mat, bones: Bone[], rig: Rig, fresh: boolean): PathItem {
+  const world = multiply(parent, item.transform);
+  // an item bound now is measured against the bones as they show, one bound before against its bind
+  const matrices = fresh ? rig.world : undefined;
+  const step = refineStep(bones, matrices);
+  const refined: PathItem = {
+    ...item,
+    path: refinePath(item.path, world, step),
+    subpaths: item.subpaths.map((s) => refinePath(s, world, step))
+  };
+  const skin: Skin = { weights: autoWeights(refined, world, bones, matrices), rigid: null };
+  const bound = { ...refined, skin };
+  if (!fresh) return bound;
+  const blends = localBlends(bound, rig, world);
+  return { ...bound, ...mapContours(bound, (i) => (isIdentity(blends[i]) ? identity() : invert(blends[i]))) };
+}
+
+// a copy of the item bound to some of the rig's bones. an item that was not bound stays where it shows
+// with the bones as posed now. auto binds rigidly when the item fits in one bone's reach and smooth
+// otherwise, a group that does not fit has its children bound one by one. text, pictures and instances
+// only follow a bone rigidly. rigid picks the bone given, or the one that suits best
+export function bindItem(item: Item, parent: Mat, bones: Bone[], rig: Rig, mode: BindMode, bone?: string): Item {
+  if (bones.length === 0) return item;
+  const fresh = !item.skin;
+  const matrices = fresh ? rig.world : undefined;
+  const world = multiply(parent, item.transform);
+  if (mode === 'rigid') {
+    const id = bone ?? rigidBoneFor(item, world, bones, matrices);
+    return id ? rigidBind(item, parent, id, rig, fresh) : item;
+  }
+  const held = mode === 'auto' ? holdingBone(boxPoints(item, world), bones, matrices) : null;
+  if (held) return rigidBind(item, parent, held, rig, fresh);
+  if (item.type === 'group') {
+    const children = item.children.map((c) => bindItem(c, world, bones, rig, mode));
+    return { ...item, skin: null, children };
+  }
+  if (item.type === 'path') return smoothBind(item, parent, bones, rig, fresh);
+  const id = rigidBoneFor(item, world, bones, matrices);
+  return id ? rigidBind(item, parent, id, rig, fresh) : item;
+}
+
+// no skin anywhere in the item, it goes back to its rest shape
+export function unbindItem<T extends Item>(item: T): T {
+  if (item.type === 'group') return { ...item, skin: null, children: item.children.map(unbindItem) };
+  return item.skin ? { ...item, skin: null } : item;
+}
+
+// the bones an item and the items inside it follow
+export function boundBones(item: Item, out = new Set<string>()): Set<string> {
+  if (item.skin?.rigid) out.add(item.skin.rigid);
+  for (const list of item.skin?.weights ?? []) for (const w of list) out.add(w.bone);
+  if (item.type === 'group') for (const c of item.children) boundBones(c, out);
+  return out;
 }
