@@ -11,6 +11,7 @@ import { isLayerLocked, isLayerShown, keyframeForEdit } from '$lib/anim/timeline
 import { rebaseEdit } from '$lib/anim/tween';
 import { registerAssetFonts } from '$lib/core/fonts';
 import { PALETTE } from '$lib/core/palette';
+import { skinRepairs } from '$lib/rig/repair';
 import { activeLayer, anchorSelection, dirty, docName, frame, frameSelection, selection, stageSize } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 
@@ -133,8 +134,16 @@ class Editor {
 
   // recipe changes a draft of the document, the whole change is one undo step
   commit(label: string, recipe: (draft: Doc) => void, key?: string) {
-    const [next, patches, inverse] = produceWithPatches(this.doc, recipe);
+    let [next, patches, inverse] = produceWithPatches(this.doc, recipe);
     if (patches.length === 0) return;
+    // skins left on bones that went or on anchors that changed are set right in the same step
+    const repair = skinRepairs(this.doc, next);
+    if (repair) {
+      const [fixed, more, back] = produceWithPatches(next, repair);
+      next = fixed;
+      patches = [...patches, ...more];
+      inverse = [...back, ...inverse];
+    }
     this.history.push(label, patches, inverse, key ?? null);
     this.doc = next;
     this.changed();
