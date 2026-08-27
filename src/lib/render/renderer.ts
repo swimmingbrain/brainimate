@@ -10,6 +10,10 @@ import { cssFamily, itemLayout } from '$lib/core/fonts';
 import { MAX_NESTING, currentLibrary, instanceSlices, itemsAt, keyframeAt, libraryStamp } from './frame';
 import { drawOnion, type OnionOptions } from './onion';
 import { context, sized, type Surface } from './surface';
+import { rigFor, type PoseOverride } from '$lib/rig/bones';
+import { posed } from '$lib/rig/skin';
+
+const IDENTITY: Mat = [1, 0, 0, 1, 0, 0];
 
 // css pixels of the canvas, dpr turns them into device pixels
 export interface RenderView {
@@ -32,6 +36,8 @@ export interface RenderOptions {
   assets?: Record<string, Asset>;
   // an item left out, the one being typed into or the instance being edited in place
   hide?: string | null;
+  // a pose a tool is dragging, the bound items follow it
+  pose?: PoseOverride | null;
 }
 
 export interface StageOptions extends RenderOptions {
@@ -61,6 +67,8 @@ interface DrawState {
   opts: RenderOptions;
   // device pixels per world unit, the stroke widths and outlines are measured against it
   viewScale: number;
+  // the copies a tool drags inside groups, already swapped in when a rig posed the items
+  preview?: Map<string, Item>;
 }
 
 const images = new Map<string, HTMLImageElement>();
@@ -289,7 +297,7 @@ function drawItem(
       break;
     case 'group': {
       // only the items of the timeline being edited have previews
-      const preview = depth === 0 ? s.opts.preview : undefined;
+      const preview = depth === 0 ? s.preview : undefined;
       for (const child of item.children) {
         drawItem(ctx, preview?.get(child.id) ?? child, m, a, mode, outline, s, offset, depth);
       }
@@ -309,14 +317,18 @@ function drawItem(
 
 // the layers bottom to top, base maps world units to device pixels
 export function renderLayers(ctx: Ctx2D, layers: Layer[], base: Mat, opts: RenderOptions) {
-  const s: DrawState = { opts, viewScale: scaleFactor(base) };
+  // bound items show bent by the rig of their timeline at this frame
+  const rig = rigFor(layers, opts.frame, opts.pose ?? null);
+  const s: DrawState = { opts, viewScale: scaleFactor(base), preview: rig ? undefined : opts.preview };
   ctx.save();
   for (const layer of layers) {
     if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
     const outline = opts.outline || layer.outline ? layer.color : null;
     const offset = opts.frame - (keyframeAt(layer, opts.frame)?.frame ?? 0);
     for (const item of itemsAt(layer, opts.frame)) {
-      drawItem(ctx, opts.preview?.get(item.id) ?? item, base, 1, 'normal', outline, s, offset, 0);
+      const src = opts.preview?.get(item.id) ?? item;
+      const shown = rig ? posed(src, IDENTITY, rig, opts.preview) : src;
+      drawItem(ctx, shown, base, 1, 'normal', outline, s, offset, 0);
     }
     if (opts.added) {
       for (const added of opts.added) {
