@@ -2,6 +2,8 @@ import { isDraft } from 'immer';
 import type { BonePose, InstanceItem, Item, Keyframe, Layer, Symbol } from '$lib/core/types';
 import { applyEase } from '$lib/anim/easing';
 import { tweenItems, tweenPose } from '$lib/anim/tween';
+import { rigFor } from '$lib/rig/bones';
+import { posedList } from '$lib/rig/skin';
 
 // folders hold no frames of their own
 export function hasFrames(layer: Layer): boolean {
@@ -173,9 +175,11 @@ export function layerSlices(layers: Layer[], frame: number): LayerSlice[] {
   const cached = isDraft(layers) ? null : slices.get(layers)?.get(frame);
   if (cached) return cached;
   const out: LayerSlice[] = [];
+  // a symbol's own rig bends its items at the frame the instance maps to
+  const rig = rigFor(layers, frame);
   for (const layer of layers) {
     if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
-    const items = itemsAt(layer, frame);
+    const items = posedList(itemsAt(layer, frame), rig);
     if (items.length === 0) continue;
     out.push({ layer, items, offset: frame - (keyframeAt(layer, frame)?.frame ?? 0) });
   }
