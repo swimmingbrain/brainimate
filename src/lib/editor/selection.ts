@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import type { Item, Mat, Vec } from '$lib/core/types';
-import { applyPoint, invert, multiply, translate } from '$lib/core/mat';
+import { applyPoint, invert, isIdentity, multiply, translate } from '$lib/core/mat';
 import { boxHeight, boxWidth, isEmpty } from '$lib/core/bbox';
 import { cloneItem, localBounds } from '$lib/core/items';
 import { activeLayer, selection } from '$lib/stores/app';
@@ -56,11 +56,12 @@ export function selectionFrame(): SelectionFrame | null {
   const ids = [...get(selection)];
   if (ids.length === 0) return null;
   if (ids.length === 1) {
-    const item = editor.itemById(ids[0]);
+    // a bound item gets its box around how it shows
+    const item = editor.shownItem(ids[0]);
     if (!item) return null;
     const b = localBounds(item);
     if (isEmpty(b)) return null;
-    return { m: multiply(editor.worldMatrixOf(ids[0]), translate(b.minX, b.minY)), w: boxWidth(b), h: boxHeight(b) };
+    return { m: multiply(editor.shownWorld(ids[0]), translate(b.minX, b.minY)), w: boxWidth(b), h: boxHeight(b) };
   }
   const b = editor.selectionBounds();
   if (isEmpty(b)) return null;
@@ -87,13 +88,20 @@ export function frameHandles(f: SelectionFrame): Vec[] {
   return HANDLE_UNITS.map((u) => framePoint(f, u));
 }
 
-// copies of the selected items with the world matrix m applied on top, for the preview
+// a change m of what shows, as a change of the rest place of an item the rig moves by d
+function throughSkin(m: Mat, d: Mat): Mat {
+  return isIdentity(d) ? m : multiply(invert(d), multiply(m, d));
+}
+
+// copies of the selected items with the world matrix m applied on top, for the preview. a bound item
+// changes its rest transform so that what shows follows m
 export function transformedSelection(m: Mat, base: Map<string, Item>): Map<string, Item> {
   const out = new Map<string, Item>();
   for (const [id, item] of base) {
     const parent = editor.parentMatrixOf(id);
     const copy = cloneItem(item);
-    copy.transform = multiply(invert(parent), multiply(m, multiply(parent, item.transform)));
+    const mm = throughSkin(m, editor.skinDeltaOf(id));
+    copy.transform = multiply(invert(parent), multiply(mm, multiply(parent, item.transform)));
     out.set(id, copy);
   }
   return out;
@@ -127,7 +135,8 @@ export function translateItems(moves: Map<string, Vec>, label: string, key?: str
     const item = editor.itemById(id, false);
     if (!item) continue;
     const parent = editor.parentMatrixOf(id);
-    next.set(id, multiply(invert(parent), multiply(translate(d.x, d.y), multiply(parent, item.transform))));
+    const m = throughSkin(translate(d.x, d.y), editor.skinDeltaOf(id));
+    next.set(id, multiply(invert(parent), multiply(m, multiply(parent, item.transform))));
   }
   editor.updateItems(
     [...next.keys()],
