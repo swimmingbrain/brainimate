@@ -7,14 +7,19 @@ import { itemBounds } from '$lib/core/items';
 import { editor } from '$lib/editor/editor';
 import { selection } from '$lib/stores/app';
 
+// hits are tested on the items as they show, bound ones bent by the rig, the tools get the document item
+function rest(item: Item | null): Item | null {
+  return item ? (editor.itemById(item.id, false) ?? item) : null;
+}
+
 // the topmost item under p on the layers that can be edited, a group counts as one item
 export function pickItem(p: Vec, zoom: number, factor: number): Item | null {
   const layers = editor.currentLayers();
   for (let i = layers.length - 1; i >= 0; i--) {
     const layer = layers[i];
     if (!editor.isEditable(layer)) continue;
-    const hit = hitTest(editor.layerItems(layer), identity(), p, zoom, factor);
-    if (hit) return hit;
+    const hit = hitTest(editor.shownItems(layer), identity(), p, zoom, factor);
+    if (hit) return rest(hit);
   }
   return null;
 }
@@ -24,7 +29,7 @@ export function itemsInBox(box: Box): string[] {
   const ids: string[] = [];
   for (const layer of editor.currentLayers()) {
     if (!editor.isEditable(layer)) continue;
-    for (const item of editor.layerItems(layer)) {
+    for (const item of editor.shownItems(layer)) {
       if (item.locked || !item.visible) continue;
       if (intersects(box, itemBounds(item, item.transform))) ids.push(item.id);
     }
@@ -53,8 +58,8 @@ export function pickDeep(p: Vec, zoom: number, factor: number): Item | null {
   for (let i = layers.length - 1; i >= 0; i--) {
     const layer = layers[i];
     if (!editor.isEditable(layer)) continue;
-    const hit = deepHit(editor.layerItems(layer), identity(), p, zoom, factor);
-    if (hit) return hit;
+    const hit = deepHit(editor.shownItems(layer), identity(), p, zoom, factor);
+    if (hit) return rest(hit);
   }
   return null;
 }
@@ -64,12 +69,12 @@ export function pickChain(p: Vec, zoom: number, factor: number): Item[] {
   const top = pickItem(p, zoom, factor);
   if (!top) return [];
   const chain = [top];
-  let current: Item = top;
-  let m = editor.worldMatrixOf(top.id);
+  let current: Item = editor.shownItem(top.id) ?? top;
+  let m = editor.shownWorld(top.id);
   while (current.type === 'group') {
     const child = hitTest(current.children, m, p, zoom, factor);
     if (!child) break;
-    chain.push(child);
+    chain.push(rest(child) ?? child);
     m = multiply(m, child.transform);
     current = child;
   }
