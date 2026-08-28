@@ -12,6 +12,8 @@ import { rebaseEdit } from '$lib/anim/tween';
 import { registerAssetFonts } from '$lib/core/fonts';
 import { PALETTE } from '$lib/core/palette';
 import { skinRepairs } from '$lib/rig/repair';
+import { rigFor, type PoseOverride, type Rig } from '$lib/rig/bones';
+import { posed, posedList, skinDelta } from '$lib/rig/skin';
 import { activeLayer, anchorSelection, dirty, docName, frame, frameSelection, selection, stageSize } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 
@@ -83,6 +85,8 @@ class Editor {
   preview = new Map<string, Item>();
   // new items a tool is still dragging out, drawn on top of their layer
   previewAdded: { layerId: string; item: Item }[] = [];
+  // a pose being dragged on a rig layer, the stage shows it until the drag commits
+  posePreview: PoseOverride | null = null;
   contentDirty = true;
   overlayDirty = true;
   frame = 0;
@@ -230,9 +234,10 @@ class Editor {
   }
 
   clearPreview() {
-    if (this.preview.size === 0 && this.previewAdded.length === 0) return;
+    if (this.preview.size === 0 && this.previewAdded.length === 0 && !this.posePreview) return;
     this.preview.clear();
     this.previewAdded = [];
+    this.posePreview = null;
     this.markAll();
   }
 
@@ -398,10 +403,55 @@ class Editor {
     return out;
   }
 
+  // the bounds of what shows, bent by the rig when the item is bound
   itemWorldBounds(id: string): Box {
-    const item = this.itemById(id);
+    const item = this.shownItem(id);
     if (!item) return emptyBox();
-    return itemBounds(item, multiply(this.parentMatrixOf(id), item.transform));
+    return itemBounds(item, this.shownWorld(id));
+  }
+
+  // the bones of the timeline being edited at the current frame, with the pose being dragged
+  rig(): Rig | null {
+    return rigFor(this.currentLayers(), this.frame, this.posePreview);
+  }
+
+  // the items of a layer as they show, the bound ones bent by the rig
+  shownItems(layer: Layer): Item[] {
+    return posedList(this.layerItems(layer), this.rig());
+  }
+
+  // the groups around an item as they show, a group bound to a bone moves with it
+  shownParentMatrix(id: string): Mat {
+    const loc = this.locate(id);
+    const rig = this.rig();
+    if (!loc || !rig) return this.parentMatrixOf(id);
+    let m = identity();
+    for (const g of loc.found.parents) {
+      const group = (this.preview.get(g.id) as GroupItem | undefined) ?? g;
+      m = multiply(m, group.skin?.rigid ? posed(group, m, rig).transform : group.transform);
+    }
+    return m;
+  }
+
+  // the item as it shows: a bound one bent by the rig, a copy a tool drags included
+  shownItem(id: string): Item | null {
+    const item = this.itemById(id);
+    const rig = this.rig();
+    if (!item || !rig) return item;
+    // inside a group bound as a whole it only moves with the group
+    if (this.locate(id)?.found.parents.some((g) => g.skin?.rigid)) return item;
+    return posed(item, this.parentMatrixOf(id), rig, this.preview);
+  }
+
+  shownWorld(id: string): Mat {
+    const item = this.shownItem(id);
+    return item ? multiply(this.shownParentMatrix(id), item.transform) : identity();
+  }
+
+  // how the rig moves a bound item as a whole, a move of what shows goes through it to the rest shape
+  skinDeltaOf(id: string): Mat {
+    const item = this.itemById(id, false);
+    return item ? skinDelta(item, this.parentMatrixOf(id), this.rig()) : identity();
   }
 
   selectionBounds(): Box {
