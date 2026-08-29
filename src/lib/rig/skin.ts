@@ -3,6 +3,7 @@ import { applyPoint, applyVector, identity, invert, isIdentity, multiply, scaleF
 import { split, type Cubic } from '$lib/core/bezier';
 import { corners, isEmpty } from '$lib/core/bbox';
 import { itemBounds } from '$lib/core/items';
+import { flattenPath } from '$lib/core/path';
 import { segmentDistance, type Rig } from './bones';
 
 export type Weight = { bone: string; w: number };
@@ -465,4 +466,31 @@ export function boundBones(item: Item, out = new Set<string>()): Set<string> {
   for (const list of item.skin?.weights ?? []) for (const w of list) out.add(w.bone);
   if (item.type === 'group') for (const c of item.children) boundBones(c, out);
   return out;
+}
+
+// points spread over what the item covers in world space: the outline of a path, the box of anything else
+export function samplePoints(item: Item, world: Mat): Vec[] {
+  if (item.type === 'path') {
+    const out: Vec[] = [];
+    for (const c of contoursOf(item)) for (const p of flattenPath(c, 2)) out.push(applyPoint(world, p));
+    if (out.length > 0) return out;
+  }
+  if (item.type === 'group') return item.children.flatMap((c) => samplePoints(c, multiply(world, c.transform)));
+  const pts = boxPoints(item, world);
+  return pts.length > 0 ? [...pts, centerOf(pts)] : [];
+}
+
+// how much of the item lies within reach of the bones, 0 to 1, matrices place them as they show
+export function reachShare(points: Vec[], bones: Bone[], matrices?: Map<string, Mat>): number {
+  if (points.length === 0) return 0;
+  const caps = capsules(bones, matrices);
+  let inside = 0;
+  for (const p of points) if (caps.some((c) => segmentDistance(p, c.a, c.b).d <= c.r)) inside++;
+  return inside / points.length;
+}
+
+// the bones whose reach gets to at least one of the points
+export function reachingBones(points: Vec[], bones: Bone[], matrices?: Map<string, Mat>): Bone[] {
+  const caps = capsules(bones, matrices);
+  return bones.filter((_, i) => points.some((p) => segmentDistance(p, caps[i].a, caps[i].b).d <= caps[i].r));
 }
