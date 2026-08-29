@@ -227,21 +227,22 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
   const anchors = !busy && (direct || tool === 'pen' || tool === 'curvature');
   drawGuides(ctx, v, ctx.canvas.width / dpr, ctx.canvas.height / dpr);
 
+  // outlines and anchors follow what shows, a bound item bent by the rig
   const h = busy ? null : get(hover);
   if (h && !sel.has(h)) {
-    const item = editor.itemById(h);
+    const item = editor.shownItem(h);
     if (item) {
       ctx.strokeStyle = layerColor(h, colors.accent);
       ctx.lineWidth = 2;
-      outlineItem(ctx, item, screenMatrix(v, editor.worldMatrixOf(h)));
+      outlineItem(ctx, item, screenMatrix(v, editor.shownWorld(h)));
     }
   }
 
   for (const id of sel) {
-    const item = editor.itemById(id);
+    const item = editor.shownItem(id);
     if (!item) continue;
     const color = layerColor(id, colors.accent);
-    const world = editor.worldMatrixOf(id);
+    const world = editor.shownWorld(id);
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     outlineItem(ctx, item, screenMatrix(v, world));
