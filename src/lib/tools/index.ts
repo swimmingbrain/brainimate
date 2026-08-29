@@ -18,6 +18,7 @@ import { gradientTool } from './gradient';
 import { bucketTool } from './bucket';
 import { eyedropperTool } from './eyedropper';
 import { textTool } from './text';
+import { boneTool } from './bone';
 
 export { TOOL_INFO, type ToolInfo } from './tool';
 
@@ -54,6 +55,7 @@ const TOOLS = [
   bucketTool,
   eyedropperTool,
   gradientTool,
+  boneTool,
   zoomTool,
   handTool
 ];
