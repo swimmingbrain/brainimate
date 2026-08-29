@@ -1,6 +1,6 @@
 import { get, writable } from 'svelte/store';
 import { produceWithPatches } from 'immer';
-import type { Doc, GroupItem, Item, Layer, Mat } from '$lib/core/types';
+import type { Bone, Doc, GroupItem, Item, Layer, Mat } from '$lib/core/types';
 import { History, type HistoryState } from './history';
 import { newId } from '$lib/core/ids';
 import { identity, multiply } from '$lib/core/mat';
@@ -14,7 +14,17 @@ import { PALETTE } from '$lib/core/palette';
 import { skinRepairs } from '$lib/rig/repair';
 import { rigFor, type PoseOverride, type Rig } from '$lib/rig/bones';
 import { posed, posedList, skinDelta } from '$lib/rig/skin';
-import { activeLayer, anchorSelection, dirty, docName, frame, frameSelection, selection, stageSize } from '$lib/stores/app';
+import {
+  activeLayer,
+  anchorSelection,
+  boneSelection,
+  dirty,
+  docName,
+  frame,
+  frameSelection,
+  selection,
+  stageSize
+} from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 
 // outline and highlight colors, a new layer takes the next one
@@ -216,7 +226,19 @@ class Editor {
     }
     const h = get(hover);
     if (h && !this.locate(h)) hover.set(null);
+    const b = get(boneSelection);
+    if (b && !this.findBone(b)) boneSelection.set(null);
     this.pruneAnchors();
+  }
+
+  // a bone of the timeline being edited and the rig layer that holds it
+  findBone(id: string): { layer: Layer; bone: Bone } | null {
+    for (const layer of this.currentLayers()) {
+      if (layer.type !== 'rig') continue;
+      const bone = layer.bones.find((x) => x.id === id);
+      if (bone) return { layer, bone };
+    }
+    return null;
   }
 
   // picked anchors only make sense on selected paths that still have them
