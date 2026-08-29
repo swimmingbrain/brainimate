@@ -86,6 +86,8 @@ export interface AnchorRef {
 
 // anchors picked with the direct selection tool
 export const anchorSelection = writable<AnchorRef[]>([]);
+// the bone picked in the rig panel, with the bind tool or by clicking a joint
+export const boneSelection = writable<string | null>(null);
 export const activeLayer = writable<string | null>(null);
 
 // the open document, until the editor owns it

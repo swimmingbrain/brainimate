@@ -9,6 +9,8 @@ export type PencilMode = 'smooth' | 'ink' | 'straighten';
 export type EraserMode = 'normal' | 'fills' | 'strokes';
 // how far apart the ends of an open path may be for the bucket to fill it as if closed
 export type BucketGap = 'none' | 'small' | 'medium' | 'large';
+// how binding picks between following one bone and bending with several
+export type BindMode = 'auto' | 'smooth' | 'rigid';
 
 export const WORKSPACE_IDS: Workspace[] = ['essentials', 'illustrate', 'animate', 'rig'];
 export const DOCK_TABS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig'];
@@ -59,6 +61,21 @@ export interface Preferences {
     onionKeyframes: boolean;
     autoKey: boolean;
     loop: boolean;
+  };
+  rig: {
+    // the bone tool binds what a finished chain reaches
+    autoBind: boolean;
+    bindMode: BindMode;
+    // the reach of a new bone, percent of its length
+    reach: number;
+    // how many bones a dragged joint turns at most
+    chainLimit: number;
+    // the reach of each bone while the bone or bind tool is active
+    showCapsules: boolean;
+    // the bones on top of the stage while the selection tool is active
+    showBones: boolean;
+    // the ease a pose keyframe gets toward the next one
+    ease: string;
   };
   panels: {
     dockWidth: number;
@@ -125,6 +142,15 @@ export function defaultPreferences(): Preferences {
       onionKeyframes: false,
       autoKey: true,
       loop: true
+    },
+    rig: {
+      autoBind: true,
+      bindMode: 'auto',
+      reach: 35,
+      chainLimit: 4,
+      showCapsules: true,
+      showBones: true,
+      ease: 'linear'
     },
     panels: {
       dockWidth: 280,
@@ -204,6 +230,11 @@ export function mergePreferences(stored: unknown): Preferences {
   t.onionAfter = clamp(Math.round(t.onionAfter), 0, 10);
   if (!isHex(t.onionBeforeColor)) t.onionBeforeColor = defaults.timeline.onionBeforeColor;
   if (!isHex(t.onionAfterColor)) t.onionAfterColor = defaults.timeline.onionAfterColor;
+
+  const r = p.rig;
+  r.bindMode = oneOf(r.bindMode, ['auto', 'smooth', 'rigid'], 'auto');
+  r.reach = clamp(r.reach, 5, 200);
+  r.chainLimit = clamp(Math.round(r.chainLimit), 1, 12);
 
   const panels = p.panels;
   panels.dockWidth = clamp(panels.dockWidth, MIN_DOCK, MAX_DOCK);
