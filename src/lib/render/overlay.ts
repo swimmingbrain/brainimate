@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import type { Item, Mat, PathItem, Vec } from '$lib/core/types';
-import { applyPoint, invert, multiply } from '$lib/core/mat';
+import { applyPoint, identity, invert, multiply } from '$lib/core/mat';
 import { corners, fromRect, isEmpty, transformBox, type Box } from '$lib/core/bbox';
 import { contours, localBounds } from '$lib/core/items';
 import { shapePath2D } from './pathcache';
@@ -9,7 +9,9 @@ import { frameHandles, framePoint, selectionFrame } from '$lib/editor/selection'
 import { snapState } from '$lib/editor/snap';
 import { guideState } from '$lib/editor/guides';
 import { preferences } from '$lib/stores/preferences';
-import { activeTool, anchorSelection, playing, selection, type View } from '$lib/stores/app';
+import { activeTool, anchorSelection, boneSelection, playing, selection, type View } from '$lib/stores/app';
+import { isLayerShown } from '$lib/anim/timeline';
+import { drawBones, weightColor } from './bones';
 
 export const HANDLE_SIZE = 7;
 export const ANCHOR_SIZE = 7;
@@ -22,7 +24,9 @@ export const overlayState: {
   marquee: Box | null;
   // hides the handle box while a tool does something where it would be in the way
   hideFrame: boolean;
-} = { marquee: null, hideFrame: false };
+  // the bone joint under the pointer
+  joint: { bone: string; end: 'origin' | 'tip' } | null;
+} = { marquee: null, hideFrame: false, joint: null };
 
 export interface OverlayColors {
   accent: string;
@@ -140,6 +144,70 @@ function drawAnchors(ctx: CanvasRenderingContext2D, v: View, item: PathItem, wor
   });
 }
 
+// with the bind tool: items bound rigidly get an outline in their bone's color, a selected item bound
+// smooth shows its anchors tinted with the colors of the bones they follow
+function drawBindings(ctx: CanvasRenderingContext2D, v: View) {
+  const colors = new Map<string, string>();
+  for (const l of editor.currentLayers()) for (const b of l.bones) colors.set(b.id, b.color);
+  const walk = (items: Item[], parent: Mat) => {
+    for (const item of items) {
+      const world = multiply(parent, item.transform);
+      const bone = item.skin?.rigid ? colors.get(item.skin.rigid) : null;
+      if (bone) {
+        ctx.strokeStyle = bone;
+        ctx.lineWidth = 1.5;
+        outlineItem(ctx, item, screenMatrix(v, world));
+      } else if (item.type === 'group') {
+        walk(item.children, world);
+      }
+    }
+  };
+  for (const layer of editor.currentLayers()) {
+    if (editor.isEditable(layer)) walk(editor.shownItems(layer), identity());
+  }
+  for (const id of get(selection)) {
+    const item = editor.shownItem(id);
+    if (item?.type !== 'path' || !item.skin || item.skin.rigid) continue;
+    const m = screenMatrix(v, editor.shownWorld(id));
+    const weights = item.skin.weights;
+    let i = 0;
+    ctx.lineWidth = 1;
+    for (const c of contours(item)) {
+      for (const a of c.anchors) {
+        const p = applyPoint(m, a);
+        ctx.fillStyle = weightColor(weights[i++] ?? [], (b) => colors.get(b) ?? null) ?? '#ffffff';
+        ctx.strokeStyle = '#111113';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+// the bones of the rig layers that show, over everything: for posing with the selection tool and
+// always with the bone and bind tools, which also show each bone's reach
+function drawRig(ctx: CanvasRenderingContext2D, v: View, tool: string) {
+  const prefs = get(preferences).rig;
+  const rigTool = tool === 'bone' || tool === 'bind';
+  if (!rigTool && !((tool === 'select' || tool === 'transform') && prefs.showBones)) return;
+  const layers = editor.currentLayers();
+  const rig = editor.rig();
+  if (!rig) return;
+  if (tool === 'bind') drawBindings(ctx, v);
+  const bones = layers.filter((l) => l.type === 'rig' && isLayerShown(layers, l)).flatMap((l) => l.bones);
+  if (bones.length === 0) return;
+  drawBones(ctx, {
+    bones,
+    worlds: rig.world,
+    m: screenMatrix(v, identity()),
+    selected: get(boneSelection),
+    hover: overlayState.joint,
+    capsules: rigTool && prefs.showCapsules
+  });
+}
+
 // guides run across the whole view, the one being dragged follows the pointer
 function drawGuides(ctx: CanvasRenderingContext2D, v: View, width: number, height: number) {
   const prefs = get(preferences);
@@ -252,6 +320,8 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
   if (!direct && !overlayState.hideFrame && sel.size > 0 && (tool === 'select' || tool === 'transform')) {
     drawFrame(ctx, v, colors.accent);
   }
+
+  if (!busy) drawRig(ctx, v, tool);
 
   const mq = overlayState.marquee;
   if (mq && !isEmpty(mq)) {
