@@ -242,26 +242,32 @@ export function unbindSelection() {
 }
 
 // the bind tool's click: rigid binds to the bone or lets go of it, smooth adds the bone to the item's
-// weights or takes it out. an item bound smooth the first time is weighed against every bone of the layer
-export function toggleBind(itemId: string, boneId: string, mode: 'smooth' | 'rigid') {
+// weights or takes it out. an item bound smooth the first time is weighed against every bone of the
+// layer, auto binds it rigidly when it fits in the bone's reach
+export function toggleBind(itemId: string, boneId: string, mode: BindMode) {
   const layers = editor.currentLayers();
   const item = editor.itemById(itemId, false);
   const layer = rigLayerOf(layers, boneId);
   const bone = layer?.bones.find((b) => b.id === boneId);
   if (!item || !layer || !bone) return;
   const all = timelineBones(layers);
-  if (mode === 'rigid') {
-    if (item.skin?.rigid === boneId) runBind('Unbind', [{ id: itemId, bones: [], mode, unbind: true }]);
-    else runBind('Bind to bone', [{ id: itemId, bones: [bone], mode, bone: boneId }]);
+  const unbind = () => runBind('Unbind', [{ id: itemId, bones: [], mode, unbind: true }]);
+  const rigid = () => runBind('Bind to bone', [{ id: itemId, bones: [bone], mode: 'rigid', bone: boneId }]);
+  if (item.skin?.rigid === boneId) return unbind();
+  if (mode === 'rigid') return rigid();
+  if (!hasSkin(item) || item.skin?.rigid) {
+    const rig = editor.rig();
+    const shown = editor.shownItem(itemId) ?? item;
+    const fits = rig && reachShare(samplePoints(shown, editor.shownWorld(itemId)), [bone], rig.world) === 1;
+    if (mode === 'auto' && fits) return rigid();
+    runBind('Bind to bones', [{ id: itemId, bones: layer.bones, mode: 'smooth' }]);
     return;
   }
   const own = boundBones(item);
-  if (!hasSkin(item) || item.skin?.rigid) {
-    runBind('Bind to bones', [{ id: itemId, bones: layer.bones, mode: 'smooth' }]);
-  } else if (own.has(boneId)) {
+  if (own.has(boneId)) {
     own.delete(boneId);
     const rest = all.filter((b) => own.has(b.id));
-    if (rest.length === 0) runBind('Unbind', [{ id: itemId, bones: [], mode, unbind: true }]);
+    if (rest.length === 0) unbind();
     else runBind('Unbind from bone', [{ id: itemId, bones: rest, mode: 'smooth' }]);
   } else {
     runBind('Bind to bone', [{ id: itemId, bones: all.filter((b) => b.id === boneId || own.has(b.id)), mode: 'smooth' }]);
