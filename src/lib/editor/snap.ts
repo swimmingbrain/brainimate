@@ -158,7 +158,8 @@ export function collectCandidates(prefs: Preferences, exclude: Set<string>, guid
   const budget = { left: MAX_ANCHORS };
   for (const layer of editor.currentLayers()) {
     if (!editor.isEditable(layer)) continue;
-    for (const item of editor.layerItems(layer)) {
+    // bound items snap where they show
+    for (const item of editor.shownItems(layer)) {
       if (!item.visible || exclude.has(item.id)) continue;
       if (prefs.snapping.objects) addBox(c, itemBounds(item, item.transform));
       if (prefs.snapping.points) addAnchors(c, item, multiply(identity(), item.transform), budget);
