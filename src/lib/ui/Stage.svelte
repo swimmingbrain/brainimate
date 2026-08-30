@@ -166,6 +166,7 @@
         outline: get(outlineMode),
         preview: editor.preview,
         added: editor.previewAdded,
+        pose: editor.posePreview,
         assets: editor.doc.assets,
         pasteboard: prefs.stage.pasteboard,
         grid: prefs.grid.show ? { size: prefs.grid.size, color: prefs.grid.color } : null,

@@ -5,6 +5,10 @@ import { snapAngle } from '$lib/core/vec';
 import { fromPoints, isEmpty, translateBox, type Box } from '$lib/core/bbox';
 import { contourOf, withContour, withNewIds } from '$lib/core/items';
 import { insertWeights, restContour } from '$lib/rig/skin';
+import { JOINT_TOLERANCE, hitJoint, jointsOf, poseOf, timelineBones, type Joint, type Pose } from '$lib/rig/bones';
+import { rotateBone, solveChain } from '$lib/rig/ik';
+import { canEditRig, commitPose, togglePin } from '$lib/editor/rig';
+import { preferences } from '$lib/stores/preferences';
 import { bendSegment, copyPath, insertAnchor, segmentCubic } from '$lib/core/path';
 import { hitContours, hitItemSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
 import { editor, hover } from '$lib/editor/editor';
@@ -24,7 +28,7 @@ import {
 } from '$lib/editor/selection';
 import { HANDLE_SIZE, overlayState } from '$lib/render/overlay';
 import { clearSnap, snapEvent, snapPoint } from '$lib/editor/snap';
-import { selection, toolCursor } from '$lib/stores/app';
+import { addToast, boneSelection, selection, toolCursor } from '$lib/stores/app';
 import { itemsInBox, pickChain, pickForSelect } from './pick';
 import { editInstance } from '$lib/editor/symbols';
 import { startTextEdit } from '$lib/editor/text';
@@ -37,8 +41,21 @@ const DRAG = 3;
 const ROTATE_ZONE = 18;
 // t this close to an end moves the anchor instead, the bend weights blow up there
 const END_T = 0.02;
+// shift turns bones in steps of 15 degrees
+const STEP = Math.PI / 12;
 
 type Action =
+  // a joint dragged: effector is the bone that reaches for the pointer at its point local, none for a root
+  | {
+      kind: 'pose';
+      layerId: string;
+      joint: Joint;
+      start: Pose;
+      effector: string | null;
+      local: Vec;
+      // the bend side of the chain, kept for the whole drag
+      memo: { side?: number };
+    }
   | { kind: 'marquee'; add: boolean }
   | { kind: 'move' }
   | { kind: 'scale'; handle: number; frame: SelectionFrame }
@@ -59,6 +76,25 @@ type Action =
       skin?: Skin | null;
     }
   | { kind: 'split'; item: PathItem; rest: PathItem; world: Mat; sub: number; index: number; t: number };
+
+// a joint of a rig layer that shows and is not locked, the selection tool grabs those before anything else
+function poseJointAt(e: ToolEvent): { joint: Joint; layerId: string } | null {
+  if (!get(preferences).rig.showBones) return null;
+  const rig = editor.rig();
+  if (!rig) return null;
+  const layers = editor.currentLayers().filter((l) => l.type === 'rig' && canEditRig(l));
+  const bones = layers.flatMap((l) => l.bones);
+  const joint = hitJoint(jointsOf(bones, rig.world), e, (JOINT_TOLERANCE * pointerFactor(e.pointerType)) / e.zoom);
+  const layer = joint ? layers.find((l) => l.bones.includes(joint.bone)) : null;
+  return joint && layer ? { joint, layerId: layer.id } : null;
+}
+
+function setJointHover(j: Joint | null) {
+  const was = overlayState.joint;
+  if (was?.bone === j?.bone.id && was?.end === j?.end) return;
+  overlayState.joint = j ? { bone: j.bone.id, end: j.end } : null;
+  editor.markOverlay();
+}
 
 // a contour edited the way it shows, put into a copy of the document item through the bones it is bound to
 function restCopy(rest: PathItem, sub: number, path: PathData, skin?: Skin | null): PathItem {
@@ -169,6 +205,12 @@ export function createSelectTool(id: ToolId): Tool {
 
   function hoverAt(e: ToolEvent) {
     const factor = pointerFactor(e.pointerType);
+    const pj = poseJointAt(e);
+    setJointHover(pj?.joint ?? null);
+    if (pj) {
+      hover.set(null);
+      return setCursor('move');
+    }
     const f = get(selection).size > 0 ? selectionFrame() : null;
     if (f) {
       const h = handleAt(f, e, factor);
@@ -196,10 +238,35 @@ export function createSelectTool(id: ToolId): Tool {
     setCursor('move');
   }
 
+  // a press on a joint picks its bone, a drag poses: the chain above reaches for the pointer, alt turns
+  // only the bone the joint sits on, a root joint moves the whole rig
+  function grabJoint(e: ToolEvent): boolean {
+    const pj = poseJointAt(e);
+    const rig = editor.rig();
+    if (!pj || !rig) return false;
+    const { joint, layerId } = pj;
+    const bone = joint.bone;
+    boneSelection.set(bone.id);
+    let effector: string | null = null;
+    let local: Vec = { x: 0, y: 0 };
+    if (joint.end === 'tip') {
+      effector = bone.id;
+      local = { x: bone.length, y: 0 };
+    } else if (bone.parent) {
+      const p = poseOf(rig.pose, bone.id);
+      effector = bone.parent;
+      local = { x: bone.x + p.x, y: bone.y + p.y };
+    }
+    action = { kind: 'pose', layerId, joint, start: { ...rig.pose }, effector, local, memo: {} };
+    editor.markOverlay();
+    return true;
+  }
+
   function down(e: ToolEvent) {
     reset();
     start = e;
     const factor = pointerFactor(e.pointerType);
+    if (grabJoint(e)) return;
     const f = get(selection).size > 0 ? selectionFrame() : null;
     if (f) {
       const h = handleAt(f, e, factor);
@@ -308,6 +375,25 @@ export function createSelectTool(id: ToolId): Tool {
   function drag(e: ToolEvent) {
     if (!action || !start) return;
     switch (action.kind) {
+      case 'pose': {
+        const bones = timelineBones(editor.currentLayers());
+        const { joint, effector, local } = action;
+        const snap = e.shift ? STEP : 0;
+        let pose: Pose;
+        if (!effector) {
+          // a pinned root stays where it is
+          if (joint.bone.pinned) return;
+          const p = poseOf(action.start, joint.bone.id);
+          pose = { ...action.start, [joint.bone.id]: { ...p, x: p.x + e.x - start.x, y: p.y + e.y - start.y } };
+        } else if (e.alt) {
+          pose = rotateBone(bones, action.start, effector, joint.point, e, snap);
+        } else {
+          const limit = get(preferences).rig.chainLimit;
+          pose = solveChain(bones, action.start, effector, local, { x: e.x, y: e.y }, { limit, memo: action.memo, snap });
+        }
+        editor.posePreview = { layerId: action.layerId, pose };
+        break;
+      }
       case 'marquee':
         overlayState.marquee = fromPoints([start, e]);
         editor.markOverlay();
@@ -376,6 +462,12 @@ export function createSelectTool(id: ToolId): Tool {
   function finish() {
     if (!action || !start) return;
     switch (action.kind) {
+      case 'pose': {
+        const pose = editor.posePreview?.pose;
+        editor.posePreview = null;
+        if (pose) commitPose(action.layerId, pose);
+        break;
+      }
       case 'marquee': {
         const box = overlayState.marquee;
         const ids = box ? itemsInBox(box) : [];
@@ -436,6 +528,13 @@ export function createSelectTool(id: ToolId): Tool {
     // a double click enters a group one level, the item inside it under the pointer gets selected.
     // on an instance it opens the symbol in place, on the empty stage it goes back out of one
     dblclick(e) {
+      // a double click on a joint pins it or lets it go
+      const pj = poseJointAt(e);
+      if (pj) {
+        if (pj.joint.end === 'origin') togglePin(pj.joint.bone.id);
+        else addToast('Pins go on the joints where bones start');
+        return;
+      }
       const chain = pickChain(e, e.zoom, pointerFactor(e.pointerType));
       if (chain.length === 0) {
         if (editor.editing()) editor.exitSymbol();
@@ -473,6 +572,7 @@ export function createSelectTool(id: ToolId): Tool {
     deactivate() {
       if (start) cancel();
       hover.set(null);
+      setJointHover(null);
     }
   };
 }
