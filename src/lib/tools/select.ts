@@ -1,9 +1,10 @@
 import { get } from 'svelte/store';
-import type { Item, Mat, PathData, PathItem, Vec } from '$lib/core/types';
+import type { Item, Mat, PathData, PathItem, Skin, Vec } from '$lib/core/types';
 import { applyPoint, applyVector, around, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
 import { snapAngle } from '$lib/core/vec';
 import { fromPoints, isEmpty, translateBox, type Box } from '$lib/core/bbox';
 import { contourOf, withContour, withNewIds } from '$lib/core/items';
+import { insertWeights, restContour } from '$lib/rig/skin';
 import { bendSegment, copyPath, insertAnchor, segmentCubic } from '$lib/core/path';
 import { hitContours, hitItemSegment, pointerFactor, strokeTolerance } from '$lib/core/hit';
 import { editor, hover } from '$lib/editor/editor';
@@ -42,10 +43,30 @@ type Action =
   | { kind: 'move' }
   | { kind: 'scale'; handle: number; frame: SelectionFrame }
   | { kind: 'rotate'; pivot: Vec }
-  | { kind: 'bend'; item: PathItem; world: Mat; sub: number; index: number; t: number }
+  // item is the path as it shows, bent when it is bound to bones, rest the one in the document
+  | { kind: 'bend'; item: PathItem; rest: PathItem; world: Mat; sub: number; index: number; t: number }
   // path is the contour being edited, a new copy when a corner was pulled out of a segment
-  | { kind: 'anchor'; item: PathItem; path: PathData; world: Mat; sub: number; index: number; split: boolean }
-  | { kind: 'split'; item: PathItem; world: Mat; sub: number; index: number; t: number };
+  | {
+      kind: 'anchor';
+      item: PathItem;
+      rest: PathItem;
+      path: PathData;
+      world: Mat;
+      sub: number;
+      index: number;
+      split: boolean;
+      // the weights of a bound path with the new corner in them
+      skin?: Skin | null;
+    }
+  | { kind: 'split'; item: PathItem; rest: PathItem; world: Mat; sub: number; index: number; t: number };
+
+// a contour edited the way it shows, put into a copy of the document item through the bones it is bound to
+function restCopy(rest: PathItem, sub: number, path: PathData, skin?: Skin | null): PathItem {
+  const base = skin !== undefined ? { ...rest, skin } : rest;
+  const rig = editor.rig();
+  if (!rig || !base.skin || base.skin.rigid) return withContour(base, sub, path);
+  return withContour(base, sub, restContour(base, editor.parentMatrixOf(rest.id), rig, sub, path));
+}
 
 function handleAt(f: SelectionFrame, e: ToolEvent, factor: number): number {
   const reach = ((HANDLE_SIZE / 2 + 2) * factor) / e.zoom;
@@ -165,10 +186,11 @@ export function createSelectTool(id: ToolId): Tool {
     const hit = pickForSelect(e, e.zoom, factor);
     if (get(hover) !== (hit?.id ?? null)) hover.set(hit?.id ?? null);
     if (!hit) return setCursor('default');
-    if (isSelected(hit.id) || hit.type !== 'path') return setCursor('move');
-    const world = editor.worldMatrixOf(hit.id);
-    if (hitContours(hit, world, e, e.zoom, factor)) return setCursor(CORNER_CURSOR);
-    if (hitItemSegment(hit, world, e, e.zoom, strokeTolerance(hit, world, e.zoom, factor))) {
+    const shown = editor.shownItem(hit.id) ?? hit;
+    if (isSelected(hit.id) || shown.type !== 'path') return setCursor('move');
+    const world = editor.shownWorld(hit.id);
+    if (hitContours(shown, world, e, e.zoom, factor)) return setCursor(CORNER_CURSOR);
+    if (hitItemSegment(shown, world, e, e.zoom, strokeTolerance(shown, world, e.zoom, factor))) {
       return setCursor(e.ctrl ? CORNER_CURSOR : BEND_CURSOR);
     }
     setCursor('move');
@@ -214,28 +236,32 @@ export function createSelectTool(id: ToolId): Tool {
     }
 
     // an unselected path: its edge bends, its anchors move, ctrl on the edge pulls a corner
-    if (hit.type === 'path') {
-      const world = editor.worldMatrixOf(hit.id);
-      const tol = strokeTolerance(hit, world, e.zoom, factor);
-      const seg = hitItemSegment(hit, world, e, e.zoom, tol);
-      const anchor = hitContours(hit, world, e, e.zoom, factor);
+    // a bound path is grabbed where it shows, the edit goes back through its bones
+    const shown = editor.shownItem(hit.id) ?? hit;
+    if (hit.type === 'path' && shown.type === 'path') {
+      const rest = hit;
+      const item = shown;
+      const world = editor.shownWorld(hit.id);
+      const tol = strokeTolerance(item, world, e.zoom, factor);
+      const seg = hitItemSegment(item, world, e, e.zoom, tol);
+      const anchor = hitContours(item, world, e, e.zoom, factor);
       clickItem = hit.id;
       if (e.ctrl && seg) {
-        action = { kind: 'split', item: hit, world, sub: seg.sub, index: seg.index, t: seg.t };
+        action = { kind: 'split', item, rest, world, sub: seg.sub, index: seg.index, t: seg.t };
         return;
       }
       if (anchor && anchor.part === 'anchor') {
-        const path = contourOf(hit, anchor.sub)!;
-        action = { kind: 'anchor', item: hit, path, world, sub: anchor.sub, index: anchor.index, split: false };
+        const path = contourOf(item, anchor.sub)!;
+        action = { kind: 'anchor', item, rest, path, world, sub: anchor.sub, index: anchor.index, split: false };
         return;
       }
       if (seg) {
-        const path = contourOf(hit, seg.sub)!;
+        const path = contourOf(item, seg.sub)!;
         if (seg.t < END_T || seg.t > 1 - END_T) {
           const index = seg.t < 0.5 ? seg.index : (seg.index + 1) % path.anchors.length;
-          action = { kind: 'anchor', item: hit, path, world, sub: seg.sub, index, split: false };
+          action = { kind: 'anchor', item, rest, path, world, sub: seg.sub, index, split: false };
         } else {
-          action = { kind: 'bend', item: hit, world, sub: seg.sub, index: seg.index, t: seg.t };
+          action = { kind: 'bend', item, rest, world, sub: seg.sub, index: seg.index, t: seg.t };
         }
         return;
       }
@@ -268,13 +294,14 @@ export function createSelectTool(id: ToolId): Tool {
     }
     if (action.kind === 'split') {
       // the new corner has no handles, so the bend is sharp
-      const { item, world, sub } = action;
+      const { item, rest, world, sub } = action;
       const path = copyPath(contourOf(item, sub)!);
       const index = insertAnchor(path, action.index, action.t);
       const a = path.anchors[index];
       a.ix = a.iy = a.ox = a.oy = 0;
       a.kind = 'corner';
-      action = { kind: 'anchor', item, path, world, sub, index, split: true };
+      const skin = rest.skin ? insertWeights(rest, sub, action.index, action.t) : undefined;
+      action = { kind: 'anchor', item, rest, path, world, sub, index, split: true, skin };
     }
   }
 
@@ -316,17 +343,17 @@ export function createSelectTool(id: ToolId): Tool {
         break;
       }
       case 'bend': {
-        const { item, world, sub, index, t } = action;
+        const { item, rest, world, sub, index, t } = action;
         const contour = contourOf(item, sub)!;
         const d = applyVector(invert(world), { x: e.x - start.x, y: e.y - start.y });
         const c = segmentCubic(contour, index);
         const path = copyPath(contour);
         bendSegment(path, index, t, c[1], c[2], d, e.alt);
-        editor.preview.set(item.id, withContour(item, sub, path));
+        editor.preview.set(item.id, restCopy(rest, sub, path));
         break;
       }
       case 'anchor': {
-        const { item, world, sub, index } = action;
+        const { item, rest, world, sub, index } = action;
         // the anchor itself lands on the snap, not the pointer
         const from = applyPoint(world, action.path.anchors[index]);
         const to = snapPoint(
@@ -337,7 +364,7 @@ export function createSelectTool(id: ToolId): Tool {
         const path = copyPath(action.path);
         path.anchors[index].x += d.x;
         path.anchors[index].y += d.y;
-        editor.preview.set(item.id, withContour(item, sub, path));
+        editor.preview.set(item.id, restCopy(rest, sub, path, action.skin));
         break;
       }
       default:
