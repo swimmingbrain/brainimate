@@ -46,7 +46,7 @@ export function fillTarget(p: Vec, zoom: number): PathItem | null {
   for (let i = layers.length - 1; i >= 0; i--) {
     const layer = layers[i];
     if (!editor.isEditable(layer)) continue;
-    const hit = inside(editor.layerItems(layer), identity(), p, gap);
+    const hit = inside(editor.shownItems(layer), identity(), p, gap);
     if (hit) return hit;
   }
   return null;
