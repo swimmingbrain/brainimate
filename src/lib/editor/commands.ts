@@ -35,6 +35,7 @@ import {
   removeFrame,
   reverseFrames,
   setLabel,
+  tweenInto,
   type FrameRange,
   type KeyRef
 } from '$lib/anim/timeline';
@@ -682,10 +683,17 @@ export function removeFrames() {
   onFrames('Remove frame', targetFrames(), (layer, r) => removeFrame(layer, r.from, r.to - r.from + 1));
 }
 
+// a new keyframe on a rig layer gets the tween into it from the one before, rig layers tween by default
+function keyLayer(layer: Layer, frame: number) {
+  const had = isKeyframe(layer, frame);
+  insertKeyframe(layer, frame);
+  if (!had && layer.type === 'rig') tweenInto(layer, frame, get(preferences).rig.ease);
+}
+
 export function insertKeyframes() {
   const range = keyRange();
   onFrames('Insert keyframe', range, (layer, r) => {
-    for (let f = r.from; f <= r.to; f++) insertKeyframe(layer, f);
+    for (let f = r.from; f <= r.to; f++) keyLayer(layer, f);
   });
   if (range && range.from !== editor.frame) setRange(range);
 }
@@ -819,7 +827,7 @@ export function fitTimeline() {
 export function insertKeyframeAt(layerId: string, at: number) {
   editor.commit('Insert keyframe', (draft) => {
     const layer = editor.draftLayers(draft).find((l) => l.id === layerId);
-    if (layer && hasFrames(layer)) insertKeyframe(layer, at);
+    if (layer && hasFrames(layer)) keyLayer(layer, at);
   });
 }
 
