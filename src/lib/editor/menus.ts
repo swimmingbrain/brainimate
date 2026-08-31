@@ -43,6 +43,8 @@ import { clearSelection, deleteSelection, selectAll } from './selection';
 import { alignSelection, alignToStage, distributeSelection } from './align';
 import { newSymbol, openConvertDialog } from './symbols';
 import { outlineSelectedText } from './outlines';
+import { addRigTemplate, bindSelection, resetPose, unbindSelection } from './rig';
+import { TEMPLATES } from '$lib/rig/templates';
 import { FONT_ACCEPT, IMAGE_ACCEPT, openImport } from './importer';
 import { selectTool } from '$lib/tools';
 import type { HistoryState } from './history';
@@ -280,7 +282,16 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
         },
         {
           label: 'Rig',
-          children: [soon('Bind to bone'), soon('Unbind'), soon('Reset pose'), SEP, soon('Add template')]
+          children: [
+            { label: 'Bind to bones', disabled: none, action: bindSelection },
+            { label: 'Unbind', disabled: none, action: unbindSelection },
+            { label: 'Reset pose', action: resetPose },
+            SEP,
+            {
+              label: 'Add template',
+              children: TEMPLATES.map((t) => ({ label: t.label, action: () => addRigTemplate(t.id) }))
+            }
+          ]
         }
       ]
     },
