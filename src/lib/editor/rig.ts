@@ -328,7 +328,7 @@ export function deleteBone(boneId: string) {
   if (get(boneSelection) === boneId) boneSelection.set(null);
 }
 
-export type BoneFields = Partial<Pick<Bone, 'name' | 'length' | 'rotation' | 'x' | 'y' | 'pinned' | 'color'>>;
+export type BoneFields = Partial<Pick<Bone, 'name' | 'length' | 'rotation' | 'x' | 'y' | 'radius' | 'pinned' | 'color'>>;
 
 // changes the bone's own values, a key folds a number drag into one step
 export function setBone(boneId: string, patch: BoneFields, label: string, key?: string) {

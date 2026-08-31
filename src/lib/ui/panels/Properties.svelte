@@ -11,6 +11,7 @@
   import InstanceProps from './InstanceProps.svelte';
   import TextProps from './TextProps.svelte';
   import ImageProps from './ImageProps.svelte';
+  import BoneProps from './BoneProps.svelte';
   import type { Doc, ImageItem, InstanceItem, Item, Paint, PathItem, Style, TextItem } from '$lib/core/types';
   import { BLEND_MODES, paintColor, solid } from '$lib/core/style';
   import { around, decompose, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
@@ -31,7 +32,7 @@
     smoothSelectedPaths
   } from '$lib/editor/commands';
   import Icon from '$lib/icons/Icon.svelte';
-  import { frame, frameSelection, selection } from '$lib/stores/app';
+  import { boneSelection, frame, frameSelection, selection } from '$lib/stores/app';
   import { preferences, setGroup } from '$lib/stores/preferences';
 
   type Target = 'fill' | 'stroke' | 'bg';
@@ -109,6 +110,13 @@
   const doc = $derived.by(() => {
     void $docVersion;
     return editor.doc;
+  });
+
+  // the bone picked on the stage or in the rig panel
+  const bone = $derived.by(() => {
+    void $docVersion;
+    void $editStack;
+    return $boneSelection ? (editor.findBone($boneSelection)?.bone ?? null) : null;
   });
 
   // several items have no rotation of their own, the field counts what was applied since they were picked
@@ -205,6 +213,9 @@
   {#if $frameSelection}
     <FrameProps range={$frameSelection} />
   {/if}
+  {#if bone}
+    <BoneProps {bone} />
+  {/if}
   {#if items.length === 0 && open}
     <h3 class="section">Symbol</h3>
     <Field label="Name">
@@ -221,7 +232,7 @@
       <button class="back" onclick={() => editor.exitSymbol()}>Back out of the symbol</button>
     </div>
   {/if}
-  {#if items.length === 0}
+  {#if items.length === 0 && !bone}
     <h3 class="section">Document</h3>
     <Field label="Name">
       <input
@@ -276,7 +287,7 @@
     <Field label="Guides">
       <span class="value">{doc.guides.h.length + doc.guides.v.length}</span>
     </Field>
-  {:else}
+  {:else if items.length > 0}
     <h3 class="section">{items.length === 1 ? first?.name : `${items.length} items`}</h3>
     {#if style}
       <Field label="Fill">
