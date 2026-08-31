@@ -51,7 +51,7 @@
 
   function icon(layer: Layer): string {
     if (layer.type === 'folder') return 'folder';
-    if (layer.type === 'rig') return 'rig';
+    if (layer.type === 'rig') return 'bone';
     return 'layer';
   }
 
