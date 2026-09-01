@@ -28,9 +28,10 @@ import {
   type BindMode
 } from '$lib/rig/skin';
 import { addTemplate, stageBox, type TemplateKind } from '$lib/rig/templates';
-import { activeLayer, addToast, boneSelection } from '$lib/stores/app';
+import { activeLayer, addToast, boneSelection, selection } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 import { LAYER_COLORS, editor, makeLayer } from './editor';
+import { deleteSelection } from './selection';
 
 // a share of an item that has to lie within reach of a new chain for the chain to bind it
 const AUTO_SHARE = 0.3;
@@ -465,4 +466,11 @@ export function addRigTemplate(kind: TemplateKind) {
     added.map((b) => b.id),
     key
   );
+}
+
+// delete takes the selected items, or the picked bone when no item is selected
+export function deletePicked() {
+  const bone = get(boneSelection);
+  if (get(selection).size === 0 && bone && editor.findBone(bone)) deleteBone(bone);
+  else deleteSelection();
 }

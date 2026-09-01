@@ -42,7 +42,8 @@ import {
   undo
 } from './commands';
 import { copy, cut, duplicate, pasteEvent, pasteFromSystem } from './clipboard';
-import { clearSelection, deleteSelection, nudge, selectAll } from './selection';
+import { clearSelection, nudge, selectAll } from './selection';
+import { deletePicked } from './rig';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { leaveSymbol, openConvertDialog } from './symbols';
 import { outlineSelectedText } from './outlines';
@@ -105,8 +106,8 @@ function bindings(): KeybindingsMap {
     '$mod+ArrowDown': run(() => arrangeSelection('backward')),
     '$mod+Shift+ArrowUp': run(() => arrangeSelection('front')),
     '$mod+Shift+ArrowDown': run(() => arrangeSelection('back')),
-    Delete: run(deleteSelection),
-    Backspace: run(deleteSelection),
+    Delete: run(deletePicked),
+    Backspace: run(deletePicked),
     Escape: run(escape),
 
     ArrowLeft: run(() => nudge(-1, 0)),
