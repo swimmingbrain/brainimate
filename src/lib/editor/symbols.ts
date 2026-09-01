@@ -8,6 +8,7 @@ import { copySymbol, makesLoop, nextSymbolName, symbolUses } from '$lib/core/lib
 import { addToast, dialog, selection } from '$lib/stores/app';
 import { LAYER_COLORS, editor, makeLayer } from './editor';
 import { replaceInDraft } from './commands';
+import { dominantBone } from '$lib/rig/skin';
 import { select } from './selection';
 
 // where the symbol's origin sits on what it was made from
@@ -48,6 +49,9 @@ export function convertToSymbol(name: string, registration: Registration): strin
   // inside a group the instance takes the group transforms off again
   const place = multiply(invert(parentMatrix(at.found.parents)), translate(reg.x, reg.y));
   const instance = makeInstance(symbol.id, symbol.name, place);
+  // bound drawings make an instance that follows their main bone, the bones stay out of the symbol
+  const bone = dominantBone(items);
+  if (bone) instance.skin = { weights: [], rigid: bone };
   editor.commit('Convert to symbol', (draft) => {
     draft.symbols[symbol.id] = symbol;
     replaceInDraft(

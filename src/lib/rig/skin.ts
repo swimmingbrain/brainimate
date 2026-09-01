@@ -513,3 +513,21 @@ export function keepSkins<T extends Item>(item: T, bones: Set<string>): T {
   if (out.type === 'group') out = { ...out, children: out.children.map((c) => keepSkins(c, bones)) };
   return out;
 }
+
+// the bone that moves most of the items, each item counting once, for an instance made from them
+export function dominantBone(items: Item[]): string | null {
+  const total = new Map<string, number>();
+  const add = (bone: string, w: number) => total.set(bone, (total.get(bone) ?? 0) + w);
+  const visit = (item: Item) => {
+    const skin = item.skin;
+    if (skin?.rigid) add(skin.rigid, 1);
+    else if (skin && skin.weights.length > 0) {
+      for (const list of skin.weights) for (const w of list) add(w.bone, w.w / skin.weights.length);
+    }
+    if (item.type === 'group') item.children.forEach(visit);
+  };
+  items.forEach(visit);
+  let best: string | null = null;
+  for (const [bone, w] of total) if (!best || w > total.get(best)!) best = bone;
+  return best;
+}
