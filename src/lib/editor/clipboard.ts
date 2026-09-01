@@ -99,7 +99,7 @@ export function cut(e?: ClipboardEvent) {
 // the items with new ids on the active layer, the symbols and assets the document lacks come along,
 // all in one undo step
 function pastePayload(payload: Payload, offset: number, label: string) {
-  const layer = editor.activeLayer();
+  const layer = editor.drawTarget();
   if (!layer) return;
   if (!editor.isEditable(layer)) {
     addToast(editor.lockReason(layer), 'warning');

@@ -90,7 +90,7 @@ export async function readPicture(file: Blob): Promise<Picture> {
 // an image item centered on at, scaled down to fit the stage when it is larger, with its asset in the
 // same undo step. a picture already in the document is used again
 export function placePicture(pic: Picture, name: string, at: Vec = stageCenter()): string | null {
-  const layer = editor.activeLayer();
+  const layer = editor.drawTarget();
   if (!layer || !editor.isEditable(layer)) {
     addToast(editor.lockReason(layer), 'warning');
     return null;

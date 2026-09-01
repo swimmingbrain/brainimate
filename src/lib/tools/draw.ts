@@ -2,26 +2,14 @@ import { get } from 'svelte/store';
 import type { Layer, Paint, Style, Vec } from '$lib/core/types';
 import { clonePaint, defaultStyle, paintColor, paintAlpha, rgba, solid } from '$lib/core/style';
 import { editor } from '$lib/editor/editor';
-import { activeLayer, addToast, fillPaint, strokePaint, strokeWidth } from '$lib/stores/app';
+import { addToast, fillPaint, strokePaint, strokeWidth } from '$lib/stores/app';
 
 // the accent, for previews of paths that have no stroke to show
 export const PREVIEW_COLOR = '#d19a66';
 
-// the active layer when the tools may draw on it, otherwise a short note says why not. the bones live
-// on a rig layer, so with that one active the drawing goes to the first layer under it that takes it
+// the layer the tools draw on, with a rig layer active the one under it, otherwise a short note says why not
 export function drawingLayer(): Layer | null {
-  let layer = editor.activeLayer();
-  if (layer?.type === 'rig') {
-    const layers = editor.currentLayers();
-    const below = layers
-      .slice(0, layers.indexOf(layer))
-      .reverse()
-      .find((l) => editor.isEditable(l));
-    if (below) {
-      activeLayer.set(below.id);
-      layer = below;
-    }
-  }
+  const layer = editor.drawTarget();
   if (!layer || !editor.isEditable(layer)) {
     addToast(editor.lockReason(layer), 'warning');
     return null;

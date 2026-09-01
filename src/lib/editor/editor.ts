@@ -356,6 +356,21 @@ class Editor {
     return (id ? this.layerById(id) : null) ?? layers[layers.length - 1] ?? null;
   }
 
+  // where new drawings go: the active layer, or with a rig layer active the first layer under it
+  // that takes drawings, which then becomes the active one
+  drawTarget(): Layer | null {
+    const layer = this.activeLayer();
+    if (layer?.type !== 'rig') return layer;
+    const layers = this.currentLayers();
+    const below = layers
+      .slice(0, layers.indexOf(layer))
+      .reverse()
+      .find((l) => this.isEditable(l));
+    if (!below) return layer;
+    activeLayer.set(below.id);
+    return below;
+  }
+
   // the items a layer shows at the current frame
   layerItems(layer: Layer): Item[] {
     return itemsAt(layer, this.frame);

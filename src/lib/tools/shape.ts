@@ -3,7 +3,8 @@ import type { Mat, PathData, PathItem, Vec } from '$lib/core/types';
 import { makePathItem } from '$lib/core/items';
 import { defaultStyle, clonePaint, solid } from '$lib/core/style';
 import { editor } from '$lib/editor/editor';
-import { addToast, fillPaint, strokePaint, strokeWidth } from '$lib/stores/app';
+import { fillPaint, strokePaint, strokeWidth } from '$lib/stores/app';
+import { drawingLayer } from './draw';
 import { clearSnap, snapEvent } from '$lib/editor/snap';
 import { toolBase, type Tool, type ToolEvent, type ToolId } from './tool';
 
@@ -41,11 +42,8 @@ export function shapeTool(
     ...toolBase(id),
 
     down(e) {
-      const layer = editor.activeLayer();
-      if (!layer || !editor.isEditable(layer)) {
-        addToast(editor.lockReason(layer), 'warning');
-        return;
-      }
+      const layer = drawingLayer();
+      if (!layer) return;
       const at = snapEvent(e, { show: true });
       start = { x: at.x, y: at.y };
       layerId = layer.id;

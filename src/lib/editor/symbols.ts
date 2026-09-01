@@ -73,7 +73,7 @@ function loops(symbolId: string): boolean {
 // an instance with its origin on p, in the space of the timeline being edited
 export function placeInstance(symbolId: string, p: Vec): string | null {
   const symbol = editor.doc.symbols[symbolId];
-  const layer = editor.activeLayer();
+  const layer = editor.drawTarget();
   if (!symbol || !layer) return null;
   if (!editor.isEditable(layer)) {
     addToast(editor.lockReason(layer), 'warning');
