@@ -34,6 +34,7 @@ import { editInstance } from '$lib/editor/symbols';
 import { startTextEdit } from '$lib/editor/text';
 import { BEND_CURSOR, CORNER_CURSOR, ROTATE_CURSOR, resizeCursor } from './cursors';
 import { toolBase, type Tool, type ToolEvent, type ToolId } from './tool';
+import SelectOptions from './options/SelectOptions.svelte';
 
 // screen pixels the pointer travels before a click turns into a drag
 const DRAG = 3;
@@ -501,6 +502,7 @@ export function createSelectTool(id: ToolId): Tool {
 
   return {
     ...toolBase(id),
+    options: SelectOptions,
 
     down,
 
