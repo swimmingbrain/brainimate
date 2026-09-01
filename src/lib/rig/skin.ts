@@ -494,3 +494,22 @@ export function reachingBones(points: Vec[], bones: Bone[], matrices?: Map<strin
   const caps = capsules(bones, matrices);
   return bones.filter((_, i) => points.some((p) => segmentDistance(p, caps[i].a, caps[i].b).d <= caps[i].r));
 }
+
+// the item with every skin taken off that follows a bone the set does not have, for pasting into
+// another timeline. weights to missing bones go, an anchor left with none unbinds the whole path
+export function keepSkins<T extends Item>(item: T, bones: Set<string>): T {
+  let out: T = item;
+  const skin = item.skin;
+  if (skin) {
+    const missing = skin.rigid
+      ? !bones.has(skin.rigid)
+      : skin.weights.some((list) => list.every((w) => !bones.has(w.bone)));
+    if (missing) out = { ...out, skin: null };
+    else if (!skin.rigid) {
+      const weights = skin.weights.map((list) => normalize(list.filter((w) => bones.has(w.bone))));
+      out = { ...out, skin: { weights, rigid: null } };
+    }
+  }
+  if (out.type === 'group') out = { ...out, children: out.children.map((c) => keepSkins(c, bones)) };
+  return out;
+}

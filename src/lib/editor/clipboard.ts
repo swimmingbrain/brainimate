@@ -5,6 +5,8 @@ import { multiply, translate } from '$lib/core/mat';
 import { eachItem, instancesIn, makesLoop, nestedSymbols, walkItems } from '$lib/core/library';
 import { activeLayer, addToast, selection } from '$lib/stores/app';
 import { editor } from './editor';
+import { timelineBones } from '$lib/rig/bones';
+import { keepSkins } from '$lib/rig/skin';
 import { IMAGE_TYPES, importImage, stageCenter } from './importer';
 import { placeText, textEditing } from './text';
 
@@ -112,8 +114,10 @@ function pastePayload(payload: Payload, offset: number, label: string) {
     addToast('A symbol cannot hold an instance of itself', 'warning');
     return;
   }
+  // skins on bones this timeline does not have are left behind
+  const bones = new Set(timelineBones(editor.currentLayers()).map((b) => b.id));
   const copies = cloneItems(payload.items).map((item) => {
-    const c = withNewIds(item);
+    const c = keepSkins(withNewIds(item), bones);
     c.transform = multiply(translate(offset, offset), c.transform);
     return c;
   });

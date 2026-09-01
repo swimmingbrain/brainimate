@@ -7,7 +7,8 @@ import { makePathItem } from '$lib/core/items';
 import { rectPath } from '$lib/core/shapes';
 import { defaultStyle } from '$lib/core/style';
 import { translate } from '$lib/core/mat';
-import { selection } from '$lib/stores/app';
+import { activeLayer, selection } from '$lib/stores/app';
+import { addRigBone, autoBind } from './rig';
 
 function items() {
   return editor.layerItems(editor.doc.layers[0]);
@@ -79,5 +80,20 @@ describe('clipboard', () => {
     expect(pasted.type === 'instance' && pasted.symbol).toBe(id);
     editor.undo();
     expect(editor.doc.symbols[id]).toBeUndefined();
+  });
+
+  it('keeps the skin on bones that are there and leaves it behind in another document', () => {
+    const made = addRigBone(null, { x: 80, y: 100 }, { x: 120, y: 100 })!;
+    const rect = items()[0];
+    expect(autoBind([made.boneId])).toBe(1);
+    expect(editor.itemById(rect.id, false)?.skin).not.toBeNull();
+    activeLayer.set(editor.doc.layers[0].id);
+    selection.set(new Set([rect.id]));
+    copy();
+    paste();
+    expect(items()[1].skin).not.toBeNull();
+    editor.newDoc(800, 600, 24);
+    paste();
+    expect(items()[0].skin).toBeNull();
   });
 });
