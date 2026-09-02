@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { InstanceItem, Item, Keyframe, Layer, Symbol } from '$lib/core/types';
-import { makeInstance } from '$lib/core/items';
+import type { Bone, InstanceItem, Item, Keyframe, Layer, Symbol } from '$lib/core/types';
+import { makeInstance, makePathItem } from '$lib/core/items';
+import { identity } from '$lib/core/mat';
+import { rectPath } from '$lib/core/shapes';
+import { defaultStyle, solid } from '$lib/core/style';
 import { instanceFrame, instanceSlices, instanceSymbolFrame, layerSlices, setLibrary } from './frame';
 
 function layer(keys: [number, Item[]][], length: number): Layer {
@@ -82,5 +85,38 @@ describe('instance frames', () => {
     const list = layerSlices([shown, hidden, short], 2);
     expect(list.map((s) => s.layer)).toEqual([shown]);
     expect(list[0].offset).toBe(2);
+  });
+
+  it('bends the items of a symbol with its own rig at the frame the instance maps to', () => {
+    const bone: Bone = {
+      id: 'b',
+      name: 'b',
+      parent: null,
+      x: 0,
+      y: 0,
+      length: 100,
+      radius: 35,
+      rotation: 0,
+      bind: identity(),
+      pinned: false,
+      color: '#fff'
+    };
+    const box = makePathItem('box', rectPath(80, -5, 10, 10), defaultStyle(solid('#000000'), null));
+    box.skin = { weights: [], rigid: 'b' };
+    const rig: Layer = {
+      ...layer([[0, []], [4, []]], 5),
+      type: 'rig',
+      bones: [bone]
+    };
+    rig.keyframes[0].tween = { ease: 'linear' };
+    rig.keyframes[1].pose = { b: { rotation: Math.PI / 2, x: 0, y: 0, scale: 1 } };
+    setLibrary({ s: symbol('s', [layer([[0, [box]]], 5), rig]) });
+    const inst = instance('s', 'loop');
+    const at = (offset: number) => instanceSlices(inst, offset)[0].items[0].transform;
+    expect(at(0)).toEqual(box.transform);
+    // halfway the box has turned 45 degrees around the bone's start
+    const half = at(2);
+    expect(Math.atan2(half[1], half[0])).toBeCloseTo(Math.PI / 4);
+    expect(instanceSlices(inst, 2)).toHaveLength(1);
   });
 });
