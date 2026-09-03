@@ -42,6 +42,12 @@ export function twoBoneIK(root: Vec, mid: Vec, end: Vec, target: Vec, side = ben
   };
 }
 
+function closerSide(root: Vec, mid: Vec, end: Vec, target: Vec): number {
+  const a = twoBoneIK(root, mid, end, target, 1);
+  const b = twoBoneIK(root, mid, end, target, -1);
+  return dist(a.mid, mid) <= dist(b.mid, mid) ? 1 : -1;
+}
+
 // forward and backward reaching: the joints move toward the target with every length kept, the first
 // point stays. a target out of reach stretches the chain straight at it
 export function fabrik(points: Vec[], lengths: number[], target: Vec, maxIter = 10, tolerance = 0.1): Vec[] {
@@ -123,7 +129,9 @@ export function solveChain(bones: Bone[], pose: Pose, effector: string, local: V
     const mid = originOf(worldOf(eff));
     const end = endOf();
     const memo = opts.memo ?? {};
-    if (!memo.side) memo.side = bendSide(root, mid, end) || bendSide(root, target, end) || 1;
+    // a straight chain bends to the side that moves the middle joint the least, an elbow stays put
+    // and the forearm swings
+    if (!memo.side) memo.side = bendSide(root, mid, end) || closerSide(root, mid, end, target);
     const solved = twoBoneIK(root, mid, end, target, memo.side);
     turn(out, bones, upper, angleOf(root, solved.mid) - angleOf(root, mid));
     const m2 = originOf(worldOf(eff));

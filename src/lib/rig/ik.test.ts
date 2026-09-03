@@ -104,4 +104,12 @@ describe('solving a chain', () => {
     const o = originOf(w.get('f')!);
     expect(Math.atan2(o.y, o.x)).toBeCloseTo(Math.PI / 2 + 0.2, 6);
   });
+
+  it('bends a straight chain at the elbow, the elbow stays near where it was', () => {
+    const bones = [bone('u', null, 0, 0, 100), bone('f', 'u', 100, 0, 100)];
+    const pose = solveChain(bones, {}, 'f', { x: 100, y: 0 }, { x: 160, y: 80 });
+    const w = worldMatrices(bones, pose);
+    expect(dist(originOf(w.get('f')!), { x: 100, y: 0 })).toBeLessThan(25);
+    expect(dist(tipOf(w.get('f')!, bones[1]), { x: 160, y: 80 })).toBeLessThan(1e-4);
+  });
 });
