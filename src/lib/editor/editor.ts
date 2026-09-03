@@ -470,14 +470,14 @@ class Editor {
     return m;
   }
 
-  // the item as it shows: a bound one bent by the rig, a copy a tool drags included
-  shownItem(id: string): Item | null {
-    const item = this.itemById(id);
+  // the item as it shows: a bound one bent by the rig, a copy a tool drags included unless left out
+  shownItem(id: string, withPreview = true): Item | null {
+    const item = this.itemById(id, withPreview);
     const rig = this.rig();
     if (!item || !rig) return item;
     // inside a group bound as a whole it only moves with the group
     if (this.locate(id)?.found.parents.some((g) => g.skin?.rigid)) return item;
-    return posed(item, this.parentMatrixOf(id), rig, this.preview);
+    return posed(item, this.parentMatrixOf(id), rig, withPreview ? this.preview : undefined);
   }
 
   shownWorld(id: string): Mat {
@@ -485,10 +485,10 @@ class Editor {
     return item ? multiply(this.shownParentMatrix(id), item.transform) : identity();
   }
 
-  // how the rig moves a bound item as a whole, a move of what shows goes through it to the rest shape
+  // how the rig moves a rigidly bound item, a move of what shows goes through it to the rest place
   skinDeltaOf(id: string): Mat {
     const item = this.itemById(id, false);
-    return item ? skinDelta(item, this.parentMatrixOf(id), this.rig()) : identity();
+    return item ? skinDelta(item, this.rig()) : identity();
   }
 
   selectionBounds(): Box {

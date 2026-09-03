@@ -252,20 +252,13 @@ export function posedList(items: Item[], rig: Rig | null, preview?: Map<string, 
   return changed ? out : items;
 }
 
-// roughly how the rig moves the item as a whole in world space: the bone's move for a rigid skin,
-// the average blend of the anchors for a smooth one. a move of what shows is turned into a move of
-// the rest shape through it
-export function skinDelta(item: Item, parent: Mat, rig: Rig | null): Mat {
+// how the rig moves a rigidly bound item in world space, a move of what shows is turned into a move
+// of its rest place through it. a smooth skin bends each part its own way, there a move changes the
+// rest place as it is and is exact on the bind pose
+export function skinDelta(item: Item, rig: Rig | null): Mat {
   const skin = item.skin;
-  if (!rig || !skin) return identity();
-  if (skin.rigid) return rigidDelta(skin, rig);
-  if (skin.weights.length === 0) return identity();
-  const out: Mat = [0, 0, 0, 0, 0, 0];
-  for (const w of skin.weights) {
-    const b = blend(w, rig);
-    for (let i = 0; i < 6; i++) out[i] += b[i] / skin.weights.length;
-  }
-  return out;
+  if (!rig || !skin?.rigid) return identity();
+  return rigidDelta(skin, rig);
 }
 
 // the blends of the anchors as the skin has them, seen from the item's space
