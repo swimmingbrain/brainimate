@@ -32,7 +32,7 @@ function selectedPaths(): PathItem[] {
 
 // a bound path is edited the way it shows, anchors and handles sit where the bones bent them
 function shownPath(item: PathItem): PathItem {
-  const shown = editor.shownItem(item.id);
+  const shown = editor.shownItem(item.id, false);
   return shown?.type === 'path' ? shown : item;
 }
 
