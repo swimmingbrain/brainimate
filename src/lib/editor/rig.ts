@@ -271,7 +271,8 @@ export function toggleBind(itemId: string, boneId: string, mode: BindMode) {
     if (rest.length === 0) unbind();
     else runBind('Unbind from bone', [{ id: itemId, bones: rest, mode: 'smooth' }]);
   } else {
-    runBind('Bind to bone', [{ id: itemId, bones: all.filter((b) => b.id === boneId || own.has(b.id)), mode: 'smooth' }]);
+    const bones = all.filter((b) => b.id === boneId || own.has(b.id));
+    runBind('Bind to bone', [{ id: itemId, bones, mode: 'smooth' }]);
   }
 }
 
@@ -329,7 +330,9 @@ export function deleteBone(boneId: string) {
   if (get(boneSelection) === boneId) boneSelection.set(null);
 }
 
-export type BoneFields = Partial<Pick<Bone, 'name' | 'length' | 'rotation' | 'x' | 'y' | 'radius' | 'pinned' | 'color'>>;
+export type BoneFields = Partial<
+  Pick<Bone, 'name' | 'length' | 'rotation' | 'x' | 'y' | 'radius' | 'pinned' | 'color'>
+>;
 
 // changes the bone's own values, a key folds a number drag into one step
 export function setBone(boneId: string, patch: BoneFields, label: string, key?: string) {

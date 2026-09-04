@@ -25,7 +25,13 @@ export function bendSide(root: Vec, mid: Vec, end: Vec): number {
 
 // the analytic two bone solve: the middle joint and the end so the end gets as close to target as the
 // two lengths allow. side keeps the bend on the side it is on, so an elbow never flips over
-export function twoBoneIK(root: Vec, mid: Vec, end: Vec, target: Vec, side = bendSide(root, mid, end) || 1): { mid: Vec; end: Vec } {
+export function twoBoneIK(
+  root: Vec,
+  mid: Vec,
+  end: Vec,
+  target: Vec,
+  side = bendSide(root, mid, end) || 1
+): { mid: Vec; end: Vec } {
   const l1 = dist(root, mid);
   const l2 = dist(mid, end);
   const reach = dist(root, target);
@@ -62,7 +68,8 @@ export function fabrik(points: Vec[], lengths: number[], target: Vec, maxIter = 
   };
   const unit = (i: number): Vec => {
     const d = dist(points[i], points[i + 1]);
-    return d > 1e-9 ? { x: (points[i + 1].x - points[i].x) / d, y: (points[i + 1].y - points[i].y) / d } : { x: 1, y: 0 };
+    if (d <= 1e-9) return { x: 1, y: 0 };
+    return { x: (points[i + 1].x - points[i].x) / d, y: (points[i + 1].y - points[i].y) / d };
   };
   const total = lengths.reduce((s, l) => s + l, 0);
   if (dist(root, target) >= total) {
@@ -95,9 +102,11 @@ function turn(pose: Pose, bones: Bone[], bone: Bone, angle: number) {
 // first pinned one, the root, or limit bones
 export function ikChain(bones: Bone[], effector: string, limit: number): Bone[] {
   const out: Bone[] = [];
-  for (let b = boneById(bones, effector); b && out.length < Math.max(1, limit) && !out.includes(b); b = boneById(bones, b.parent)) {
+  let b = boneById(bones, effector);
+  while (b && out.length < Math.max(1, limit) && !out.includes(b)) {
     out.push(b);
     if (b.pinned) break;
+    b = boneById(bones, b.parent);
   }
   return out;
 }
@@ -113,7 +122,14 @@ export interface SolveOptions {
 
 // a new pose where the point local on bone effector (its tip, or where a child starts) reaches target:
 // two bones solve exactly, longer chains with fabrik. only rotations change, every length stays
-export function solveChain(bones: Bone[], pose: Pose, effector: string, local: Vec, target: Vec, opts: SolveOptions = {}): Pose {
+export function solveChain(
+  bones: Bone[],
+  pose: Pose,
+  effector: string,
+  local: Vec,
+  target: Vec,
+  opts: SolveOptions = {}
+): Pose {
   const out: Pose = { ...pose };
   const chain = ikChain(bones, effector, opts.limit ?? 4);
   if (chain.length === 0) return out;

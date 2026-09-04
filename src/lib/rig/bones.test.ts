@@ -20,7 +20,8 @@ import {
 import { PALETTE } from '$lib/core/palette';
 
 function bone(id: string, parent: string | null, x: number, y: number, length: number, rotation: number): Bone {
-  return { id, name: id, parent, x, y, length, radius: length * 0.35, rotation, bind: identity(), pinned: false, color: '#fff' };
+  const radius = length * 0.35;
+  return { id, name: id, parent, x, y, length, radius, rotation, bind: identity(), pinned: false, color: '#fff' };
 }
 
 // a horizontal arm from 100,100: upper 100 long, lower 80 long

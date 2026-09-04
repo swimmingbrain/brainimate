@@ -128,7 +128,10 @@ export function drawBones(ctx: CanvasRenderingContext2D, v: BoneView) {
 }
 
 // the tint of an anchor bound to several bones: their colors mixed by weight
-export function weightColor(weights: { bone: string; w: number }[], colorOf: (id: string) => string | null): string | null {
+export function weightColor(
+  weights: { bone: string; w: number }[],
+  colorOf: (id: string) => string | null
+): string | null {
   let out: string | null = null;
   let total = 0;
   for (const { bone, w } of weights) {

@@ -107,7 +107,13 @@ export function templateBones(kind: TemplateKind, box: Box): TemplateBone[] {
     const v = (y - my) * s;
     return upright ? { x: c.x - v, y: c.y + u } : { x: c.x + u, y: c.y + v };
   };
-  return specs.map((sp) => ({ name: sp.name, parent: sp.parent, from: place(sp.from), to: place(sp.to), limb: sp.limb }));
+  return specs.map((sp) => ({
+    name: sp.name,
+    parent: sp.parent,
+    from: place(sp.from),
+    to: place(sp.to),
+    limb: sp.limb
+  }));
 }
 
 // where a template goes with nothing selected: the middle of the stage, 60 percent of its height

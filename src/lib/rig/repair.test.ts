@@ -11,7 +11,8 @@ import { autoWeights } from './skin';
 import { skinRepairs } from './repair';
 
 function bone(id: string, parent: string | null, x: number, length: number): Bone {
-  return { id, name: id, parent, x, y: 0, length, radius: length * 0.35, rotation: 0, bind: identity(), pinned: false, color: '#fff' };
+  const radius = length * 0.35;
+  return { id, name: id, parent, x, y: 0, length, radius, rotation: 0, bind: identity(), pinned: false, color: '#fff' };
 }
 
 // a rig layer with two bones and a bound rectangle on the layer below

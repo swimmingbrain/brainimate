@@ -35,7 +35,13 @@ function repaired(item: Item, world: Mat, bones: Map<string, Bone>): Skin | null
   return { weights, rigid: null };
 }
 
-function scanItems(items: Item[], parent: Mat, bones: Map<string, Bone>, at: number[], add: (path: number[], skin: Skin | null) => void) {
+function scanItems(
+  items: Item[],
+  parent: Mat,
+  bones: Map<string, Bone>,
+  at: number[],
+  add: (path: number[], skin: Skin | null) => void
+) {
   items.forEach((item, i) => {
     const world = multiply(parent, item.transform);
     const fix = repaired(item, world, bones);
@@ -61,7 +67,8 @@ function scanTimeline(prev: Layer[] | undefined, next: Layer[], scope: string | 
     if (!bonesChanged && before === layer) return;
     layer.keyframes.forEach((key, ki) => {
       if (!bonesChanged && before?.keyframes.includes(key)) return;
-      scanItems(key.items, identity(), bones, [], (path, skin) => fixes.push({ scope, layer: li, key: ki, path, skin }));
+      const add = (path: number[], skin: Skin | null) => fixes.push({ scope, layer: li, key: ki, path, skin });
+      scanItems(key.items, identity(), bones, [], add);
     });
   });
 }

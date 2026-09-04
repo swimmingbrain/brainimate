@@ -390,7 +390,8 @@ export function createSelectTool(id: ToolId): Tool {
           pose = rotateBone(bones, action.start, effector, joint.point, e, snap);
         } else {
           const limit = get(preferences).rig.chainLimit;
-          pose = solveChain(bones, action.start, effector, local, { x: e.x, y: e.y }, { limit, memo: action.memo, snap });
+          const opts = { limit, memo: action.memo, snap };
+          pose = solveChain(bones, action.start, effector, local, { x: e.x, y: e.y }, opts);
         }
         editor.posePreview = { layerId: action.layerId, pose };
         break;

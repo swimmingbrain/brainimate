@@ -1,5 +1,15 @@
 import type { Bone, BonePose, Layer, Mat, Vec } from '$lib/core/types';
-import { applyPoint, applyVector, decompose, identity, invert, multiply, rotate, scale, translate } from '$lib/core/mat';
+import {
+  applyPoint,
+  applyVector,
+  decompose,
+  identity,
+  invert,
+  multiply,
+  rotate,
+  scale,
+  translate
+} from '$lib/core/mat';
 import { PALETTE } from '$lib/core/palette';
 import { newId } from '$lib/core/ids';
 import { isDraft } from 'immer';
@@ -92,7 +102,14 @@ export interface BoneOptions {
 
 // a bone from one world point to another under parent, its local placement comes through the
 // parent's world matrix at pose, so it lands where it was clicked even on a posed rig
-export function addBone(bones: Bone[], parentId: string | null, from: Vec, to: Vec, pose: Pose, opts: BoneOptions): Bone {
+export function addBone(
+  bones: Bone[],
+  parentId: string | null,
+  from: Vec,
+  to: Vec,
+  pose: Pose,
+  opts: BoneOptions
+): Bone {
   const parent = boneById(bones, parentId);
   const parentWorld = parent ? worldAt(bones, parent, pose) : identity();
   const inv = invert(parentWorld);

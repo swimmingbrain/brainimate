@@ -122,7 +122,7 @@
     icon={layer && layer.bones.length > 0 ? undefined : 'bone'}
     empty={layer && layer.bones.length > 0
       ? undefined
-      : 'Draw bones with the bone tool (M): click a joint, the next joint, and so on, Esc ends the chain. Or start from a template.'}>
+      : 'Draw bones with the bone tool (M): click joint after joint, Esc ends the chain. Or start from a template.'}>
     {#if layer && layer.bones.length > 0}
       <div class="head">
         <Icon name="bone" size={12} />

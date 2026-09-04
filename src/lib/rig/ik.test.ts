@@ -84,7 +84,12 @@ describe('solving a chain', () => {
   });
 
   it('turns a longer chain with fabrik and keeps the root in place', () => {
-    const bones = [bone('a', null, 0, 0, 50), bone('b', 'a', 50, 0, 50), bone('c', 'b', 50, 0, 50), bone('d', 'c', 50, 0, 50)];
+    const bones = [
+      bone('a', null, 0, 0, 50),
+      bone('b', 'a', 50, 0, 50),
+      bone('c', 'b', 50, 0, 50),
+      bone('d', 'c', 50, 0, 50)
+    ];
     const target = { x: 90, y: 110 };
     const pose = solveChain(bones, {}, 'd', { x: 50, y: 0 }, target, { limit: 4 });
     const w = worldMatrices(bones, pose);

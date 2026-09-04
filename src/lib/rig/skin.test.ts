@@ -9,7 +9,8 @@ import { makeRig, restWorld, worldMatrices } from './bones';
 import { anchorList, autoWeights, bindItem, deform, posed, refinePath, restContour } from './skin';
 
 function bone(id: string, parent: string | null, x: number, y: number, length: number): Bone {
-  return { id, name: id, parent, x, y, length, radius: length * 0.35, rotation: 0, bind: identity(), pinned: false, color: '#fff' };
+  const radius = length * 0.35;
+  return { id, name: id, parent, x, y, length, radius, rotation: 0, bind: identity(), pinned: false, color: '#fff' };
 }
 
 // two bones along y = 0: a from 0 to 100, b from 100 to 200, bound at rest
