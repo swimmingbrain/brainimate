@@ -286,7 +286,10 @@ export function createSelectTool(id: ToolId): Tool {
     const hit = pickForSelect(e, e.zoom, factor);
     if (!hit) {
       action = { kind: 'marquee', add: e.shift };
-      if (!e.shift) clearSelection();
+      if (!e.shift) {
+        clearSelection();
+        boneSelection.set(null);
+      }
       return;
     }
     if (e.shift) {

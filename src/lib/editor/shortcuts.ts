@@ -2,6 +2,7 @@ import { get } from 'svelte/store';
 import { createKeybindingsHandler, type KeybindingsMap } from 'tinykeys';
 import {
   anchorSelection,
+  boneSelection,
   contextMenu,
   dialog,
   frameSelection,
@@ -74,6 +75,7 @@ function escape() {
   }
   anchorSelection.set([]);
   frameSelection.set(null);
+  boneSelection.set(null);
   // with nothing selected escape leaves an open symbol
   if (leaveSymbol()) return;
   clearSelection();
