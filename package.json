@@ -47,6 +47,7 @@
     "opentype.js": "^2.0.0",
     "paper": "^0.12.18",
     "perfect-freehand": "^1.2.3",
+    "svg-pathdata": "^9.0.0",
     "tinykeys": "^4.0.1"
   }
 }
