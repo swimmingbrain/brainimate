@@ -52,6 +52,17 @@
       ]
     },
     {
+      name: 'Rig',
+      items: [
+        { keys: ['Esc'], what: 'End the bone chain and bind what it reaches' },
+        { keys: ['Shift', 'click'], what: 'Bone at 15 degree steps' },
+        { keys: ['Drag'], what: 'Pose a joint with the selection tool' },
+        { keys: ['Alt', 'drag'], what: 'Turn only the bone a joint sits on' },
+        { keys: ['Double click'], what: 'Pin or unpin a joint' },
+        { keys: ['Delete'], what: 'Delete the picked bone' }
+      ]
+    },
+    {
       name: 'Edit',
       items: [
         { keys: ['Ctrl', 'Z'], what: 'Undo' },
