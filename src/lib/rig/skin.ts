@@ -3,7 +3,7 @@ import { applyPoint, applyVector, identity, invert, isIdentity, multiply, scaleF
 import { split, type Cubic } from '$lib/core/bezier';
 import { corners, isEmpty } from '$lib/core/bbox';
 import { itemBounds } from '$lib/core/items';
-import { flattenPath } from '$lib/core/path';
+import { flattenPath, transformPath } from '$lib/core/path';
 import { segmentDistance, type Rig } from './bones';
 
 export type Weight = { bone: string; w: number };
@@ -48,7 +48,20 @@ function weightsFor(points: Vec[], caps: Capsule[]): Weight[] {
       raw[i] = w / points.length;
     });
   }
-  return normalize(caps.map((c, i) => ({ bone: c.id, w: raw[i] })));
+  return fade(caps.map((c, i) => ({ bone: c.id, w: raw[i] })));
+}
+
+// small weights go without a jump: summed to 1, every weight loses the cut off, the ones left over
+// are summed to 1 again. a weight that sinks under the cut fades to nothing along an outline
+function fade(list: Weight[]): Weight[] {
+  const total = list.reduce((s, x) => s + Math.max(0, x.w), 0);
+  if (total <= 0) return [];
+  let kept = list.map((x) => ({ bone: x.bone, w: Math.max(0, x.w) / total - MIN_WEIGHT })).filter((x) => x.w > 0);
+  if (kept.length === 0) kept = [{ bone: list.reduce((a, b) => (b.w > a.w ? b : a)).bone, w: 1 }];
+  kept.sort((a, b) => b.w - a.w);
+  kept = kept.slice(0, MAX_BONES);
+  const sum = kept.reduce((s, x) => s + x.w, 0);
+  return kept.map((x) => ({ bone: x.bone, w: x.w / sum }));
 }
 
 // small weights go, the four largest stay and sum to 1
@@ -168,8 +181,97 @@ function mapContours(item: PathItem, matrixAt: (index: number) => Mat): { path: 
   return { path: out[0], subpaths: out.slice(1) };
 }
 
-// linear blend skinning: every anchor and its two handle points in world space through the blend of
-// its bones, p' = sum w_i * world_i * inverse(bind_i) * p. a rigid skin moves it all with one bone
+// the blend of each anchor in world space, the outline first and then the subpaths
+function worldBlends(skin: Skin, rig: Rig, count: number): Mat[] {
+  const out: Mat[] = [];
+  for (let i = 0; i < count; i++) out.push(blend(skin.weights[i] ?? [], rig));
+  return out;
+}
+
+// how fast what the blends do to the point p changes from anchor k to anchor l, per world unit of the
+// outline between them. zero at the bind pose and where both anchors follow the same bones
+function rate(blends: Mat[], k: number, l: number, p: Vec, length: number): Vec {
+  if (length < 1e-9) return { x: 0, y: 0 };
+  const a = applyPoint(blends[k], p);
+  const b = applyPoint(blends[l], p);
+  return { x: (b.x - a.x) / length, y: (b.y - a.y) / length };
+}
+
+// the speed of the blend along the outline at each anchor, for the in and the out handle. a smooth
+// anchor takes the same one on both sides, so its handles stay in line
+function rates(path: PathData, pts: Vec[], blends: Mat[]): { into: Vec; out: Vec }[] {
+  const n = pts.length;
+  const zero = { x: 0, y: 0 };
+  return pts.map((p, j) => {
+    const prev = j > 0 || path.closed ? (j - 1 + n) % n : -1;
+    const next = j < n - 1 || path.closed ? (j + 1) % n : -1;
+    const dp = prev >= 0 ? Math.hypot(p.x - pts[prev].x, p.y - pts[prev].y) : 0;
+    const dn = next >= 0 ? Math.hypot(pts[next].x - p.x, pts[next].y - p.y) : 0;
+    const back = prev >= 0 && prev !== j ? rate(blends, prev, j, p, dp) : null;
+    const ahead = next >= 0 && next !== j ? rate(blends, j, next, p, dn) : null;
+    if (path.anchors[j].kind === 'corner') return { into: back ?? zero, out: ahead ?? zero };
+    const both = back && ahead ? rate(blends, prev, next, p, dp + dn) : (back ?? ahead ?? zero);
+    return { into: both, out: both };
+  });
+}
+
+// linear blend skinning of one contour in world space: each anchor through the blend of its bones,
+// p' = sum w_i * world_i * inverse(bind_i) * p. a handle goes through the same blend and also follows
+// how the blend changes along the outline, so the curve between anchors bends as smoothly as they do
+function bendContour(path: PathData, world: Mat, blends: Mat[]): PathData {
+  const pts = path.anchors.map((a) => applyPoint(world, a));
+  const speed = rates(path, pts, blends);
+  return {
+    closed: path.closed,
+    anchors: path.anchors.map((a, j) => {
+      const b = blends[j];
+      const q = applyPoint(b, pts[j]);
+      const hi = applyVector(world, { x: a.ix, y: a.iy });
+      const ho = applyVector(world, { x: a.ox, y: a.oy });
+      const vi = applyVector(b, hi);
+      const vo = applyVector(b, ho);
+      const li = Math.hypot(hi.x, hi.y);
+      const lo = Math.hypot(ho.x, ho.y);
+      return {
+        x: q.x,
+        y: q.y,
+        ix: vi.x - li * speed[j].into.x,
+        iy: vi.y - li * speed[j].into.y,
+        ox: vo.x + lo * speed[j].out.x,
+        oy: vo.y + lo * speed[j].out.y,
+        kind: a.kind
+      };
+    })
+  };
+}
+
+// the other way: a contour bent the way it shows in world space taken back to the rest shape. the
+// points go back through their blends, the handles are solved for a few rounds since how much the
+// blend changes along a handle depends on its rest length
+function unbendContour(shown: PathData, blends: Mat[], template: PathData): PathData {
+  const inv = blends.map((b) => invert(b));
+  const pts = shown.anchors.map((a, j) => applyPoint(inv[j], a));
+  const kinds: PathData = { closed: shown.closed, anchors: template.anchors.map((a) => ({ ...a })) };
+  const speed = rates(kinds, pts, blends);
+  return {
+    closed: shown.closed,
+    anchors: shown.anchors.map((a, j) => {
+      const solve = (h: Vec, sign: number, r: Vec): Vec => {
+        let v = applyVector(inv[j], h);
+        for (let k = 0; k < 6; k++) {
+          const l = Math.hypot(v.x, v.y);
+          v = applyVector(inv[j], { x: h.x - sign * l * r.x, y: h.y - sign * l * r.y });
+        }
+        return v;
+      };
+      const hi = a.ix === 0 && a.iy === 0 ? { x: 0, y: 0 } : solve({ x: a.ix, y: a.iy }, -1, speed[j].into);
+      const ho = a.ox === 0 && a.oy === 0 ? { x: 0, y: 0 } : solve({ x: a.ox, y: a.oy }, 1, speed[j].out);
+      return { x: pts[j].x, y: pts[j].y, ix: hi.x, iy: hi.y, ox: ho.x, oy: ho.y, kind: a.kind };
+    })
+  };
+}
+
+// a skinned path in world space: smooth skins bend every contour, a rigid one moves it all with one bone
 export function deform(item: PathItem, rig: Rig, world: Mat): { path: PathData; subpaths: PathData[] } {
   const skin = item.skin;
   if (!skin) return mapContours(item, () => world);
@@ -177,14 +279,21 @@ export function deform(item: PathItem, rig: Rig, world: Mat): { path: PathData; 
     const m = multiply(rigidDelta(skin, rig), world);
     return mapContours(item, () => m);
   }
-  return mapContours(item, (i) => multiply(blend(skin.weights[i] ?? [], rig), world));
+  const blends = worldBlends(skin, rig, anchorList(item).length);
+  let first = 0;
+  const out = contoursOf(item).map((c) => {
+    const bent = bendContour(c, world, blends.slice(first, first + c.anchors.length));
+    first += c.anchors.length;
+    return bent;
+  });
+  return { path: out[0], subpaths: out.slice(1) };
 }
 
-// the same blend seen from the item's own space: inverse(world) * blend * world, per anchor
-export function localBlends(item: PathItem, rig: Rig, world: Mat): Mat[] {
-  const n = anchorList(item).length;
-  if (!item.skin || item.skin.rigid) return new Array(n).fill(identity());
-  return skinBlends(item.skin, rig, world, n);
+// the bent shape seen from the item's own space, what it draws with under its own transform
+function deformLocal(item: PathItem, rig: Rig, world: Mat): { path: PathData; subpaths: PathData[] } {
+  const bent = deform(item, rig, world);
+  const inv = invert(world);
+  return { path: transformPath(bent.path, inv), subpaths: bent.subpaths.map((c) => transformPath(c, inv)) };
 }
 
 function sameMat(a: Mat, b: Mat): boolean {
@@ -216,8 +325,7 @@ export function posed(item: Item, parent: Mat, rig: Rig, preview?: Map<string, I
   if (skin.rigid) {
     out = { ...item, transform: rigidTransform(item.transform, parent, rigidDelta(skin, rig)) };
   } else if (item.type === 'path') {
-    const blends = localBlends(item, rig, multiply(parent, item.transform));
-    out = { ...item, ...mapContours(item, (i) => blends[i]) };
+    out = { ...item, ...deformLocal(item, rig, multiply(parent, item.transform)) };
   }
   shapes.set(item, { rig, parent, out });
   return out;
@@ -261,17 +369,6 @@ export function skinDelta(item: Item, rig: Rig | null): Mat {
   return rigidDelta(skin, rig);
 }
 
-// the blends of the anchors as the skin has them, seen from the item's space
-function skinBlends(skin: Skin, rig: Rig, world: Mat, count: number): Mat[] {
-  const inv = invert(world);
-  const out: Mat[] = [];
-  for (let i = 0; i < count; i++) {
-    const b = blend(skin.weights[i] ?? [], rig);
-    out.push(isIdentity(b) ? identity() : multiply(inv, multiply(b, world)));
-  }
-  return out;
-}
-
 // where contour sub starts in the skin's list of anchors
 function firstAnchor(item: PathItem, sub: number): number {
   let first = 0;
@@ -279,20 +376,16 @@ function firstAnchor(item: PathItem, sub: number): number {
   return first;
 }
 
-// a contour edited the way it shows, carried back to the rest shape through the blend of each anchor,
-// so editing a bent arm keeps working. anchor i of the contour goes back through the weights at i
+// a contour edited the way it shows, carried back to the rest shape through the bones, so editing a
+// bent arm keeps working. anchor i of the contour goes back through the weights at i
 export function restContour(item: PathItem, parent: Mat, rig: Rig, sub: number, shown: PathData): PathData {
   const skin = item.skin;
   if (!skin || skin.rigid) return shown;
   const first = firstAnchor(item, sub);
-  const blends = skinBlends(skin, rig, multiply(parent, item.transform), first + shown.anchors.length);
-  return {
-    closed: shown.closed,
-    anchors: shown.anchors.map((a, i) => {
-      const m = blends[first + i];
-      return isIdentity(m) ? { ...a } : mapAnchor(a, invert(m));
-    })
-  };
+  const blends = worldBlends(skin, rig, first + shown.anchors.length).slice(first);
+  const world = multiply(parent, item.transform);
+  const back = unbendContour(transformPath(shown, world), blends, shown);
+  return transformPath(back, invert(world));
 }
 
 // the skin with weights for an anchor put in on segment index of contour sub at t, mixed from its two
@@ -316,7 +409,7 @@ export function insertWeights(item: PathItem, sub: number, index: number, t: num
 // a bend needs anchors to bend at: segments longer than step world units are split into equal pieces,
 // at most maxPieces. a straight segment gets handles along its line, so the shape stays as it is at
 // rest and turns into a smooth curve once the bones turn
-export function refinePath(path: PathData, world: Mat, step: number, maxPieces = 12): PathData {
+export function refinePath(path: PathData, world: Mat, step: number, maxPieces = 24): PathData {
   const src = path.anchors;
   const n = src.length;
   const count = n < 2 ? 0 : path.closed ? n : n - 1;
@@ -368,11 +461,11 @@ export function refinePath(path: PathData, world: Mat, step: number, maxPieces =
   return { anchors, closed: path.closed };
 }
 
-// a quarter of the shortest bone, so a bend has a few anchors on each side of a joint
+// an eighth of the shortest bone, so a bend has a few anchors on each side of a joint
 export function refineStep(bones: Bone[], matrices?: Map<string, Mat>): number {
   let shortest = Infinity;
   for (const b of bones) shortest = Math.min(shortest, b.length * scaleFactor(matrices?.get(b.id) ?? b.bind));
-  return Number.isFinite(shortest) ? Math.max(6, shortest / 4) : Infinity;
+  return Number.isFinite(shortest) ? Math.max(6, shortest / 8) : Infinity;
 }
 
 export type BindMode = 'smooth' | 'rigid' | 'auto';
@@ -419,8 +512,12 @@ function smoothBind(item: PathItem, parent: Mat, bones: Bone[], rig: Rig, fresh:
   const skin: Skin = { weights: autoWeights(refined, world, bones, matrices), rigid: null };
   const bound = { ...refined, skin };
   if (!fresh) return bound;
-  const blends = localBlends(bound, rig, world);
-  return { ...bound, ...mapContours(bound, (i) => (isIdentity(blends[i]) ? identity() : invert(blends[i]))) };
+  // what shows now is taken back to where it would be at the bind pose
+  return {
+    ...bound,
+    path: restContour(bound, parent, rig, 0, bound.path),
+    subpaths: bound.subpaths.map((c, k) => restContour(bound, parent, rig, k + 1, c))
+  };
 }
 
 // a copy of the item bound to some of the rig's bones. an item that was not bound stays where it shows
