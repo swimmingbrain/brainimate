@@ -15,7 +15,7 @@
 
 brainIMATE is an open source app for drawing and animating, like Adobe Animate and Illustrator, but in a browser tab. It is made for illustrators and for people who never animated before. There is no account and no server, everything stays in your browser.
 
-It is early. The drawing tools, the timeline, symbols, text and pictures work, the rig comes next.
+It is early. The drawing tools, the timeline, symbols, text, pictures and the rig work, saving and export come next.
 
 ## Features
 
@@ -26,12 +26,16 @@ It is early. The drawing tools, the timeline, symbols, text and pictures work, t
 - A timeline with layers and folders, keyframes, labels and tweens that blend moves, turns, shapes and colors
 - Easing from simple in and out to your own curve, playback with a loop and onion skin before and after the playhead
 - Frames to copy, paste, move, duplicate and reverse, with auto key on the frame you draw on
-- Bones for characters, bound to the drawing and posed with inverse kinematics
+- Bones for characters, bound to the drawing and posed with inverse kinematics, see Rigging below
 - Symbols you draw once and reuse from a library, edited in place, played in a loop, once or on one frame, with alpha and a tint
 - Text with bundled fonts, your own font files or the fonts on your computer, typed right on the stage, turned into outlines when you need paths
 - Pictures imported, dropped or pasted onto the stage, and copy and paste between tabs through the system clipboard
 - Export to PNG, SVG, GIF, WebM and MP4, image sequences and sprite sheets
 - `.brainimate` project files, autosave in the browser and offline use
+
+### Rigging
+
+Draw an arm on a layer, press `M`, click the shoulder, the elbow and the wrist, press `Esc`. A Rig layer appears and the arm is bound to its two bones. Press `V`, drag the wrist, and the arm bends at the elbow with its curves kept smooth. Alt drag turns one bone, a double click pins a joint, posing on another frame keys it and tweens to it. The bind tool (`Shift+M`) changes what follows which bone, the Rig panel lists the bones and adds humanoid, four legged and arm templates.
 
 ## Shortcuts
 
@@ -44,7 +48,7 @@ It is early. The drawing tools, the timeline, symbols, text and pictures work, t
 | Double click `Esc` | Edit a symbol in place or type into text, leave the symbol |
 | `Ctrl+Shift+O` | Create outlines from text |
 | `K` `S` `I` `G` | Paint bucket, ink bottle, eyedropper, gradient |
-| `M` `Shift+M` | Bone, bind |
+| `M` `Shift+M` | Bone (`Esc` ends the chain), bind |
 | `Z` `H` `Space` | Zoom, hand, hand while held |
 | `Ctrl+G` `Ctrl+Shift+G` `Ctrl+B` `Ctrl+J` | Group, ungroup, break apart, join paths |
 | `Ctrl+Up` `Ctrl+Down` | Bring forward, send backward, with `Shift` to the front or back |
@@ -77,7 +81,7 @@ Open `http://localhost:5173`. `pnpm test` runs the tests, `pnpm check` the type 
 - Onion skin draws the frames around the playhead offscreen, tints them and keeps the result until something changes.
 - A symbol has its own layers and keyframes. An instance works out which of its frames to show from the frame it is on, and draws those layers with its own matrix, alpha and tint. Editing in place swaps the timeline for the symbol's and draws the rest of the stage faded.
 - Text is laid out with opentype.js and drawn from the glyph outlines, so it looks the same on every machine and turns into paths without loss.
-- Bones live on a rig layer. Each point of a bound shape follows a weighted mix of its bones.
+- Bones live on a rig layer and a pose is a keyframe on it. Each anchor of a bound shape follows a weighted mix of its bones, its handles follow how that mix changes along the outline, and the bent shapes are worked out once per pose.
 - Projects are json, zipped with fflate when they carry pictures or fonts.
 
 ## Tech stack
