@@ -38,6 +38,8 @@ export interface RenderOptions {
   hide?: string | null;
   // a pose a tool is dragging, the bound items follow it
   pose?: PoseOverride | null;
+  // exports leave guide layers out
+  noGuides?: boolean;
 }
 
 export interface StageOptions extends RenderOptions {
@@ -89,6 +91,18 @@ function imageFor(asset: Asset): HTMLImageElement | null {
     images.set(asset.id, img);
   }
   return img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+// exports wait for every picture to decode, the stage just draws again when one arrives
+export async function loadImages(assets: Record<string, Asset>) {
+  const waits: Promise<unknown>[] = [];
+  for (const asset of Object.values(assets)) {
+    if (asset.type !== 'image') continue;
+    imageFor(asset);
+    const img = images.get(asset.id);
+    if (img && !img.complete) waits.push(img.decode().catch(() => {}));
+  }
+  await Promise.all(waits);
 }
 
 function setMatrix(ctx: Ctx2D, m: Mat) {
@@ -323,6 +337,7 @@ export function renderLayers(ctx: Ctx2D, layers: Layer[], base: Mat, opts: Rende
   ctx.save();
   for (const layer of layers) {
     if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
+    if (opts.noGuides && layer.type === 'guide') continue;
     const outline = opts.outline || layer.outline ? layer.color : null;
     const offset = opts.frame - (keyframeAt(layer, opts.frame)?.frame ?? 0);
     for (const item of itemsAt(layer, opts.frame)) {
