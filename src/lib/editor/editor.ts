@@ -132,18 +132,38 @@ class Editor {
     this.overlayDirty = true;
   }
 
-  newDoc(width: number, height: number, fps: number) {
-    this.doc = makeDoc(width, height, fps);
+  newDoc(width: number, height: number, fps: number, bg = '#ffffff') {
+    const doc = makeDoc(width, height, fps);
+    doc.bg = bg;
+    this.loadDoc(doc);
+  }
+
+  // a document from a file or an autosave takes over, there is nothing to undo back into
+  loadDoc(doc: Doc) {
+    if (doc.layers.length === 0) doc.layers.push(makeLayer('Layer 1', LAYER_COLORS[0]));
+    this.doc = doc;
     this.setStack([]);
     this.history.clear();
     this.clearPreview();
     selection.set(new Set());
+    anchorSelection.set([]);
+    boneSelection.set(null);
     frameSelection.set(null);
     hover.set(null);
-    activeLayer.set(this.doc.layers[0].id);
+    // the top layer that takes drawings, a file may start with a folder or a rig
+    const layers = this.doc.layers;
+    const top = [...layers].reverse().find((l) => l.type === 'normal') ?? layers[layers.length - 1];
+    activeLayer.set(top?.id ?? null);
     frame.set(0);
     this.changed();
     dirty.set(false);
+  }
+
+  // the name a save gave the document, not a step to undo
+  setName(name: string) {
+    if (!name || name === this.doc.name) return;
+    this.doc = { ...this.doc, name };
+    this.changed();
   }
 
   // recipe changes a draft of the document, the whole change is one undo step

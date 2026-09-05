@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { get } from 'svelte/store';
-import { editor } from './editor';
+import { editor, historyState, makeDoc } from './editor';
 import { makePathItem } from '$lib/core/items';
 import { rectPath } from '$lib/core/shapes';
 import { defaultStyle } from '$lib/core/style';
 import { translate } from '$lib/core/mat';
-import { frame, selection } from '$lib/stores/app';
+import { activeLayer, dirty, docName, frame, selection, stageSize } from '$lib/stores/app';
 import { setGroup } from '$lib/stores/preferences';
 import { insertKeyframe } from '$lib/anim/timeline';
 
@@ -143,5 +143,35 @@ describe('editing a tween', () => {
     expect(keys[1].items[0].transform[4]).toBeCloseTo(100);
     setGroup('timeline', { autoKey: true });
     frame.set(0);
+  });
+});
+
+describe('loading a document', () => {
+  it('takes over the document, clears the history and the dirty flag', () => {
+    editor.newDoc(800, 600, 24);
+    editor.insertItem(editor.activeLayer()!.id, rect());
+    const doc = makeDoc(320, 240, 12);
+    doc.name = 'Loaded';
+    editor.loadDoc(doc);
+    expect(editor.doc).toBe(doc);
+    expect(get(historyState).canUndo).toBe(false);
+    expect(get(dirty)).toBe(false);
+    expect(get(activeLayer)).toBe(doc.layers[0].id);
+    expect(get(stageSize)).toEqual({ width: 320, height: 240, background: '#ffffff' });
+  });
+
+  it('gives a document without layers one to draw on', () => {
+    const doc = makeDoc(320, 240, 12);
+    doc.layers = [];
+    editor.loadDoc(doc);
+    expect(editor.doc.layers).toHaveLength(1);
+  });
+
+  it('renames without an undo step', () => {
+    editor.newDoc(800, 600, 24);
+    editor.setName('Walk');
+    expect(editor.doc.name).toBe('Walk');
+    expect(get(docName)).toBe('Walk');
+    expect(get(historyState).canUndo).toBe(false);
   });
 });
