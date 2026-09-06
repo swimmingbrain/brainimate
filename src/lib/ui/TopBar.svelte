@@ -2,6 +2,7 @@
   import Logo from './Logo.svelte';
   import Icon from '$lib/icons/Icon.svelte';
   import { notYet, redo, undo } from '$lib/editor/commands';
+  import { openDocument, save } from '$lib/io/files';
   import { dialog, dirty, docName, setWorkspace, workspace, WORKSPACES } from '$lib/stores/app';
   import { historyState } from '$lib/editor/editor';
 </script>
@@ -28,11 +29,11 @@
   </div>
 
   <div class="topbar-actions">
-    <button class="action-btn" onclick={() => notYet('Open')} title="Open a file (Ctrl+O)">
+    <button class="action-btn" onclick={openDocument} title="Open a file (Ctrl+O)">
       <Icon name="open" size={14} />
       <span>Open</span>
     </button>
-    <button class="action-btn" onclick={() => notYet('Save')} title="Save (Ctrl+S)">
+    <button class="action-btn" onclick={() => save()} title="Save (Ctrl+S)">
       <Icon name="save" size={14} />
       <span>Save</span>
     </button>
@@ -77,7 +78,7 @@
       aria-label="GitHub">
       <Icon name="github" size={14} />
     </a>
-    <button class="action-btn accent" onclick={() => dialog.set({ kind: 'export' })} title="Export (Ctrl+Shift+E)">
+    <button class="action-btn accent" onclick={() => dialog.set({ kind: 'export' })} title="Export (Ctrl+E)">
       <Icon name="export" size={14} />
       <span>Export</span>
     </button>

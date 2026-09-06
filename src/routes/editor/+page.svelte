@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-  <title>brainIMATE | {$docName}</title>
+  <title>{$docName} - brainIMATE</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 
