@@ -31,6 +31,7 @@ export type Dialog =
   | { kind: 'shortcuts' }
   | { kind: 'about' }
   | { kind: 'export' }
+  | { kind: 'welcome' }
   | { kind: 'new-doc' }
   | { kind: 'doc-settings' }
   | { kind: 'symbol' }
