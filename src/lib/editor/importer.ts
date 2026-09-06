@@ -4,6 +4,7 @@ import { cloneItem, makeImageItem } from '$lib/core/items';
 import { makeAsset } from '$lib/core/assets';
 import { readFontFile, registerAssetFonts } from '$lib/core/fonts';
 import { activeLayer, addToast, selection } from '$lib/stores/app';
+import { isProjectFile, openDropped } from '$lib/io/files';
 import { editor } from './editor';
 
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
@@ -142,8 +143,14 @@ function isImage(file: File): boolean {
   return IMAGE_TYPES.includes(file.type) || IMAGE_FILE.test(file.name);
 }
 
-// pictures and fonts from the import menu or dropped on the stage, at is in the space being edited
+// pictures and fonts from the import menu or dropped on the stage, at is in the space being edited.
+// a project file among them opens instead
 export async function importFiles(files: File[], at?: Vec) {
+  const project = files.find(isProjectFile);
+  if (project) {
+    openDropped(project);
+    return;
+  }
   for (const file of files) {
     if (file.type === 'image/svg+xml' || SVG_FILE.test(file.name)) addToast('SVG import comes later');
     else if (isImage(file)) await importImage(file, file.name, at);

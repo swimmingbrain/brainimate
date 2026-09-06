@@ -13,7 +13,9 @@
   import Timeline from './timeline/Timeline.svelte';
   import { MAX_DOCK, MAX_TIMELINE, MIN_DOCK, MIN_TIMELINE, preferences, setGroup } from '$lib/stores/preferences';
   import { installShortcuts } from '$lib/editor/shortcuts';
-  import { filesPicked, setImportInput } from '$lib/editor/importer';
+  import { filesPicked, importFiles, setImportInput } from '$lib/editor/importer';
+  import { installUnloadGuard, showWelcome } from '$lib/io/files';
+  import { installAutosave } from '$lib/io/autosave';
 
   // what the stage keeps at the least when the dock or the timeline grow
   const MIN_STAGE_W = 320;
@@ -39,12 +41,39 @@
   onMount(() => {
     setImportInput(importInput);
     const off = installShortcuts();
+    const offAutosave = installAutosave();
+    const offGuard = installUnloadGuard();
+    void showWelcome();
     return () => {
       off();
+      offAutosave();
+      offGuard();
       setImportInput(null);
     };
   });
+
+  // files dropped outside the stage, a project opens and pictures land in the middle
+  function hasFiles(e: DragEvent): boolean {
+    return [...(e.dataTransfer?.types ?? [])].includes('Files');
+  }
+
+  function ondragover(e: DragEvent) {
+    if (!hasFiles(e) || e.defaultPrevented) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }
+
+  function ondrop(e: DragEvent) {
+    // the stage already took what was dropped on it
+    if (e.defaultPrevented) return;
+    const files = [...(e.dataTransfer?.files ?? [])];
+    if (files.length === 0) return;
+    e.preventDefault();
+    void importFiles(files);
+  }
 </script>
+
+<svelte:window {ondragover} {ondrop} />
 
 <div class="editor-app">
   <TopBar />
