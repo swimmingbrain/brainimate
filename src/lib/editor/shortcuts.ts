@@ -48,6 +48,8 @@ import { deletePicked } from './rig';
 import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { leaveSymbol, openConvertDialog } from './symbols';
 import { outlineSelectedText } from './outlines';
+import { openImport } from './importer';
+import { openDocument, save, saveAs } from '$lib/io/files';
 
 // fields keep their keys, menus and dialogs handle their own
 function ignored(e: Event): boolean {
@@ -156,6 +158,12 @@ function bindings(): KeybindingsMap {
     '.': run(() => stepFrame(1)),
     'Shift+Comma': run(firstFrame),
     'Shift+Period': run(lastFrame),
+
+    '$mod+s': run(() => save()),
+    '$mod+Shift+s': run(() => saveAs()),
+    '$mod+o': run(openDocument),
+    '$mod+e': run(() => dialog.set({ kind: 'export' })),
+    '$mod+i': run(() => openImport()),
 
     '[Shift]+?': run(() => dialog.set({ kind: 'shortcuts' })),
     '$mod+,': run(() => dialog.set({ kind: 'preferences' })),
