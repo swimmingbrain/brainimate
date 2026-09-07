@@ -43,19 +43,19 @@ import {
   addToast,
   collapsedFolders,
   colorTarget,
+  dialog,
   fillPaint,
   frame,
   frameClipboard,
   frameSelection,
   outlineMode,
   selection,
-  showDockTab,
   strokePaint,
   timelineView
 } from '$lib/stores/app';
 import { preferences, setGroup } from '$lib/stores/preferences';
 import { editor } from './editor';
-import { clearSelection, select, transformSelection } from './selection';
+import { select, transformSelection } from './selection';
 
 // menu entries whose work comes later say so instead of doing nothing
 export function notYet(what = 'This') {
@@ -260,10 +260,8 @@ export function closeSelectedPaths() {
   );
 }
 
-// nothing selected shows the document in the properties panel
 export function showDocumentSettings() {
-  clearSelection();
-  showDockTab('properties');
+  dialog.set({ kind: 'doc-settings' });
 }
 
 export function makeGroup(children: Item[], name = 'Group'): GroupItem {

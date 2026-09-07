@@ -4,9 +4,12 @@
   import About from './dialogs/About.svelte';
   import Confirm from './dialogs/Confirm.svelte';
   import ConvertSymbol from './dialogs/ConvertSymbol.svelte';
+  import Welcome from './dialogs/Welcome.svelte';
+  import NewDoc from './dialogs/NewDoc.svelte';
+  import DocSettings from './dialogs/DocSettings.svelte';
   import { addToast, dialog } from '$lib/stores/app';
 
-  const READY = ['preferences', 'shortcuts', 'about', 'confirm', 'symbol'];
+  const READY = ['preferences', 'shortcuts', 'about', 'confirm', 'symbol', 'welcome', 'new-doc', 'doc-settings'];
 
   function close() {
     dialog.set(null);
@@ -40,6 +43,12 @@
         onclose={close} />
     {:else if $dialog.kind === 'symbol'}
       <ConvertSymbol onclose={close} />
+    {:else if $dialog.kind === 'welcome'}
+      <Welcome onclose={close} />
+    {:else if $dialog.kind === 'new-doc'}
+      <NewDoc onclose={close} />
+    {:else if $dialog.kind === 'doc-settings'}
+      <DocSettings onclose={close} />
     {/if}
   {/key}
 {/if}
