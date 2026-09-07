@@ -96,15 +96,17 @@ function isZip(bytes: Uint8Array): boolean {
   return bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 3 && bytes[3] === 4;
 }
 
+const NOT_A_DOC = 'The file is not a brainIMATE document';
+
 function readJson(text: string): Record<string, unknown> {
   let raw: unknown;
   try {
     raw = JSON.parse(text.replace(/^﻿/, ''));
   } catch {
-    throw new ProjectError('The file is not a brainIMATE document');
+    throw new ProjectError(NOT_A_DOC);
   }
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new ProjectError('The file is not a brainIMATE document');
-  return raw as Record<string, unknown>;
+  if (!isObject(raw)) throw new ProjectError(NOT_A_DOC);
+  return raw;
 }
 
 function positive(v: unknown): boolean {
@@ -117,9 +119,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
 
 // what the rest of the app needs is checked and filled in, every field it does not know is kept
 function toDoc(raw: Record<string, unknown>): Parsed {
-  if (!Array.isArray(raw.layers) || !positive(raw.width) || !positive(raw.height)) {
-    throw new ProjectError('The file is not a brainIMATE document');
-  }
+  if (!Array.isArray(raw.layers) || !positive(raw.width) || !positive(raw.height)) throw new ProjectError(NOT_A_DOC);
   const newer = typeof raw.version === 'number' && raw.version > DOC_VERSION;
   const doc = raw as unknown as Doc;
   doc.version = DOC_VERSION;

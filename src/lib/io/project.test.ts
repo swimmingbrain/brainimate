@@ -11,7 +11,8 @@ import { bytesDataUrl, dataUrlBytes, packDoc, parse, parseBytes, projectFileName
 
 // a 1 by 1 png
 const PNG =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ' +
+  'AAAABJRU5ErkJggg==';
 const FONT = 'data:font/ttf;base64,AAEAAAALAIAAAwAwT1MvMg==';
 
 function sample(): Doc {
