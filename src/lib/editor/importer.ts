@@ -14,6 +14,7 @@ const SVG_FILE = /\.svg$/i;
 
 export const IMAGE_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif';
 export const FONT_ACCEPT = '.ttf,.otf,.woff';
+export const SVG_ACCEPT = '.svg,image/svg+xml';
 export const IMPORT_ACCEPT = `${IMAGE_ACCEPT},${FONT_ACCEPT},.svg`;
 
 // the hidden file input the app keeps, the menus and the image properties open it

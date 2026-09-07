@@ -5,12 +5,14 @@
   import { preferences } from '$lib/stores/preferences';
   import { historyState } from '$lib/editor/editor';
   import { alignToStage } from '$lib/editor/align';
+  import { recentFiles } from '$lib/io/recent';
 
   const menus = $derived(
     buildMenus($preferences, $outlineMode, $workspace, {
       history: $historyState,
       hasSelection: $selection.size > 0,
-      alignToStage: $alignToStage
+      alignToStage: $alignToStage,
+      recent: $recentFiles
     })
   );
 

@@ -18,7 +18,6 @@ import {
   insertBlankKeyframes,
   insertFrames,
   insertKeyframes,
-  notYet,
   redo,
   removeTransform,
   reverseSelectedPaths,
@@ -45,9 +44,11 @@ import { newSymbol, openConvertDialog } from './symbols';
 import { outlineSelectedText } from './outlines';
 import { addRigTemplate, bindSelection, resetPose, unbindSelection } from './rig';
 import { TEMPLATES } from '$lib/rig/templates';
-import { FONT_ACCEPT, IMAGE_ACCEPT, openImport } from './importer';
+import { FONT_ACCEPT, IMAGE_ACCEPT, SVG_ACCEPT, openImport } from './importer';
 import { selectTool } from '$lib/tools';
 import type { HistoryState } from './history';
+import type { RecentFile } from '$lib/io/recent';
+import { closeDocument, newDocument, openDocument, openRecent, save, saveAs } from '$lib/io/files';
 
 export interface TopMenu {
   label: string;
@@ -55,11 +56,6 @@ export interface TopMenu {
 }
 
 const SEP: MenuItem = { label: '', separator: true };
-
-// a menu entry whose work comes in a later step
-function soon(label: string, shortcut?: string): MenuItem {
-  return { label, shortcut, action: () => notYet(label) };
-}
 
 const PANELS: { id: DockTab; label: string }[] = [
   { id: 'properties', label: 'Properties' },
@@ -76,6 +72,12 @@ export interface MenuContext {
   history: HistoryState;
   hasSelection: boolean;
   alignToStage: boolean;
+  recent: RecentFile[];
+}
+
+function recentItems(recent: RecentFile[]): MenuItem[] {
+  if (recent.length === 0) return [{ label: 'No recent files', disabled: true }];
+  return recent.map((file) => ({ label: file.name, action: () => openRecent(file) }));
 }
 
 export function buildMenus(p: Preferences, outline: boolean, workspace: Workspace, ctx: MenuContext): TopMenu[] {
@@ -84,22 +86,24 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
     {
       label: 'File',
       items: [
-        soon('New', 'Ctrl+N'),
-        soon('Open...', 'Ctrl+O'),
-        { label: 'Open recent', children: [{ label: 'No recent files', disabled: true }] },
+        { label: 'New...', action: newDocument },
+        { label: 'Open...', shortcut: 'Ctrl+O', action: openDocument },
+        { label: 'Open recent', children: recentItems(ctx.recent) },
         SEP,
-        soon('Save', 'Ctrl+S'),
-        soon('Save as...', 'Ctrl+Shift+S'),
+        { label: 'Save', shortcut: 'Ctrl+S', action: () => void save() },
+        { label: 'Save as...', shortcut: 'Ctrl+Shift+S', action: () => void saveAs() },
+        { label: 'Close', action: closeDocument },
         SEP,
         {
           label: 'Import',
+          shortcut: 'Ctrl+I',
           children: [
-            soon('SVG...'),
+            { label: 'SVG...', action: () => openImport(SVG_ACCEPT) },
             { label: 'Image...', action: () => openImport(IMAGE_ACCEPT) },
             { label: 'Font...', action: () => openImport(FONT_ACCEPT) }
           ]
         },
-        { label: 'Export...', shortcut: 'Ctrl+Shift+E', action: () => dialog.set({ kind: 'export' }) },
+        { label: 'Export...', shortcut: 'Ctrl+E', action: () => dialog.set({ kind: 'export' }) },
         SEP,
         { label: 'Document settings...', action: showDocumentSettings }
       ]
