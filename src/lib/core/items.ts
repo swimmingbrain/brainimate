@@ -29,6 +29,21 @@ export function makePathItem(
   };
 }
 
+export function makeGroupItem(name: string, children: Item[], transform: Mat = identity()): GroupItem {
+  return {
+    id: newId(),
+    name,
+    type: 'group',
+    transform,
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blend: 'normal',
+    children,
+    skin: null
+  };
+}
+
 // point text without a width, box text wraps at it
 export function makeTextItem(
   text: string,

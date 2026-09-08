@@ -13,7 +13,7 @@ import {
 import { around, compose, decompose, identity, invert, multiply, rotate, scale, scaleFactor } from '$lib/core/mat';
 import { boxCenter, isEmpty } from '$lib/core/bbox';
 import { closePath, copyPath, reversePath, transformPath, type Compound } from '$lib/core/path';
-import { cloneItem, contours, localBounds, makePathItem, parentMatrix } from '$lib/core/items';
+import { cloneItem, contours, localBounds, makeGroupItem, makePathItem, parentMatrix } from '$lib/core/items';
 import { combine, divide, type BooleanOp, type Shape } from '$lib/core/boolean';
 import { joinTwo, simplifyPath, strokePieces } from '$lib/core/pathops';
 import { smoothPath } from '$lib/core/smooth';
@@ -265,18 +265,7 @@ export function showDocumentSettings() {
 }
 
 export function makeGroup(children: Item[], name = 'Group'): GroupItem {
-  return {
-    id: newId(),
-    name,
-    type: 'group',
-    transform: identity(),
-    visible: true,
-    locked: false,
-    opacity: 1,
-    blend: 'normal',
-    children,
-    skin: null
-  };
+  return makeGroupItem(name, children);
 }
 
 // the selected items go into one group where the topmost of them was, they keep their look

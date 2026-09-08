@@ -95,7 +95,7 @@ describe('svg export', () => {
     expect(svg).toContain('fill="url(#gradient-1)"');
     const round = red(0, 0, 10, 10);
     const stops = [{ t: 0, color: '#ff0000', alpha: 1 }];
-    round.style.fill = { ...makeGradient('radial', stops), cx: 5, cy: 5, r: 5, fx: 4, fy: 4 };
+    round.style.fill = { type: 'radial', stops, cx: 5, cy: 5, r: 5, fx: 4, fy: 4 };
     expect(exportSvg(docWith(round), { frame: 0 })).toContain(
       '<radialGradient id="gradient-1" gradientUnits="userSpaceOnUse" cx="5" cy="5" r="5" fx="4" fy="4">'
     );
