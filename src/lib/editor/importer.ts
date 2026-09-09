@@ -1,6 +1,8 @@
-import type { Vec } from '$lib/core/types';
-import { applyPoint, invert, translate } from '$lib/core/mat';
-import { cloneItem, makeImageItem } from '$lib/core/items';
+import type { Item, Vec } from '$lib/core/types';
+import { applyPoint, invert, multiply, scale, translate } from '$lib/core/mat';
+import { cloneItem, itemBounds, makeImageItem } from '$lib/core/items';
+import { boxCenter, boxHeight, boxWidth, isEmpty } from '$lib/core/bbox';
+import { readSvgText, type SvgImport } from '$lib/io/svgin';
 import { makeAsset } from '$lib/core/assets';
 import { readFontFile, registerAssetFonts } from '$lib/core/fonts';
 import { activeLayer, addToast, selection } from '$lib/stores/app';
@@ -140,11 +142,62 @@ export async function importFont(file: File): Promise<string | null> {
   return info.family;
 }
 
+// scaled down to fit the stage when it is larger, its middle on at
+export function placeOnStage(item: Item, at: Vec) {
+  const b = itemBounds(item, item.transform);
+  if (isEmpty(b)) return;
+  const d = editor.doc;
+  const k = Math.min(1, d.width / Math.max(boxWidth(b), 1e-9), d.height / Math.max(boxHeight(b), 1e-9));
+  const c = boxCenter(b);
+  item.transform = multiply(translate(at.x, at.y), multiply(scale(k), multiply(translate(-c.x, -c.y), item.transform)));
+}
+
+// the drawing of an svg file as one group, or the only item it has, selected in one undo step
+export function placeSvg(svg: SvgImport, at: Vec = stageCenter()): string | null {
+  const item = svg.item;
+  if (!item) {
+    addToast('The svg has nothing this app can draw', 'warning');
+    return null;
+  }
+  const layer = editor.drawTarget();
+  if (!layer || !editor.isEditable(layer)) {
+    addToast(editor.lockReason(layer), 'warning');
+    return null;
+  }
+  placeOnStage(item, at);
+  editor.commit('Import SVG', (draft) => {
+    for (const asset of svg.assets) if (!draft.assets[asset.id]) draft.assets[asset.id] = asset;
+    editor.draftItems(draft, layer.id)?.push(cloneItem(item));
+  });
+  activeLayer.set(layer.id);
+  selection.set(new Set([item.id]));
+  if (svg.skipped > 0) {
+    const what = svg.skipped === 1 ? 'clip path or mask was' : 'clip paths and masks were';
+    addToast(`${svg.skipped} ${what} left out`, 'info', 4000);
+  }
+  return item.id;
+}
+
+export function importSvgText(text: string, name: string, at?: Vec): string | null {
+  let svg: SvgImport;
+  try {
+    svg = readSvgText(text, name.replace(/\.svg$/i, '') || 'SVG');
+  } catch {
+    addToast(`${name} could not be read as an svg`, 'error');
+    return null;
+  }
+  return placeSvg(svg, at);
+}
+
+export async function importSvg(file: Blob, name: string, at?: Vec): Promise<string | null> {
+  return importSvgText(await file.text(), name, at);
+}
+
 function isImage(file: File): boolean {
   return IMAGE_TYPES.includes(file.type) || IMAGE_FILE.test(file.name);
 }
 
-// pictures and fonts from the import menu or dropped on the stage, at is in the space being edited.
+// pictures, svg files and fonts from the import menu or dropped on the stage, at is in the space being edited.
 // a project file among them opens instead
 export async function importFiles(files: File[], at?: Vec) {
   const project = files.find(isProjectFile);
@@ -153,7 +206,7 @@ export async function importFiles(files: File[], at?: Vec) {
     return;
   }
   for (const file of files) {
-    if (file.type === 'image/svg+xml' || SVG_FILE.test(file.name)) addToast('SVG import comes later');
+    if (file.type === 'image/svg+xml' || SVG_FILE.test(file.name)) await importSvg(file, file.name, at);
     else if (isImage(file)) await importImage(file, file.name, at);
     else if (FONT_FILE.test(file.name)) await importFont(file);
     else addToast(`${file.name} is not a picture or a font`, 'warning');
