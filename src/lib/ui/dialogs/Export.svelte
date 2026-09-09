@@ -219,7 +219,7 @@
           <SelectField
             value={s.allFrames ? 'all' : 'range'}
             options={[
-              { value: 'all', label: `All ${length}` },
+              { value: 'all', label: length === 1 ? 'The only one' : `All ${length} frames` },
               { value: 'range', label: 'From, to' }
             ]}
             label="Frames"

@@ -2,6 +2,7 @@ import { get } from 'svelte/store';
 import { fileOpen, fileSave } from 'browser-fs-access';
 import type { Doc } from '$lib/core/types';
 import { editor } from '$lib/editor/editor';
+import { zoomFit } from '$lib/editor/view';
 import { addToast, dialog, dirty } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 import { nameFromFile, parse, PROJECT_EXT, PROJECT_MIME, projectFileName, serialize } from './project';
@@ -113,6 +114,7 @@ export async function openFile(file: File, fileHandle: FileSystemFileHandle | nu
   const doc = parsed.doc;
   if (doc.name === 'Untitled') doc.name = nameFromFile(file.name);
   editor.loadDoc(doc);
+  zoomFit();
   // a json file is written back as a zip only after a save as
   handle = isProjectFile(file) ? fileHandle : null;
   if (get(dialog)?.kind === 'welcome') dialog.set(null);
@@ -172,6 +174,7 @@ export function openRecent(entry: RecentFile) {
 // a fresh document, the file it came from is forgotten
 export function createDocument(width: number, height: number, fps: number, bg = '#ffffff') {
   editor.newDoc(width, height, fps, bg);
+  zoomFit();
   handle = null;
   dialog.set(null);
 }
@@ -184,6 +187,7 @@ export function newDocument() {
 export function closeDocument() {
   confirmDiscard(() => {
     editor.newDoc(1920, 1080, get(preferences).timeline.fps);
+    zoomFit();
     handle = null;
     void showWelcome();
   }, 'Close');
@@ -199,6 +203,7 @@ export async function restoreAutosave(snap: Snapshot): Promise<boolean> {
     return false;
   }
   editor.loadDoc(parsed.doc);
+  zoomFit();
   handle = null;
   dirty.set(true);
   autosaveOffer.set(null);
