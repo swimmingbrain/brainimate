@@ -63,6 +63,16 @@
       ]
     },
     {
+      name: 'File',
+      items: [
+        { keys: ['Ctrl', 'O'], what: 'Open a document' },
+        { keys: ['Ctrl', 'S'], what: 'Save' },
+        { keys: ['Ctrl', 'Shift', 'S'], what: 'Save as a new file' },
+        { keys: ['Ctrl', 'I'], what: 'Import svg, pictures and fonts' },
+        { keys: ['Ctrl', 'E'], what: 'Export' }
+      ]
+    },
+    {
       name: 'Edit',
       items: [
         { keys: ['Ctrl', 'Z'], what: 'Undo' },
