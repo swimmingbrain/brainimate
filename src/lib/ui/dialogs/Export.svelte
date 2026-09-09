@@ -37,7 +37,7 @@
   import { exportSvg } from '$lib/io/svgout';
   import { exportSequence } from '$lib/io/sequence';
   import { exportGif } from '$lib/io/gif';
-  import { canExport, exportVideo } from '$lib/io/video';
+  import type { VideoOptions } from '$lib/io/video';
   import { exportSpriteSheet, spriteZip } from '$lib/io/spritesheet';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -104,10 +104,14 @@
     void drawPreview(animated ? range.from : current, clear);
   });
 
+  // mediabunny is large, it only loads with this dialog
+  const videoModule = () => import('$lib/io/video');
+
   onMount(() => {
     const { width, height } = scaledSize(doc, 1, true);
-    void canExport('webm', width, height).then((ok) => (videoOk.webm = ok));
-    void canExport('mp4', width, height).then((ok) => (videoOk.mp4 = ok));
+    void videoModule().then(async ({ canExport }) => {
+      videoOk = { webm: await canExport('webm', width, height), mp4: await canExport('mp4', width, height) };
+    });
   });
 
   function setProgress(p: number) {
@@ -136,8 +140,10 @@
       case 'webm':
       case 'mp4': {
         const format = s.format;
-        const opts = { format, range, scale: s.scale, quality: s.quality / 100, transparent: s.transparent };
-        return { blob: exportVideo(doc, opts, signal, setProgress), name: `${base}.${format}`, kind: KINDS[format] };
+        const quality = s.quality / 100;
+        const opts: VideoOptions = { format, range, scale: s.scale, quality, transparent: s.transparent };
+        const blob = videoModule().then(({ exportVideo }) => exportVideo(doc, opts, signal, setProgress));
+        return { blob, name: `${base}.${format}`, kind: KINDS[format] };
       }
       case 'sprite': {
         const opts = spriteOptions(base);
