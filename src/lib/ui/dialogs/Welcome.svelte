@@ -22,7 +22,11 @@
   }
 </script>
 
-<Dialog title="Welcome to brainIMATE" description="Start a new document or pick up where you left off." width={760} {onclose}>
+<Dialog
+  title="Welcome to brainIMATE"
+  description="Start a new document or pick up where you left off."
+  width={760}
+  {onclose}>
   <div class="columns">
     <section class="col">
       <h3 class="section">New document</h3>

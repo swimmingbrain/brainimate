@@ -7,22 +7,12 @@
   import Welcome from './dialogs/Welcome.svelte';
   import NewDoc from './dialogs/NewDoc.svelte';
   import DocSettings from './dialogs/DocSettings.svelte';
-  import { addToast, dialog } from '$lib/stores/app';
-
-  const READY = ['preferences', 'shortcuts', 'about', 'confirm', 'symbol', 'welcome', 'new-doc', 'doc-settings'];
+  import Export from './dialogs/Export.svelte';
+  import { dialog } from '$lib/stores/app';
 
   function close() {
     dialog.set(null);
   }
-
-  // dialogs that come with later work say so instead of opening nothing
-  $effect(() => {
-    const d = $dialog;
-    if (d && !READY.includes(d.kind)) {
-      addToast('Not there yet');
-      dialog.set(null);
-    }
-  });
 </script>
 
 {#if $dialog}
@@ -49,6 +39,8 @@
       <NewDoc onclose={close} />
     {:else if $dialog.kind === 'doc-settings'}
       <DocSettings onclose={close} />
+    {:else if $dialog.kind === 'export'}
+      <Export onclose={close} />
     {/if}
   {/key}
 {/if}

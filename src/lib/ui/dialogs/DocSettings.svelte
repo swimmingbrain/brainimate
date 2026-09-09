@@ -47,7 +47,14 @@
       <input class="text" bind:value={name} aria-label="Document name" spellcheck="false" autofocus {onkeydown} />
     </Field>
     <Field label="Width">
-      <NumberField value={width} min={1} max={MAX_SIDE} precision={0} unit=" px" label="Width" onchange={(v) => (width = v)} />
+      <NumberField
+        value={width}
+        min={1}
+        max={MAX_SIDE}
+        precision={0}
+        unit=" px"
+        label="Width"
+        onchange={(v) => (width = v)} />
     </Field>
     <Field label="Height">
       <NumberField
@@ -65,7 +72,14 @@
       </Field>
     {/if}
     <Field label="Frame rate">
-      <NumberField value={fps} min={1} max={120} precision={0} unit=" fps" label="Frame rate" onchange={(v) => (fps = v)} />
+      <NumberField
+        value={fps}
+        min={1}
+        max={120}
+        precision={0}
+        unit=" fps"
+        label="Frame rate"
+        onchange={(v) => (fps = v)} />
     </Field>
     <Field label="Background">
       <ColorField value={bg} label="Background color" onclick={openPicker} />
