@@ -50,9 +50,16 @@ export interface FrameCanvas {
   draw(frame: number): void;
 }
 
-export function frameCanvas(doc: Doc, width: number, height: number, transparent: boolean): FrameCanvas {
+// readback asks for a canvas that is cheap to read pixels from, the gif reads every frame
+export function frameCanvas(
+  doc: Doc,
+  width: number,
+  height: number,
+  transparent: boolean,
+  readback = false
+): FrameCanvas {
   const canvas = surface(width, height);
-  const ctx = context(canvas);
+  const ctx = readback ? (canvas.getContext('2d', { willReadFrequently: true }) as SurfaceCtx) : context(canvas);
   const base: Mat = [width / doc.width, 0, 0, height / doc.height, 0, 0];
   const draw = (frame: number) => {
     setLibrary(doc.symbols);

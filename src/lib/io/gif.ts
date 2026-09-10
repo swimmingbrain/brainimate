@@ -133,7 +133,7 @@ export async function exportGif(doc: Doc, o: GifOptions, signal?: AbortSignal, p
   await prepareExport(doc);
   const frames = exportFrames(o.range, doc.fps, o.fps);
   const { width, height } = scaledSize(doc, o.scale);
-  const out = frameCanvas(doc, width, height, o.transparent);
+  const out = frameCanvas(doc, width, height, o.transparent, true);
   const grab = (i: number): Uint8ClampedArray => {
     out.draw(frames[i]);
     return out.ctx.getImageData(0, 0, width, height).data;
