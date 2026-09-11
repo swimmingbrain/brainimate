@@ -1,7 +1,7 @@
 <script lang="ts">
   import Logo from './Logo.svelte';
   import Icon from '$lib/icons/Icon.svelte';
-  import { notYet, redo, undo } from '$lib/editor/commands';
+  import { notYet, redo, showDocumentSettings, undo } from '$lib/editor/commands';
   import { openDocument, save } from '$lib/io/files';
   import { dialog, dirty, docName, setWorkspace, workspace, WORKSPACES } from '$lib/stores/app';
   import { historyState } from '$lib/editor/editor';
@@ -15,7 +15,7 @@
     </div>
     <span class="separator"></span>
     <div class="file-info">
-      <span class="filename" title={$docName}>{$docName}</span>
+      <button class="filename" title="{$docName}, document settings" onclick={showDocumentSettings}>{$docName}</button>
       <span class="save-dot" class:dirty={$dirty} title={$dirty ? 'Unsaved changes' : 'Saved'}></span>
     </div>
   </div>
@@ -142,6 +142,12 @@
     text-overflow: ellipsis;
     font-family: var(--font-editor);
     padding: 1px 4px;
+    min-width: 0;
+  }
+
+  .filename:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .save-dot {
