@@ -15,7 +15,7 @@
 
 brainIMATE is an open source app for drawing and animating, like Adobe Animate and Illustrator, but in a browser tab. It is made for illustrators and for people who never animated before. There is no account and no server, everything stays in your browser.
 
-It is early. The drawing tools, the timeline, symbols, text, pictures and the rig work, saving and export come next.
+It is early. The drawing tools, the timeline, symbols, text, pictures, the rig, saving and export work, the preferences and the last polish come next.
 
 ## Features
 
@@ -30,8 +30,11 @@ It is early. The drawing tools, the timeline, symbols, text, pictures and the ri
 - Symbols you draw once and reuse from a library, edited in place, played in a loop, once or on one frame, with alpha and a tint
 - Text with bundled fonts, your own font files or the fonts on your computer, typed right on the stage, turned into outlines when you need paths
 - Pictures imported, dropped or pasted onto the stage, and copy and paste between tabs through the system clipboard
-- Export to PNG, SVG, GIF, WebM and MP4, image sequences and sprite sheets
-- `.brainimate` project files, autosave in the browser and offline use
+- SVG import from Illustrator, Inkscape and the web: paths, shapes, groups, class styles, gradients and text stay editable
+- `.brainimate` files that carry their pictures and fonts, open, save and save as, recent files with thumbnails, a project dropped on the window opens
+- Autosave in the browser two seconds after every change, a restore on the welcome screen when the tab closed before a save
+- Export a frame to PNG or SVG, the animation to GIF, WebM, MP4, a PNG sequence or a sprite sheet with a json for game engines, posed rigs included
+- Offline use once loaded
 
 ### Rigging
 
@@ -62,6 +65,8 @@ Draw an arm on a layer, press `M`, click the shoulder, the elbow and the wrist, 
 | `Ctrl+Alt+C` `Ctrl+Alt+V` | Copy and paste frames |
 | `Alt+Shift+O` | Onion skin |
 | `Ctrl+Z` `Ctrl+Shift+Z` | Undo, redo |
+| `Ctrl+O` `Ctrl+S` `Ctrl+Shift+S` | Open, save, save as |
+| `Ctrl+I` `Ctrl+E` | Import, export |
 | `?` | All shortcuts |
 
 ## Running locally
@@ -82,7 +87,8 @@ Open `http://localhost:5173`. `pnpm test` runs the tests, `pnpm check` the type 
 - A symbol has its own layers and keyframes. An instance works out which of its frames to show from the frame it is on, and draws those layers with its own matrix, alpha and tint. Editing in place swaps the timeline for the symbol's and draws the rest of the stage faded.
 - Text is laid out with opentype.js and drawn from the glyph outlines, so it looks the same on every machine and turns into paths without loss.
 - Bones live on a rig layer and a pose is a keyframe on it. Each anchor of a bound shape follows a weighted mix of its bones, its handles follow how that mix changes along the outline, and the bent shapes are worked out once per pose.
-- Projects are json, zipped with fflate when they carry pictures or fonts.
+- A `.brainimate` file is a zip with the document as json and each picture and font as its own file next to it. A plain json with the files inside as data urls opens too.
+- Exports draw every frame offscreen with the same renderer as the stage, so bones, tweens and symbols look the same. SVG export writes the shapes the rig bent in place and text as text or as outlines.
 
 ## Tech stack
 
@@ -97,6 +103,7 @@ Open `http://localhost:5173`. `pnpm test` runs the tests, `pnpm check` the type 
 | Text | opentype.js |
 | Fonts | Inter, Instrument Serif, JetBrains Mono, Lora, Poppins, Bebas Neue from Fontsource (OFL) |
 | Export | gifenc, mediabunny, fflate |
+| SVG import | svg-pathdata |
 | Storage | idb-keyval, browser-fs-access |
 | Language | TypeScript |
 
