@@ -175,6 +175,10 @@ export function placeSvg(svg: SvgImport, at: Vec = stageCenter()): string | null
     const what = svg.skipped === 1 ? 'clip path or mask was' : 'clip paths and masks were';
     addToast(`${svg.skipped} ${what} left out`, 'info', 4000);
   }
+  if (svg.linked > 0) {
+    const what = svg.linked === 1 ? 'picture the file links to was' : 'pictures the file links to were';
+    addToast(`${svg.linked} ${what} left out, only pictures inside the file come along`, 'info', 5000);
+  }
   return item.id;
 }
 

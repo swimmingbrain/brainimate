@@ -35,6 +35,8 @@ export interface SvgImport {
   assets: Asset[];
   // clip paths and masks that were left out
   skipped: number;
+  // pictures the file only links to, they cannot be read from here
+  linked: number;
   width: number;
   height: number;
 }
@@ -131,6 +133,7 @@ class Reader {
   ids = new Map<string, SvgNode>();
   assets: Asset[] = [];
   skipped = 0;
+  linked = 0;
   width = 0;
   height = 0;
 
@@ -412,7 +415,11 @@ class Reader {
     const href = n.attrs.href ?? n.attrs['xlink:href'] ?? '';
     const width = parseLength(n.attrs.width, 0, this.width);
     const height = parseLength(n.attrs.height, 0, this.height);
-    if (!href.startsWith('data:image/') || width <= 0 || height <= 0) return null;
+    if (!href.startsWith('data:image/')) {
+      if (href) this.linked++;
+      return null;
+    }
+    if (width <= 0 || height <= 0) return null;
     const name = n.attrs['data-name'] ?? n.attrs.id ?? 'Image';
     const asset = makeAsset('image', name, href);
     if (!this.assets.some((a) => a.id === asset.id)) this.assets.push(asset);
@@ -562,7 +569,8 @@ export function readSvg(root: SvgNode, name = 'SVG'): SvgImport {
   } else if (items.length > 1) {
     item = makeGroupItem(name, items, view.matrix);
   }
-  return { item, assets: reader.assets, skipped: reader.skipped, width: view.width, height: view.height };
+  const { assets, skipped, linked } = reader;
+  return { item, assets, skipped, linked, width: view.width, height: view.height };
 }
 
 export function readSvgText(text: string, name = 'SVG'): SvgImport {

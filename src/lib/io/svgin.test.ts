@@ -223,7 +223,9 @@ describe('svg import', () => {
       <line x1="0" y1="0" x2="10" y2="10" stroke="black"/>
       <ellipse cx="5" cy="5" rx="4" ry="2"/>
       <image href="${png}" x="1" y="2" width="30" height="20"/>
+      <image href="photo.jpg" width="30" height="20"/>
     </svg>`);
+    expect(r.linked).toBe(1);
     const list = children(r.item);
     expect(list.map((i) => i.type)).toEqual(['group', 'path', 'path', 'path', 'path', 'image']);
     const use = list[0] as GroupItem;
