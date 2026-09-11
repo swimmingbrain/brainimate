@@ -356,7 +356,6 @@
   }
 
   .options {
-    margin: 0 -8px;
     min-width: 0;
   }
 

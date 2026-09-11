@@ -191,9 +191,6 @@
     color: var(--text-muted);
   }
 
-  .fields {
-    margin: 0 -8px;
-  }
 
   .create {
     align-self: flex-start;

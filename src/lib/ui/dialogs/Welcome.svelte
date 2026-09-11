@@ -38,7 +38,7 @@
         <button class="restore" onclick={() => restoreAutosave(snap)}>
           <Icon name="undo" size={14} />
           <span class="restore-text">
-            <span class="restore-title">Restore {snap.name}</span>
+            <span class="restore-title">{snap.name}</span>
             <span class="restore-time">Autosaved {when(snap.time)}, not saved to a file</span>
           </span>
           <span class="restore-go">Restore</span>

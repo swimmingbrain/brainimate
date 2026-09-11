@@ -103,9 +103,6 @@
 </Dialog>
 
 <style>
-  .fields {
-    margin: 0 -8px;
-  }
 
   .text {
     flex: 1;
