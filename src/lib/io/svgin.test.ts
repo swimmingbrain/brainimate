@@ -239,6 +239,16 @@ describe('svg import', () => {
     expect(at(image.transform, 0, 0)).toEqual([1, 2]);
   });
 
+  it('scales a symbol with a viewBox to the size its use asks for', () => {
+    const r = read(`<svg ${NS}><symbol id="s" viewBox="0 0 10 10"><rect width="10" height="10"/></symbol>
+      <use href="#s" x="5" y="5" width="40" height="20"/></svg>`);
+    const use = r.item as GroupItem;
+    const m = multiply(use.transform, use.children[0].transform);
+    // 10 by 10 into 40 by 20 is a scale of 2, centered across
+    expect(at(m, 0, 0)).toEqual([15, 5]);
+    expect(at(m, 10, 10)).toEqual([35, 25]);
+  });
+
   it('turns the inner contours of an even odd path into holes', () => {
     const r = read(`<svg ${NS}><path fill-rule="evenodd" d="M0 0H10V10H0Z M2 2H8V8H2Z M20 0 L30 0"/></svg>`);
     const [shape, open] = children(r.item) as PathItem[];

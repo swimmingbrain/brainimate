@@ -439,7 +439,13 @@ class Reader {
     const inner: Ctx = { inherited: this.passOn(props), depth: ctx.depth + 1, following };
     const placed = multiply(parseTransform(n.attrs.transform), at);
     if (target.tag === 'symbol' || target.tag === 'svg') {
-      const group = this.group({ ...n, attrs: { ...n.attrs, transform: '' } }, props, target.children, inner, placed);
+      // a symbol with a viewBox fills the size the use asks for
+      const box = numbers(target.attrs.viewBox);
+      const w = parseLength(n.attrs.width ?? target.attrs.width, 0, this.width);
+      const h = parseLength(n.attrs.height ?? target.attrs.height, 0, this.height);
+      const fit = box.length === 4 && w > 0 && h > 0 ? fitBox(box, w, h) : identity();
+      const bare = { ...n, attrs: { ...n.attrs, transform: '' } };
+      const group = this.group(bare, props, target.children, inner, multiply(placed, fit));
       return group ? [group] : [];
     }
     const items = this.walk(target, inner);
@@ -523,18 +529,20 @@ export function baselineOffset(size: number, lineHeight = 1.2): number {
   return (size * lineHeight - size * 1.2) / 2 + size * 0.95;
 }
 
-// the size the svg asks for and the matrix from its viewBox to that size, centered like the default
-// preserveAspectRatio does
+// a viewBox scaled into w by h and centered, like the default preserveAspectRatio does
+function fitBox(box: number[], w: number, h: number): Mat {
+  if (box.length !== 4 || box[2] <= 0 || box[3] <= 0) return identity();
+  const k = Math.min(w / box[2], h / box[3]);
+  return [k, 0, 0, k, (w - box[2] * k) / 2 - box[0] * k, (h - box[3] * k) / 2 - box[1] * k];
+}
+
+// the size the svg asks for and the matrix from its viewBox to that size
 function viewport(root: SvgNode): { width: number; height: number; matrix: Mat } {
   const box = numbers(root.attrs.viewBox);
   const hasBox = box.length === 4 && box[2] > 0 && box[3] > 0;
   const width = parseLength(root.attrs.width, hasBox ? box[2] : 0, hasBox ? box[2] : 0) || (hasBox ? box[2] : 300);
   const height = parseLength(root.attrs.height, hasBox ? box[3] : 0, hasBox ? box[3] : 0) || (hasBox ? box[3] : 150);
-  if (!hasBox) return { width, height, matrix: identity() };
-  const k = Math.min(width / box[2], height / box[3]);
-  const ox = (width - box[2] * k) / 2 - box[0] * k;
-  const oy = (height - box[3] * k) / 2 - box[1] * k;
-  return { width, height, matrix: [k, 0, 0, k, ox, oy] };
+  return { width, height, matrix: hasBox ? fitBox(box, width, height) : identity() };
 }
 
 export function readSvg(root: SvgNode, name = 'SVG'): SvgImport {
