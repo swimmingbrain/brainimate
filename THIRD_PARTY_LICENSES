@@ -26,12 +26,12 @@ gifenc 1.0.3: GIF export
 MIT
 https://github.com/mattdesl/gifenc
 
-mediabunny 1.61.3: WebM and MP4 export
+mediabunny 1.61.3: WebM and MP4 export, loaded with the export dialog
 MPL-2.0
 https://github.com/Vanilagy/mediabunny
 It brings in @types/dom-webcodecs and @types/dom-mediacapture-transform, types only, MIT.
 
-fflate 0.8.3: compressed project files and the zip of an image sequence
+fflate 0.8.3: the zip of a project file, of an image sequence and of a sprite sheet
 MIT
 https://github.com/101arrowz/fflate
 
@@ -54,6 +54,10 @@ https://github.com/paperjs/paper.js
 opentype.js 2.0.0: reads font files for the glyph outlines of text and for create outlines, loaded with the first text
 MIT
 https://github.com/opentypejs/opentype.js
+
+svg-pathdata 9.0.0: reads the path data of imported svg files and turns arcs and quadratic curves into cubics
+MIT
+https://github.com/nfroidure/svg-pathdata
 
 Two more are build tools rather than runtime dependencies, but what they produce ends up in
 the site, so they belong here too:
