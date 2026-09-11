@@ -59,6 +59,14 @@ function ignored(e: Event): boolean {
   return el.closest('[role="dialog"], [role="menu"]') !== null;
 }
 
+// save, open and export work while typing in a panel field too, the browser would take them otherwise
+function fileKey(e: KeyboardEvent): boolean {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return false;
+  const el = e.target instanceof HTMLElement ? e.target : null;
+  if (el?.closest('[role="dialog"], [role="menu"]')) return false;
+  return ['s', 'o', 'e'].includes(e.key.toLowerCase());
+}
+
 function run(fn: () => unknown) {
   return (e: KeyboardEvent) => {
     e.preventDefault();
@@ -215,7 +223,10 @@ function onclipboard(e: ClipboardEvent) {
 export function installShortcuts(): () => void {
   const handler = createKeybindingsHandler(bindings(), { ignore: () => false });
   const onkeydown = (e: KeyboardEvent) => {
-    if (ignored(e)) return;
+    if (ignored(e)) {
+      if (fileKey(e)) handler(e);
+      return;
+    }
     keyDown(e);
     if (e.defaultPrevented) return;
     handler(e);
