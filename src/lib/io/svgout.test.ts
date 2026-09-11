@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Bone, Doc, Item } from '$lib/core/types';
+import type { Bone, Doc, Item, TextItem } from '$lib/core/types';
+import { layoutText, type FontLike } from '$lib/core/text';
 import { identity, multiply, scale, translate } from '$lib/core/mat';
 import { makeImageItem, makeInstance, makePathItem, makeTextItem } from '$lib/core/items';
 import { rectPath } from '$lib/core/shapes';
@@ -115,6 +116,34 @@ describe('svg export', () => {
     expect(svg).toContain('letter-spacing="1.5" text-anchor="middle" fill="#123456"');
     expect(svg).toContain('>Hi &lt;you&gt;</tspan>');
     expect(svg.match(/<tspan x="0"/g)).toHaveLength(2);
+  });
+
+  it('writes text as glyph outlines or as text placed on the baselines of its layout', () => {
+    // every letter a 6 by 8 box standing on the baseline
+    const font: FontLike = {
+      unitsPerEm: 10,
+      ascender: 8,
+      descender: -2,
+      advance: () => 6,
+      kerning: () => 0,
+      outline: (ch, x, y, size) => {
+        const k = size / 10;
+        return [
+          { type: 'M', x, y },
+          { type: 'L', x: x + 6 * k, y },
+          { type: 'L', x: x + 6 * k, y: y - 8 * k },
+          { type: 'L', x, y: y - 8 * k },
+          { type: 'Z' }
+        ];
+      }
+    };
+    const text = makeTextItem('ab', 'Inter', 10, defaultStyle(solid('#000000'), null), translate(5, 5));
+    const layout = (t: TextItem) => layoutText(t.text, font, t);
+    const outlined = exportSvg(docWith(text), { frame: 0, outlineText: true, layout });
+    expect(outlined).not.toContain('<text');
+    expect(outlined).toContain('<path d="M0 9L6 9L6 1L0 1Z M6 9L12 9L12 1L6 1Z" transform="translate(5 5)" fill="#000000"/>');
+    const plain = exportSvg(docWith(text), { frame: 0, layout });
+    expect(plain).toContain('<tspan x="0" y="9">ab</tspan>');
   });
 
   it('writes pictures with their data url', () => {

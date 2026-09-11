@@ -6,7 +6,7 @@ import { fitGradient, isFitted, isGradient, sortStops, type Gradient } from '$li
 import { localBounds } from '$lib/core/items';
 import { mixHex } from '$lib/core/color';
 import { itemLayout } from '$lib/core/fonts';
-import { glyphOutlines } from '$lib/core/text';
+import { glyphOutlines, type TextLayout } from '$lib/core/text';
 import type { Box } from '$lib/core/bbox';
 import { MAX_NESTING, instanceSlices, isLayerShown, itemsAt, keyframeAt, setLibrary } from '$lib/render/frame';
 import { rigFor } from '$lib/rig/bones';
@@ -19,6 +19,8 @@ export interface SvgOptions {
   pretty?: boolean;
   // the document background as a rect under everything
   background?: boolean;
+  // how text is laid out, the loaded fonts unless a test hands in its own
+  layout?: (item: TextItem) => TextLayout | null;
 }
 
 // two decimals, without trailing zeros and without a minus zero
@@ -51,6 +53,7 @@ interface Writer {
   pretty: boolean;
   outlineText: boolean;
   ids: number;
+  layout: (item: TextItem) => TextLayout | null;
 }
 
 function attrs(list: [string, string | null | undefined][]): string {
@@ -196,7 +199,7 @@ function guessBaseline(item: TextItem, n: number): number {
 }
 
 function writeText(w: Writer, item: TextItem, parent: Mat, depth: number, tint: Tint) {
-  const layout = itemLayout(item);
+  const layout = w.layout(item);
   const local = multiply(parent, item.transform);
   const box = layout ? layout.bounds : localBounds(item);
   const style = styleAttrs(w, item.style, box, local, null, tint);
@@ -313,7 +316,14 @@ export function exportedLayers(layers: Layer[]): Layer[] {
 // the frame as an svg document: a group per shown layer bottom to top, posed like the stage shows it
 export function exportSvg(doc: Doc, opts: SvgOptions): string {
   setLibrary(doc.symbols);
-  const w: Writer = { lines: [], defs: [], pretty: !!opts.pretty, outlineText: !!opts.outlineText, ids: 0 };
+  const w: Writer = {
+    lines: [],
+    defs: [],
+    pretty: !!opts.pretty,
+    outlineText: !!opts.outlineText,
+    ids: 0,
+    layout: opts.layout ?? itemLayout
+  };
   const rig = rigFor(doc.layers, opts.frame);
   const used = new Set<string>();
   if (opts.background !== false) {
