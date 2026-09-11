@@ -141,7 +141,8 @@ describe('svg export', () => {
     const layout = (t: TextItem) => layoutText(t.text, font, t);
     const outlined = exportSvg(docWith(text), { frame: 0, outlineText: true, layout });
     expect(outlined).not.toContain('<text');
-    expect(outlined).toContain('<path d="M0 9L6 9L6 1L0 1Z M6 9L12 9L12 1L6 1Z" transform="translate(5 5)" fill="#000000"/>');
+    const d = 'M0 9L6 9L6 1L0 1Z M6 9L12 9L12 1L6 1Z';
+    expect(outlined).toContain(`<path d="${d}" transform="translate(5 5)" fill="#000000"/>`);
     const plain = exportSvg(docWith(text), { frame: 0, layout });
     expect(plain).toContain('<tspan x="0" y="9">ab</tspan>');
   });
