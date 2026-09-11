@@ -3,7 +3,7 @@
   import NewDocForm from '../NewDocForm.svelte';
   import Icon from '$lib/icons/Icon.svelte';
   import { version } from '$lib/version';
-  import { recentFiles } from '$lib/io/recent';
+  import { recentFiles, removeRecent } from '$lib/io/recent';
   import { autosaveOffer } from '$lib/io/autosave';
   import { confirmDiscard, createDocument, openDocument, openRecent, restoreAutosave } from '$lib/io/files';
 
@@ -67,6 +67,13 @@
                   <span class="recent-name">{file.name}</span>
                   <span class="recent-time">{when(file.time)}</span>
                 </span>
+              </button>
+              <button
+                class="forget"
+                onclick={() => removeRecent(file)}
+                title="Take it off the list, the file stays"
+                aria-label="Remove {file.name} from the list">
+                <Icon name="close" size={12} />
               </button>
             </li>
           {/each}
@@ -191,6 +198,10 @@
     overflow-y: auto;
   }
 
+  .recent li {
+    position: relative;
+  }
+
   .recent-item {
     width: 100%;
     display: flex;
@@ -204,6 +215,30 @@
   .recent-item:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .forget {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    margin-top: -11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    opacity: 0;
+  }
+
+  .recent li:hover .forget,
+  .forget:focus-visible {
+    opacity: 1;
+  }
+
+  .forget:hover {
+    color: var(--text-primary);
+    background: var(--bg-elevated);
   }
 
   .thumb {
