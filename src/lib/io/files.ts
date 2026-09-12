@@ -1,8 +1,9 @@
 import { get } from 'svelte/store';
 import { fileOpen, fileSave } from 'browser-fs-access';
 import type { Doc } from '$lib/core/types';
-import { editor } from '$lib/editor/editor';
+import { editor, makeDoc } from '$lib/editor/editor';
 import { zoomFit } from '$lib/editor/view';
+import { textEditing } from '$lib/editor/text';
 import { addToast, dialog, dirty } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 import { nameFromFile, parse, PROJECT_EXT, PROJECT_MIME, projectFileName, serialize } from './project';
@@ -52,6 +53,14 @@ async function remember(doc: Doc, name: string, fileHandle: FileSystemFileHandle
   const entry: RecentFile = { name, time: Date.now(), thumbnail: thumb };
   if (fileHandle) entry.handle = fileHandle;
   await addRecent(entry).catch(() => {});
+}
+
+// another document takes over the editor, typing into a text of the old one ends and the view fits
+function takeOver(doc: Doc, fileHandle: FileSystemFileHandle | null) {
+  textEditing.set(null);
+  editor.loadDoc(doc);
+  zoomFit();
+  handle = fileHandle;
 }
 
 // ctrl+s writes into the file the document came from, the first time it asks where
@@ -113,10 +122,8 @@ export async function openFile(file: File, fileHandle: FileSystemFileHandle | nu
   }
   const doc = parsed.doc;
   if (doc.name === 'Untitled') doc.name = nameFromFile(file.name);
-  editor.loadDoc(doc);
-  zoomFit();
   // a json file is written back as a zip only after a save as
-  handle = isProjectFile(file) ? fileHandle : null;
+  takeOver(doc, isProjectFile(file) ? fileHandle : null);
   if (get(dialog)?.kind === 'welcome') dialog.set(null);
   if (parsed.newer) addToast('A newer version of brainIMATE made this file, some parts may not show', 'warning', 6000);
   else addToast(`Opened ${doc.name}`, 'success', 2000);
@@ -173,9 +180,9 @@ export function openRecent(entry: RecentFile) {
 
 // a fresh document, the file it came from is forgotten
 export function createDocument(width: number, height: number, fps: number, bg = '#ffffff') {
-  editor.newDoc(width, height, fps, bg);
-  zoomFit();
-  handle = null;
+  const doc = makeDoc(width, height, fps);
+  doc.bg = bg;
+  takeOver(doc, null);
   dialog.set(null);
 }
 
@@ -186,9 +193,7 @@ export function newDocument() {
 // back to the welcome dialog with an empty document behind it
 export function closeDocument() {
   confirmDiscard(() => {
-    editor.newDoc(1920, 1080, get(preferences).timeline.fps);
-    zoomFit();
-    handle = null;
+    takeOver(makeDoc(1920, 1080, get(preferences).timeline.fps), null);
     void showWelcome();
   }, 'Close');
 }
@@ -202,9 +207,7 @@ export async function restoreAutosave(snap: Snapshot): Promise<boolean> {
     addToast(`Could not restore: ${message(e, 'the copy is damaged')}`, 'error', 6000);
     return false;
   }
-  editor.loadDoc(parsed.doc);
-  zoomFit();
-  handle = null;
+  takeOver(parsed.doc, null);
   dirty.set(true);
   autosaveOffer.set(null);
   if (get(dialog)?.kind === 'welcome') dialog.set(null);
