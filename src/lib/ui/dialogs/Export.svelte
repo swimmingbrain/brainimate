@@ -76,6 +76,18 @@
   const canClear = $derived(s.format !== 'svg' && s.format !== 'mp4');
   const clear = $derived(canClear && s.transparent);
   const gifFps = $derived(s.gifFps || doc.fps);
+  const base = exportName(doc.name);
+  // what the file is called, the save dialog suggests it
+  const fileName = $derived.by(() => {
+    switch (s.format) {
+      case 'sequence':
+        return `${base} frames.zip`;
+      case 'sprite':
+        return s.zip ? `${base} sheet.zip` : `${base}.png and ${base}.json`;
+      default:
+        return `${base}.${s.format}`;
+    }
+  });
   const note = $derived.by(() => {
     if (!animated) return `Frame ${current + 1} of ${length}`;
     const fps = s.format === 'gif' ? gifFps : doc.fps;
@@ -120,22 +132,22 @@
 
   // the export as one blob on its way, its file name and kind
   function job(signal: AbortSignal): { blob: Promise<Blob>; name: string; kind: FileKind } {
-    const base = exportName(doc.name);
+    const name = fileName;
     switch (s.format) {
       case 'png':
-        return { blob: exportPng(doc, current, s.scale, s.transparent), name: `${base}.png`, kind: KINDS.png };
+        return { blob: exportPng(doc, current, s.scale, s.transparent), name, kind: KINDS.png };
       case 'svg': {
         const opts = { frame: current, outlineText: s.outlineText, pretty: s.pretty, background: s.background };
         const blob = prepareExport(doc).then(() => new Blob([exportSvg(doc, opts)], { type: KINDS.svg.mime }));
-        return { blob, name: `${base}.svg`, kind: KINDS.svg };
+        return { blob, name, kind: KINDS.svg };
       }
       case 'sequence': {
         const opts = { range, scale: s.scale, transparent: s.transparent, name: base };
-        return { blob: exportSequence(doc, opts, signal, setProgress), name: `${base} frames.zip`, kind: KINDS.zip };
+        return { blob: exportSequence(doc, opts, signal, setProgress), name, kind: KINDS.zip };
       }
       case 'gif': {
         const opts = { range, scale: s.scale, fps: gifFps, loop: s.loop, transparent: s.transparent, dither: s.dither };
-        return { blob: exportGif(doc, opts, signal, setProgress), name: `${base}.gif`, kind: KINDS.gif };
+        return { blob: exportGif(doc, opts, signal, setProgress), name, kind: KINDS.gif };
       }
       case 'webm':
       case 'mp4': {
@@ -143,12 +155,12 @@
         const quality = s.quality / 100;
         const opts: VideoOptions = { format, range, scale: s.scale, quality, transparent: s.transparent };
         const blob = videoModule().then(({ exportVideo }) => exportVideo(doc, opts, signal, setProgress));
-        return { blob, name: `${base}.${format}`, kind: KINDS[format] };
+        return { blob, name, kind: KINDS[format] };
       }
       case 'sprite': {
         const opts = spriteOptions(base);
         const blob = exportSpriteSheet(doc, opts, signal, setProgress).then((sheet) => spriteZip(base, sheet));
-        return { blob, name: `${base} sheet.zip`, kind: KINDS.zip };
+        return { blob, name, kind: KINDS.zip };
       }
     }
   }
@@ -159,7 +171,6 @@
 
   // the sheet and the json as two downloads, no dialog can ask twice for one click
   async function spriteFiles(signal: AbortSignal) {
-    const base = exportName(doc.name);
     const sheet = await exportSpriteSheet(doc, spriteOptions(base), signal, setProgress);
     downloadBlob(sheet.png, `${base}.png`);
     downloadBlob(new Blob([sheet.json], { type: KINDS.json.mime }), `${base}.json`);
@@ -326,6 +337,7 @@
         <canvas bind:this={preview} aria-label="Preview"></canvas>
       </div>
       <p class="note">{note}</p>
+      <p class="note file" title={fileName}>{fileName}</p>
     </div>
   </div>
   {#if busy}
@@ -406,6 +418,13 @@
     font-family: var(--font-editor);
     font-size: 10.5px;
     color: var(--text-muted);
+  }
+
+  .note.file {
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .progress {
