@@ -6,7 +6,7 @@ import { fitGradient, isFitted, isGradient, sortStops, type Gradient } from '$li
 import { localBounds } from '$lib/core/items';
 import { mixHex } from '$lib/core/color';
 import { itemLayout } from '$lib/core/fonts';
-import { glyphOutlines, type TextLayout } from '$lib/core/text';
+import { approxBaseline, glyphOutlines, type TextLayout } from '$lib/core/text';
 import type { Box } from '$lib/core/bbox';
 import { MAX_NESTING, instanceSlices, isLayerShown, itemsAt, keyframeAt, setLibrary } from '$lib/render/frame';
 import { rigFor } from '$lib/rig/bones';
@@ -192,12 +192,6 @@ function writePath(w: Writer, item: PathItem, parent: Mat, depth: number, tint: 
   line(w, depth, `<path${attrs(list)}/>`);
 }
 
-// a rough baseline for text whose font is not loaded, about where most fonts put it
-function guessBaseline(item: TextItem, n: number): number {
-  const step = item.size * item.lineHeight;
-  return n * step + (step - item.size * 1.2) / 2 + item.size * 0.95;
-}
-
 function writeText(w: Writer, item: TextItem, parent: Mat, depth: number, tint: Tint) {
   const layout = w.layout(item);
   const local = multiply(parent, item.transform);
@@ -211,9 +205,12 @@ function writeText(w: Writer, item: TextItem, parent: Mat, depth: number, tint: 
     line(w, depth, `<path${attrs([['d', d], ['transform', transform], ...style, ...common(item)])}/>`);
     return;
   }
+  // without its font the baselines are a guess about where most fonts put them
+  const step = item.size * item.lineHeight;
+  const first = approxBaseline(item.size, item.lineHeight);
   const lines: { text: string; baseline: number }[] = layout
     ? layout.lines.map((l) => ({ text: item.text.slice(l.start, l.end), baseline: l.baseline }))
-    : item.text.split('\n').map((text, n) => ({ text, baseline: guessBaseline(item, n) }));
+    : item.text.split('\n').map((text, n) => ({ text, baseline: n * step + first }));
   const anchor = item.align === 'center' ? 'middle' : item.align === 'right' ? 'end' : null;
   let x = 0;
   if (item.width !== null && item.align === 'center') x = item.width / 2;

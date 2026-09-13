@@ -247,6 +247,12 @@ export function outlineContours(commands: OutlineCommand[]): PathData[] {
   return out;
 }
 
+// about where the first baseline sits under the top of a text whose font is not there, most fonts
+// put it close to this
+export function approxBaseline(size: number, lineHeight: number): number {
+  return (size * lineHeight - size * 1.2) / 2 + size * 0.95;
+}
+
 // the contours of every glyph, worked out once per layout
 const outlines = new WeakMap<TextLayout, PathData[][]>();
 

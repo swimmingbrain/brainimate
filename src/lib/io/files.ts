@@ -16,10 +16,6 @@ const OPEN_TYPES = { extensions: [PROJECT_EXT, '.json'], mimeTypes: [PROJECT_MIM
 // the file the document was opened from or saved to, saves go straight back into it
 let handle: FileSystemFileHandle | null = null;
 
-export function currentHandle(): FileSystemFileHandle | null {
-  return handle;
-}
-
 function aborted(e: unknown): boolean {
   return e instanceof DOMException && e.name === 'AbortError';
 }

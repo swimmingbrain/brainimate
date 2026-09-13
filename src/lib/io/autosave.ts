@@ -102,7 +102,3 @@ export async function findAutosave(): Promise<Snapshot | null> {
   const saved = (await get<number>(SAVED_KEY, s).catch(() => undefined)) ?? 0;
   return newest.snap.time > saved ? newest.snap : null;
 }
-
-export function pendingAutosave(): boolean {
-  return timer !== null;
-}

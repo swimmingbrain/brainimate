@@ -6,7 +6,7 @@ import { compoundBounds, orientHoles, polylineToPath } from '$lib/core/path';
 import { ellipsePath, linePath, rectPath } from '$lib/core/shapes';
 import { makeGroupItem, makeImageItem, makePathItem, makeTextItem } from '$lib/core/items';
 import { makeAsset } from '$lib/core/assets';
-import { outlineContours, type OutlineCommand } from '$lib/core/text';
+import { approxBaseline, outlineContours, type OutlineCommand } from '$lib/core/text';
 import { DEFAULT_FONT, fontFamilies, weightOf } from '$lib/core/fonts';
 import { fromRect, isEmpty, type Box } from '$lib/core/bbox';
 import {
@@ -399,7 +399,7 @@ class Reader {
     const box = fromRect(0, 0, size * 0.55 * Math.max(...lines.map((l) => l.length)), size * lineHeight * lines.length);
     const style = this.style(props, box);
     // the file places the first baseline, a text item its top
-    const top = translate(x ?? 0, (y ?? 0) - baselineOffset(size, lineHeight));
+    const top = translate(x ?? 0, (y ?? 0) - approxBaseline(size, lineHeight));
     const item = makeTextItem(text, family, size, style, multiply(parseTransform(n.attrs.transform), top));
     item.weight = Number.isFinite(bold) ? bold : (weight ?? 400);
     item.italic = props['font-style'] === 'italic' || props['font-style'] === 'oblique';
@@ -529,11 +529,6 @@ class Reader {
         return [];
     }
   }
-}
-
-// where the first baseline sits under the top of a text item, close to what the fonts do
-export function baselineOffset(size: number, lineHeight = 1.2): number {
-  return (size * lineHeight - size * 1.2) / 2 + size * 0.95;
 }
 
 // a viewBox scaled into w by h and centered, like the default preserveAspectRatio does
