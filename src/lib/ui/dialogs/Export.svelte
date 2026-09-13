@@ -1,7 +1,8 @@
 <script module lang="ts">
   export type ExportFormat = 'png' | 'svg' | 'sequence' | 'gif' | 'webm' | 'mp4' | 'sprite';
 
-  // what the last export used, the dialog opens with it again
+  // what the last export used, the dialog opens with it again, also after a reload
+  const KEY = 'brainimate-export';
   const last = {
     format: 'png' as ExportFormat,
     scale: 1,
@@ -18,6 +19,24 @@
     padding: 2,
     zip: true
   };
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+    for (const k of Object.keys(last) as (keyof typeof last)[]) {
+      if (typeof saved[k] === typeof last[k]) (last as Record<string, unknown>)[k] = saved[k];
+    }
+  } catch {
+    // a private window or a broken entry, the defaults do
+  }
+
+  function remember(s: typeof last) {
+    remember(s);
+    try {
+      localStorage.setItem(KEY, JSON.stringify(last));
+    } catch {
+      // nothing to keep it in
+    }
+  }
 </script>
 
 <script lang="ts">
@@ -123,6 +142,8 @@
     const { width, height } = scaledSize(doc, 1, true);
     void videoModule().then(async ({ canExport }) => {
       videoOk = { webm: await canExport('webm', width, height), mp4: await canExport('mp4', width, height) };
+      // a video format this browser cannot write falls back to a picture
+      if ((s.format === 'webm' && !videoOk.webm) || (s.format === 'mp4' && !videoOk.mp4)) s.format = 'png';
     });
   });
 
@@ -179,7 +200,7 @@
 
   async function run() {
     if (busy) return;
-    Object.assign(last, s);
+    remember(s);
     controller = new AbortController();
     const signal = controller.signal;
     busy = true;
