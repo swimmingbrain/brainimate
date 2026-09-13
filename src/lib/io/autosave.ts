@@ -66,8 +66,17 @@ export function installAutosave(): () => void {
     }
     schedule();
   });
+  // a tab that goes to the background or closes writes what is still waiting right away
+  const onhide = () => {
+    if (document.visibilityState !== 'hidden' || !timer) return;
+    clearTimeout(timer);
+    timer = null;
+    void takeSnapshot().catch(() => {});
+  };
+  document.addEventListener('visibilitychange', onhide);
   return () => {
     off();
+    document.removeEventListener('visibilitychange', onhide);
     if (timer) clearTimeout(timer);
     timer = null;
   };
