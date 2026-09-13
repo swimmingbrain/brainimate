@@ -54,3 +54,10 @@ export async function removeRecent(entry: RecentFile) {
   await set(KEY, others, s);
   recentFiles.set(others);
 }
+
+export async function clearRecent() {
+  const s = db();
+  if (!s) return;
+  await set(KEY, [], s);
+  recentFiles.set([]);
+}

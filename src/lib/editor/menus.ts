@@ -47,7 +47,7 @@ import { TEMPLATES } from '$lib/rig/templates';
 import { FONT_ACCEPT, IMAGE_ACCEPT, SVG_ACCEPT, openImport } from './importer';
 import { selectTool } from '$lib/tools';
 import type { HistoryState } from './history';
-import type { RecentFile } from '$lib/io/recent';
+import { clearRecent, type RecentFile } from '$lib/io/recent';
 import { closeDocument, newDocument, openDocument, openRecent, save, saveAs } from '$lib/io/files';
 
 export interface TopMenu {
@@ -77,7 +77,11 @@ export interface MenuContext {
 
 function recentItems(recent: RecentFile[]): MenuItem[] {
   if (recent.length === 0) return [{ label: 'No recent files', disabled: true }];
-  return recent.map((file) => ({ label: file.name, action: () => openRecent(file) }));
+  return [
+    ...recent.map((file) => ({ label: file.name, action: () => openRecent(file) })),
+    SEP,
+    { label: 'Clear the list', action: () => void clearRecent() }
+  ];
 }
 
 export function buildMenus(p: Preferences, outline: boolean, workspace: Workspace, ctx: MenuContext): TopMenu[] {
