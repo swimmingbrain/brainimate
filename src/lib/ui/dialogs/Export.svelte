@@ -30,7 +30,7 @@
   }
 
   function remember(s: typeof last) {
-    remember(s);
+    Object.assign(last, s);
     try {
       localStorage.setItem(KEY, JSON.stringify(last));
     } catch {
@@ -233,7 +233,7 @@
 
   function close() {
     controller?.abort();
-    Object.assign(last, s);
+    remember(s);
     onclose();
   }
 </script>
