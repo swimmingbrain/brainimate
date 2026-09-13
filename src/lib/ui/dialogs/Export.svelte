@@ -111,7 +111,9 @@
     if (!animated) return `Frame ${current + 1} of ${length}`;
     const fps = s.format === 'gif' ? gifFps : doc.fps;
     const seconds = frames / doc.fps;
-    return `${frames} ${frames === 1 ? 'frame' : 'frames'}, ${seconds.toFixed(1)} s at ${fps} fps`;
+    // short clips get two decimals, a single frame would read as 0.0 s otherwise
+    const time = seconds.toFixed(seconds < 10 ? 2 : 1);
+    return `${frames} ${frames === 1 ? 'frame' : 'frames'}, ${time} s at ${fps} fps`;
   });
 
   // a picture of the frame that gets exported first, see through shows the checkerboard
