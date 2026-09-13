@@ -7,7 +7,7 @@ import { ellipsePath, linePath, rectPath } from '$lib/core/shapes';
 import { makeGroupItem, makeImageItem, makePathItem, makeTextItem } from '$lib/core/items';
 import { makeAsset } from '$lib/core/assets';
 import { approxBaseline, outlineContours, type OutlineCommand } from '$lib/core/text';
-import { DEFAULT_FONT, fontFamilies, weightOf } from '$lib/core/fonts';
+import { DEFAULT_FONT, fontFamilies, itemLayout, weightOf } from '$lib/core/fonts';
 import { fromRect, isEmpty, type Box } from '$lib/core/bbox';
 import {
   numbers,
@@ -398,9 +398,7 @@ class Reader {
     const lineHeight = lineStep > 0 ? lineStep / size : 1.2;
     const box = fromRect(0, 0, size * 0.55 * Math.max(...lines.map((l) => l.length)), size * lineHeight * lines.length);
     const style = this.style(props, box);
-    // the file places the first baseline, a text item its top
-    const top = translate(x ?? 0, (y ?? 0) - approxBaseline(size, lineHeight));
-    const item = makeTextItem(text, family, size, style, multiply(parseTransform(n.attrs.transform), top));
+    const item = makeTextItem(text, family, size, style);
     item.weight = Number.isFinite(bold) ? bold : (weight ?? 400);
     item.italic = props['font-style'] === 'italic' || props['font-style'] === 'oblique';
     item.lineHeight = lineHeight;
@@ -408,6 +406,9 @@ class Reader {
     if (spacing && spacing !== 'normal') item.spacing = parseLength(spacing, 0);
     const anchor = props['text-anchor'];
     item.align = anchor === 'middle' ? 'center' : anchor === 'end' ? 'right' : 'left';
+    // the file places the first baseline, a text item its top. a loaded font knows where it is
+    const baseline = itemLayout(item)?.lines[0]?.baseline ?? approxBaseline(size, lineHeight);
+    item.transform = multiply(parseTransform(n.attrs.transform), translate(x ?? 0, (y ?? 0) - baseline));
     return this.finish(item, n, props);
   }
 
