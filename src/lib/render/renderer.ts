@@ -230,7 +230,7 @@ function drawInstance(
     return;
   }
   // the symbol's items are not in the preview, a drag on the stage never reaches inside
-  for (const slice of instanceSlices(item, offset)) {
+  for (const slice of instanceSlices(item, offset, s.opts.noGuides)) {
     const own = outline ?? (slice.layer.outline ? slice.layer.color : null);
     for (const child of slice.items) drawItem(ctx, child, m, alpha, mode, own, s, slice.offset, depth + 1);
   }
@@ -267,7 +267,7 @@ function drawTinted(
   t.globalAlpha = 1;
   t.globalCompositeOperation = 'source-over';
   t.clearRect(x0, y0, x1 - x0, y1 - y0);
-  for (const slice of instanceSlices(item, offset)) {
+  for (const slice of instanceSlices(item, offset, s.opts.noGuides)) {
     for (const child of slice.items) drawItem(t, child, m, 1, 'normal', null, s, slice.offset, depth + 1);
   }
   t.setTransform(1, 0, 0, 1, 0, 0);

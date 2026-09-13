@@ -170,15 +170,19 @@ export interface LayerSlice {
 
 const slices = new WeakMap<Layer[], Map<number, LayerSlice[]>>();
 
-// the layers that draw at frame, bottom first, nested instances count their offset from these
-export function layerSlices(layers: Layer[], frame: number): LayerSlice[] {
-  const cached = isDraft(layers) ? null : slices.get(layers)?.get(frame);
+// the layers that draw at frame, bottom first, nested instances count their offset from these.
+// exports leave guide layers out, the stage shows them
+export function layerSlices(layers: Layer[], frame: number, noGuides = false): LayerSlice[] {
+  // one cache for both, the key tells them apart
+  const key = noGuides ? -frame - 1 : frame;
+  const cached = isDraft(layers) ? null : slices.get(layers)?.get(key);
   if (cached) return cached;
   const out: LayerSlice[] = [];
   // a symbol's own rig bends its items at the frame the instance maps to
   const rig = rigFor(layers, frame);
   for (const layer of layers) {
     if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
+    if (noGuides && layer.type === 'guide') continue;
     const items = posedList(itemsAt(layer, frame), rig);
     if (items.length === 0) continue;
     out.push({ layer, items, offset: frame - (keyframeAt(layer, frame)?.frame ?? 0) });
@@ -190,7 +194,7 @@ export function layerSlices(layers: Layer[], frame: number): LayerSlice[] {
       slices.set(layers, map);
     }
     if (map.size >= CACHED_FRAMES) map.delete(map.keys().next().value as number);
-    map.set(frame, out);
+    map.set(key, out);
   }
   return out;
 }
@@ -203,10 +207,10 @@ export function instanceSymbolFrame(item: InstanceItem, offset: number): number 
 }
 
 // what an instance shows: the layers of its symbol at the frame it maps to
-export function instanceSlices(item: InstanceItem, offset: number): LayerSlice[] {
+export function instanceSlices(item: InstanceItem, offset: number, noGuides = false): LayerSlice[] {
   const symbol = library[item.symbol];
   if (!symbol) return [];
-  return layerSlices(symbol.layers, instanceFrame(item, offset, layersLength(symbol.layers)));
+  return layerSlices(symbol.layers, instanceFrame(item, offset, layersLength(symbol.layers)), noGuides);
 }
 
 // how many frames past its keyframe an item on the stage is, the editor knows it for the frame it shows

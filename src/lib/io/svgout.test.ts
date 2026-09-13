@@ -170,6 +170,19 @@ describe('svg export', () => {
     expect(svg).toContain('<g transform="translate(50 50)" opacity="0.5"><path d="M0 0L4 0L4 4L0 4Z" fill="#0000ff"');
   });
 
+  it('leaves guide layers inside a symbol out', () => {
+    const doc = docWith();
+    const art = makeLayer('Art', '#fff');
+    art.keyframes[0].items.push(red(0, 0, 4, 4));
+    const guide = makeLayer('Guide', '#fff', 'guide');
+    guide.keyframes[0].items.push(red(9, 9, 4, 4));
+    doc.symbols.g = { id: 'g', name: 'Guided', kind: 'graphic', layers: [art, guide] };
+    doc.layers[0].keyframes[0].items.push(makeInstance('g', 'Guided'));
+    const svg = exportSvg(doc, { frame: 0 });
+    expect(svg).toContain('M0 0L4 0L4 4L0 4Z');
+    expect(svg).not.toContain('M9 9');
+  });
+
   it('writes a shape bent by bones where it shows, with no transform', () => {
     const doc = docWith();
     const rig = makeLayer('Rig', '#fff', 'rig');

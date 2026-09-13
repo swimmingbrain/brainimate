@@ -266,7 +266,7 @@ function writeInstance(
     own = (c) => mixHex(tint ? tint(c) : c, color, amount);
   }
   line(w, depth, `<g${attrs([['transform', matrixAttr(item.transform)], ...common(item, item.alpha)])}>`);
-  for (const slice of instanceSlices(item, offset)) {
+  for (const slice of instanceSlices(item, offset, true)) {
     for (const child of slice.items) writeItem(w, child, doc, m, depth + 1, own, slice.offset);
   }
   line(w, depth, '</g>');
