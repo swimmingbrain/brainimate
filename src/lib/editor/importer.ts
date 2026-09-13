@@ -1,10 +1,11 @@
-import type { Item, Vec } from '$lib/core/types';
+import type { Item, TextItem, Vec } from '$lib/core/types';
 import { applyPoint, invert, multiply, scale, translate } from '$lib/core/mat';
 import { cloneItem, itemBounds, makeImageItem } from '$lib/core/items';
 import { boxCenter, boxHeight, boxWidth, isEmpty } from '$lib/core/bbox';
 import { readSvgText, type SvgImport } from '$lib/io/svgin';
 import { makeAsset } from '$lib/core/assets';
-import { readFontFile, registerAssetFonts } from '$lib/core/fonts';
+import { loadFont, readFontFile, registerAssetFonts } from '$lib/core/fonts';
+import { walkItems } from '$lib/core/library';
 import { activeLayer, addToast, selection } from '$lib/stores/app';
 import { isProjectFile, openDropped } from '$lib/io/files';
 import { editor } from './editor';
@@ -193,8 +194,26 @@ export function importSvgText(text: string, name: string, at?: Vec): string | nu
   return placeSvg(svg, at);
 }
 
+// the fonts the texts of an svg ask for, loaded first so they land on their real baselines
+async function svgFonts(text: string, name: string) {
+  let svg: SvgImport;
+  try {
+    svg = readSvgText(text, name);
+  } catch {
+    return;
+  }
+  const texts: TextItem[] = [];
+  if (!svg.item) return;
+  walkItems([svg.item], (it) => {
+    if (it.type === 'text') texts.push(it);
+  });
+  await Promise.all(texts.map((t) => loadFont(t.font, t.weight, t.italic)));
+}
+
 export async function importSvg(file: Blob, name: string, at?: Vec): Promise<string | null> {
-  return importSvgText(await file.text(), name, at);
+  const text = await file.text();
+  await svgFonts(text, name);
+  return importSvgText(text, name, at);
 }
 
 function isImage(file: File): boolean {
