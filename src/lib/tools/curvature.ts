@@ -361,7 +361,10 @@ export const curvatureTool: Tool = {
 
   drawOverlay,
 
+  followsPointer: () => drawingId !== null,
+
   activate() {
+
     setCursor(PEN_CURSORS.curve);
   },
 

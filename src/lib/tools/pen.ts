@@ -441,8 +441,12 @@ export const penTool: Tool = {
 
   drawOverlay,
 
+  // the rubber band runs from the last anchor to the pointer
+  followsPointer: () => drawingId !== null,
+
   activate() {
     window.addEventListener('keyup', onkeyup);
+
     setCursor(PEN_CURSORS.start);
   },
 
