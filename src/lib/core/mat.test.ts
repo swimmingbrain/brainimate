@@ -9,6 +9,7 @@ import {
   identity,
   invert,
   multiply,
+  multiplyInto,
   rotate,
   scale,
   skew,
@@ -25,7 +26,17 @@ describe('mat', () => {
     expect(applyPoint(identity(), { x: 3, y: 4 })).toEqual({ x: 3, y: 4 });
   });
 
+  it('writes a product into a matrix it was given, even one of its own inputs', () => {
+    const a = multiply(translate(5, 2), rotate(0.3));
+    const b = scale(2, 3);
+    const out: Mat = [0, 0, 0, 0, 0, 0];
+    expectMat(multiplyInto(out, a, b), multiply(a, b));
+    const same = [...a] as Mat;
+    expectMat(multiplyInto(same, same, b), multiply(a, b));
+  });
+
   it('applies the right hand matrix first', () => {
+
     const m = multiply(translate(10, 0), scale(2));
     expect(applyPoint(m, { x: 1, y: 1 })).toEqual({ x: 12, y: 2 });
     const n = multiply(scale(2), translate(10, 0));

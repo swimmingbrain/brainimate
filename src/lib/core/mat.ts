@@ -32,7 +32,25 @@ export function multiply(m: Mat, n: Mat): Mat {
   ];
 }
 
+// m * n written into out, for hot loops that would otherwise make a new array per item
+export function multiplyInto(out: Mat, m: Mat, n: Mat): Mat {
+  const a = m[0] * n[0] + m[2] * n[1];
+  const b = m[1] * n[0] + m[3] * n[1];
+  const c = m[0] * n[2] + m[2] * n[3];
+  const d = m[1] * n[2] + m[3] * n[3];
+  const e = m[0] * n[4] + m[2] * n[5] + m[4];
+  const f = m[1] * n[4] + m[3] * n[5] + m[5];
+  out[0] = a;
+  out[1] = b;
+  out[2] = c;
+  out[3] = d;
+  out[4] = e;
+  out[5] = f;
+  return out;
+}
+
 // a singular matrix has no inverse, identity keeps the callers going
+
 export function invert(m: Mat): Mat {
   const det = m[0] * m[3] - m[1] * m[2];
   if (Math.abs(det) < 1e-12) return identity();

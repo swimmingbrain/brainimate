@@ -1,5 +1,5 @@
 import type { Asset, Doc, ImageItem, InstanceItem, Item, Layer, Mat, PathItem, TextItem } from '$lib/core/types';
-import { multiply, scaleFactor } from '$lib/core/mat';
+import { multiply, multiplyInto, scaleFactor } from '$lib/core/mat';
 import { canvasPaint, compositeOp, needsBox, type Ctx2D } from '$lib/core/style';
 import { compoundBounds } from '$lib/core/path';
 import { itemBounds, localBounds } from '$lib/core/items';
@@ -285,6 +285,9 @@ function drawTinted(
   ctx.restore();
 }
 
+// paths, texts and pictures draw with this one, only groups and instances hand their matrix down
+const LEAF: Mat = [1, 0, 0, 1, 0, 0];
+
 // offset is how many frames past its keyframe the item shows, instances pick their symbol frame by it
 function drawItem(
   ctx: Ctx2D,
@@ -300,8 +303,10 @@ function drawItem(
   if (!item.visible || item.id === s.opts.hide) return;
   const a = alpha * item.opacity;
   if (a <= 0) return;
-  const m = multiply(parent, item.transform);
+  const leaf = item.type === 'path' || item.type === 'text' || item.type === 'image';
+  const m = leaf ? multiplyInto(LEAF, parent, item.transform) : multiply(parent, item.transform);
   // a group passes its blend on to children that keep the normal one
+
   const mode = item.blend && item.blend !== 'normal' ? item.blend : blend;
   ctx.globalAlpha = a;
   ctx.globalCompositeOperation = compositeOp(mode);
