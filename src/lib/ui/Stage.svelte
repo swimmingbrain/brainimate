@@ -566,12 +566,15 @@
     background: var(--pasteboard);
   }
 
+  /* each canvas on its own layer, so a redraw does not paint the rest of the page again */
   canvas {
     position: absolute;
     left: 0;
     top: 0;
     display: block;
+    will-change: transform;
   }
+
 
   .overlay {
     touch-action: none;
