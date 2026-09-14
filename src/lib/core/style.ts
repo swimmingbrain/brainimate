@@ -76,6 +76,8 @@ export function rgba(color: string, alpha: number): string {
 
 // one canvas gradient per paint object, an edit makes a new paint so a stale one is never read
 const gradients = new WeakMap<Paint, { key: string; gradient: CanvasGradient }>();
+// the css string of a solid paint, read on every draw of every item
+const solids = new WeakMap<Paint, string>();
 
 // a gradient nobody placed yet spans the box of its item
 export function needsBox(p: Paint | null): boolean {
@@ -84,7 +86,14 @@ export function needsBox(p: Paint | null): boolean {
 
 // gradients are in item local space, so the context must already hold the item transform
 export function canvasPaint(ctx: Ctx2D, p: Paint, box: Box | null = null): string | CanvasGradient {
-  if (p.type === 'solid') return rgba(p.color, p.alpha);
+  if (p.type === 'solid') {
+    let css = solids.get(p);
+    if (css === undefined) {
+      css = rgba(p.color, p.alpha);
+      solids.set(p, css);
+    }
+    return css;
+  }
   const fit = box !== null && !isFitted(p);
   const key = fit ? `${box.minX},${box.minY},${box.maxX},${box.maxY}` : '';
   const cached = gradients.get(p);
