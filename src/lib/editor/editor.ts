@@ -113,7 +113,8 @@ class Editor {
     frame.subscribe((f) => {
       this.frame = f;
       this.pruneSelection();
-      this.markAll();
+      this.contentDirty = true;
+      if (this.overlayFollowsFrame()) this.overlayDirty = true;
     });
     selection.subscribe(() => {
       this.pruneAnchors();
@@ -131,6 +132,13 @@ class Editor {
   markOverlay() {
     this.overlayDirty = true;
   }
+
+  // outlines, anchors and bones sit on the artwork and move with the frame, guides and rulers do not
+  private overlayFollowsFrame(): boolean {
+    if (get(selection).size > 0 || get(hover) !== null || get(anchorSelection).length > 0) return true;
+    return this.currentLayers().some((l) => l.type === 'rig' && l.bones.length > 0);
+  }
+
 
   newDoc(width: number, height: number, fps: number, bg = '#ffffff') {
     const doc = makeDoc(width, height, fps);

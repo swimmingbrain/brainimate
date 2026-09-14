@@ -28,7 +28,8 @@
   import { onionFrames } from '$lib/render/onion';
   import { pause } from '$lib/anim/playback';
   import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
-  import { doubleClick, drawToolOverlay, pointerDown, pointerMove, pointerUp } from '$lib/tools';
+  import { currentTool, doubleClick, drawToolOverlay, pointerDown, pointerMove, pointerUp } from '$lib/tools';
+
   import { coalescedEvents, makeEvent, type ToolEvent } from '$lib/tools/tool';
   import { pickItem } from '$lib/tools/pick';
   import { pointerFactor } from '$lib/core/hit';
@@ -59,8 +60,8 @@
   let height = 0;
   let dpr = 1;
   let panStart: { x: number; y: number; panX: number; panY: number } | null = null;
-  // css pixels on the stage, the rulers mark where it is
-  let pointerAt: { x: number; y: number } | null = null;
+  // css pixels on the stage, the rulers mark where it is with two thin lines over the canvas
+  let pointerAt = $state<{ x: number; y: number } | null>(null);
 
   // read once from the theme, the canvas cannot use css variables
   const colors = {
@@ -246,19 +247,6 @@
     }
     ctx.stroke();
 
-    // where the pointer is, on both rulers
-    if (pointerAt) {
-      ctx.strokeStyle = colors.accent;
-      ctx.beginPath();
-      const px = Math.round(pointerAt.x) + 0.5;
-      const py = Math.round(pointerAt.y) + 0.5;
-      ctx.moveTo(px, 0);
-      ctx.lineTo(px, RULER);
-      ctx.moveTo(0, py);
-      ctx.lineTo(RULER, py);
-      ctx.stroke();
-    }
-
     ctx.fillStyle = colors.ruler;
     ctx.fillRect(0, 0, RULER, RULER);
     ctx.strokeStyle = colors.border;
@@ -365,15 +353,17 @@
       dragGuide(docEvent(e));
       return;
     }
-    // a hover only needs the latest position, a drag gets every point in between
+    // a hover only needs the latest position, a drag gets every point in between. the tools mark
+    // the overlay when a hover changes what it shows, so a still stage is not drawn again
     if (e.buttons === 0) {
       const guide = rulerAt(ev.sx, ev.sy) ? null : grabbableGuide(ev, docEvent(e));
       guideCursor = guide?.axis ?? null;
       pointerMove(ev);
+      if (currentTool()?.followsPointer?.()) editor.markOverlay();
     } else {
       for (const one of coalescedEvents(e)) pointerMove(toolEvent(one));
+      editor.markOverlay();
     }
-    editor.markOverlay();
   }
 
   function onpointerup(e: PointerEvent) {
@@ -544,7 +534,6 @@
     onpointerleave={() => {
       if (!panStart) hover.set(null);
       pointerAt = null;
-      editor.markOverlay();
     }}
     {ondblclick}
     onmousedown={(e) => {
@@ -552,6 +541,14 @@
       if (e.button === 1) e.preventDefault();
     }}
     oncontextmenu={(e) => e.preventDefault()}></canvas>
+  {#if pointerAt && $preferences.rulers.show}
+    {#if pointerAt.x > RULER}
+      <div class="ruler-mark x" style="transform: translateX({Math.round(pointerAt.x)}px)"></div>
+    {/if}
+    {#if pointerAt.y > RULER}
+      <div class="ruler-mark y" style="transform: translateY({Math.round(pointerAt.y)}px)"></div>
+    {/if}
+  {/if}
   {#if $textEditing}
     {#key $textEditing}
       <TextEditor id={$textEditing} />
@@ -578,6 +575,25 @@
 
   .overlay {
     touch-action: none;
+  }
+
+  /* where the pointer is, on both rulers */
+  .ruler-mark {
+    position: absolute;
+    left: 0;
+    top: 0;
+    background: var(--accent);
+    pointer-events: none;
+  }
+
+  .ruler-mark.x {
+    width: 1px;
+    height: 20px;
+  }
+
+  .ruler-mark.y {
+    width: 20px;
+    height: 1px;
   }
 
   .stage.dropping::after {
