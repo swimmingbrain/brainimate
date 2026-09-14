@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://animate.swimmingbrain.dev"><strong>Try it now &rarr; animate.swimmingbrain.dev</strong></a>
+  <a href="https://anima.swimmingbrain.dev"><strong>Try it now &rarr; anima.swimmingbrain.dev</strong></a>
 </p>
 
 brainIMATE is an open source app for drawing and animating, like Adobe Animate and Illustrator, but in a browser tab. It is made for illustrators and for people who never animated before. There is no account and no server, everything stays in your browser.

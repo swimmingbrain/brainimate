@@ -5,9 +5,9 @@
 <svelte:head>
   <title>Imprint | brainIMATE</title>
   <meta name="description" content="Legal notice and contact information for brainIMATE, free vector drawing and animation in the browser by Braian Plaku." />
-  <link rel="canonical" href="https://animate.swimmingbrain.dev/imprint" />
+  <link rel="canonical" href="https://anima.swimmingbrain.dev/imprint" />
   <meta property="og:title" content="Imprint | brainIMATE" />
-  <meta property="og:url" content="https://animate.swimmingbrain.dev/imprint" />
+  <meta property="og:url" content="https://anima.swimmingbrain.dev/imprint" />
 </svelte:head>
 
 <div class="legal">

@@ -5,9 +5,9 @@
 <svelte:head>
   <title>Privacy Policy | brainIMATE</title>
   <meta name="description" content="brainIMATE privacy policy. Your drawings and animations stay in your browser, nothing is uploaded to any server." />
-  <link rel="canonical" href="https://animate.swimmingbrain.dev/privacy" />
+  <link rel="canonical" href="https://anima.swimmingbrain.dev/privacy" />
   <meta property="og:title" content="Privacy Policy | brainIMATE" />
-  <meta property="og:url" content="https://animate.swimmingbrain.dev/privacy" />
+  <meta property="og:url" content="https://anima.swimmingbrain.dev/privacy" />
 </svelte:head>
 
 <div class="legal">

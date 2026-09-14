@@ -39,7 +39,7 @@
       uploaded.
     </p>
     <div class="links">
-      <a href="https://animate.swimmingbrain.dev" target="_blank" rel="noopener">animate.swimmingbrain.dev</a>
+      <a href="https://anima.swimmingbrain.dev" target="_blank" rel="noopener">anima.swimmingbrain.dev</a>
       <a href="https://github.com/swimmingbrain/brainimate" target="_blank" rel="noopener" class="with-icon">
         <Icon name="github" size={12} /> GitHub
       </a>

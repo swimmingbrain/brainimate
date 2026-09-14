@@ -5,9 +5,9 @@
 <svelte:head>
   <title>Terms of Service | brainIMATE</title>
   <meta name="description" content="brainIMATE terms of service. What you can expect from us and what we ask of you." />
-  <link rel="canonical" href="https://animate.swimmingbrain.dev/terms" />
+  <link rel="canonical" href="https://anima.swimmingbrain.dev/terms" />
   <meta property="og:title" content="Terms of Service | brainIMATE" />
-  <meta property="og:url" content="https://animate.swimmingbrain.dev/terms" />
+  <meta property="og:url" content="https://anima.swimmingbrain.dev/terms" />
 </svelte:head>
 
 <div class="legal">

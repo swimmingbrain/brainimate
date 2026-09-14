@@ -15,17 +15,17 @@
 <svelte:head>
   <title>brainIMATE | Vector Drawing and 2D Animation in Your Browser</title>
   <meta name="description" content="Draw vector art and animate it on a timeline, right in your browser. Bones, tweens, onion skin, GIF and video export. No account, nothing uploaded." />
-  <link rel="canonical" href="https://animate.swimmingbrain.dev/" />
+  <link rel="canonical" href="https://anima.swimmingbrain.dev/" />
   <meta property="og:title" content="brainIMATE | Vector Drawing and 2D Animation in Your Browser" />
   <meta property="og:description" content="Draw vector art and animate it on a timeline, right in your browser. No account, nothing uploaded." />
-  <meta property="og:url" content="https://animate.swimmingbrain.dev/" />
+  <meta property="og:url" content="https://anima.swimmingbrain.dev/" />
   <meta name="twitter:title" content="brainIMATE | Vector Drawing and 2D Animation in Your Browser" />
   <meta name="twitter:description" content="Draw vector art and animate it on a timeline, right in your browser. No account, nothing uploaded." />
   {@html `<script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: 'brainIMATE',
-    url: 'https://animate.swimmingbrain.dev',
+    url: 'https://anima.swimmingbrain.dev',
     applicationCategory: 'DesignApplication',
     operatingSystem: 'Web',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
