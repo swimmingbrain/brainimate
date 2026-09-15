@@ -333,13 +333,22 @@ function drawItem(
   }
 }
 
-// the layers bottom to top, base maps world units to device pixels
-export function renderLayers(ctx: Ctx2D, layers: Layer[], base: Mat, opts: RenderOptions) {
+// the layers bottom to top, base maps world units to device pixels. from and to pick a run of them,
+// the rig and the folders still come from the whole list
+export function renderLayers(
+  ctx: Ctx2D,
+  layers: Layer[],
+  base: Mat,
+  opts: RenderOptions,
+  from = 0,
+  to = layers.length - 1
+) {
   // bound items show bent by the rig of their timeline at this frame
   const rig = rigFor(layers, opts.frame, opts.pose ?? null);
   const s: DrawState = { opts, viewScale: scaleFactor(base), preview: rig ? undefined : opts.preview };
   ctx.save();
-  for (const layer of layers) {
+  for (let i = Math.max(0, from); i <= Math.min(to, layers.length - 1); i++) {
+    const layer = layers[i];
     if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
     if (opts.noGuides && layer.type === 'guide') continue;
     const outline = opts.outline || layer.outline ? layer.color : null;
