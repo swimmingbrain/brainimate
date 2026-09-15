@@ -1,28 +1,25 @@
 <script lang="ts">
   import { TOOL_INFO } from '$lib/tools';
+  import { TOOL_HINTS } from '$lib/tools/hints';
   import { zoomFit } from '$lib/editor/view';
-  import { activeTool, frame, playing, selection, stageSize, view } from '$lib/stores/app';
-  import { docVersion, editor } from '$lib/editor/editor';
-  import { formatTime } from '$lib/anim/playback';
-
-  const fps = $derived.by(() => {
-    void $docVersion;
-    return editor.doc.fps;
-  });
+  import { activeTool, playing, selection, stageSize, view } from '$lib/stores/app';
 </script>
 
+<!-- the frame and the time live in the timeline bar, playing changes nothing down here -->
 <div class="status-bar">
   <div class="left">
     <span class="status-item tool">{TOOL_INFO[$activeTool].name}</span>
     <span class="sep"></span>
-    <span class="status-item" class:live={$playing}>frame {$frame + 1}</span>
-    <span class="sep"></span>
-    <span class="status-item" class:live={$playing} title="Minutes, seconds and frames">{formatTime($frame, fps)}</span>
-    <span class="sep"></span>
-    <span class="status-item">{$selection.size === 0 ? 'nothing selected' : `${$selection.size} selected`}</span>
+    <span class="status-item hint" title={TOOL_HINTS[$activeTool]}>{TOOL_HINTS[$activeTool]}</span>
   </div>
 
   <div class="right">
+    {#if $playing}
+      <span class="status-item live">playing</span>
+      <span class="sep"></span>
+    {/if}
+    <span class="status-item">{$selection.size === 0 ? 'nothing selected' : `${$selection.size} selected`}</span>
+    <span class="sep"></span>
     <span class="status-item">{$stageSize.width} x {$stageSize.height}</span>
     <span class="sep"></span>
     <button class="status-item toggle" onclick={zoomFit} title="Fit in window (Ctrl+0)">
@@ -52,17 +49,27 @@
     font-family: var(--font-editor);
   }
 
-  /* the frame and time change while playing, on their own layer they do not paint the page again */
-  .left {
-    will-change: transform;
-  }
-
   .left,
   .right {
     display: flex;
     align-items: center;
     gap: 3px;
     min-width: 0;
+  }
+
+  .left {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .right {
+    flex-shrink: 0;
+  }
+
+  .hint {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .status-item {
@@ -115,6 +122,12 @@
   @media (max-width: 900px) {
     .credit,
     .credit-sep {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .hint {
       display: none;
     }
   }
