@@ -230,9 +230,12 @@
     flex-shrink: 0;
   }
 
+  /* the frame and time change while playing, on their own layer they do not paint the page again */
   .readout {
     gap: 6px;
+    will-change: transform;
   }
+
 
   .field {
     width: 52px;

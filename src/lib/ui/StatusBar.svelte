@@ -52,9 +52,15 @@
     font-family: var(--font-editor);
   }
 
+  /* the frame and time change while playing, on their own layer they do not paint the page again */
+  .left {
+    will-change: transform;
+  }
+
   .left,
   .right {
     display: flex;
+
     align-items: center;
     gap: 3px;
     min-width: 0;
