@@ -11,6 +11,8 @@ import { MAX_NESTING, instanceSlices, stageOffset } from '$lib/render/frame';
 // screen pixels, doubled for fingers and pens
 export const ANCHOR_TOLERANCE = 6;
 export const HANDLE_TOLERANCE = 5;
+// the least band around a stroke that counts as a hit, a thin line is still easy to grab
+export const STROKE_TOLERANCE = 4;
 
 let shared: Ctx2D | null = null;
 
@@ -30,7 +32,7 @@ export function pointerFactor(pointerType: string): number {
 export function strokeTolerance(item: PathItem, m: Mat, zoom: number, factor = 1): number {
   const s = item.style.scaleStroke ? scaleFactor(m) : 1;
   const width = item.style.stroke ? item.style.width : 0;
-  return Math.max(4, (width * s * zoom) / 2 + 2) * factor;
+  return Math.max(STROKE_TOLERANCE, (width * s * zoom) / 2 + 2) * factor;
 }
 
 function hitPath(item: PathItem, m: Mat, p: Vec, zoom: number, factor: number): boolean {
@@ -58,6 +60,12 @@ export function hitItem(item: Item, m: Mat, p: Vec, zoom: number, factor = 1, of
   if (item.type === 'path') pad = strokeTolerance(item, m, zoom, factor) / zoom;
   else if (item.type === 'text') pad = item.size * 0.3 * scaleFactor(m);
   if (item.type !== 'group' && !contains(expand(itemBounds(item, m, offset, depth), pad), p)) return false;
+  return hitInside(item, m, p, zoom, factor, offset, depth);
+}
+
+// the exact test without the box test in front, for callers that already know p is near the item
+export function hitInside(item: Item, m: Mat, p: Vec, zoom: number, factor = 1, offset?: number, depth = 0): boolean {
+  if (!item.visible) return false;
   switch (item.type) {
     case 'path':
       return hitPath(item, m, p, zoom, factor);
