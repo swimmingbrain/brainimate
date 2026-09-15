@@ -51,6 +51,11 @@ export interface StageOptions extends RenderOptions {
   onion?: { options: OnionOptions; key: string } | null;
   // a symbol open in place: what is around it shows dimmed and its layers are drawn through base
   edit?: { base: Mat; dim: DimLevel[] } | null;
+  shadow?: boolean;
+  // keep the layers around the live ones as pictures, off while playing since every frame is new
+  cache?: boolean;
+  // the layer the tools work on, it always draws live
+  active?: string | null;
 }
 
 // one level around an open symbol, the main timeline or the symbol it sits in, without the instance opened
@@ -86,7 +91,10 @@ function imageFor(asset: Asset): HTMLImageElement | null {
   let img = images.get(asset.id);
   if (!img) {
     img = new Image();
-    img.onload = () => onImageLoad?.();
+    img.onload = () => {
+      epoch++;
+      onImageLoad?.();
+    };
     img.src = asset.data;
     images.set(asset.id, img);
   }
@@ -438,14 +446,9 @@ function drawDimmed(ctx: Ctx2D, levels: DimLevel[], view: Mat, opts: RenderOptio
   ctx.restore();
 }
 
-// pasteboard, the stage with its shadow, the artwork and the grid on top
-export function renderStage(ctx: Ctx2D, doc: Doc, layers: Layer[], v: RenderView, opts: StageOptions) {
+// the stage background and everything under the first live layer
+function drawUnder(ctx: Ctx2D, doc: Doc, layers: Layer[], v: RenderView, opts: StageOptions, upTo: number) {
   const dpr = v.dpr;
-  const x = v.panX;
-  const y = v.panY;
-  const w = doc.width * v.zoom;
-  const h = doc.height * v.zoom;
-
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
@@ -454,33 +457,192 @@ export function renderStage(ctx: Ctx2D, doc: Doc, layers: Layer[], v: RenderView
 
   // shadow sizes are in device pixels, the transform does not scale them
   ctx.save();
-  ctx.shadowColor = opts.colors.shadow;
-  ctx.shadowBlur = 24 * dpr;
-  ctx.shadowOffsetY = 3 * dpr;
+  if (opts.shadow !== false) {
+    ctx.shadowColor = opts.colors.shadow;
+    ctx.shadowBlur = 24 * dpr;
+    ctx.shadowOffsetY = 3 * dpr;
+  }
   ctx.fillStyle = doc.bg;
-  ctx.fillRect(x, y, w, h);
+  ctx.fillRect(v.panX, v.panY, doc.width * v.zoom, doc.height * v.zoom);
   ctx.restore();
 
   ctx.save();
-  if (!opts.pasteboard) {
-    ctx.beginPath();
-    ctx.rect(x, y, w, h);
-    ctx.clip();
-  }
-  const view: Mat = [dpr * v.zoom, 0, 0, dpr * v.zoom, dpr * v.panX, dpr * v.panY];
-  let base = view;
-  if (opts.edit) {
-    drawDimmed(ctx, opts.edit.dim, view, opts);
-    base = multiply(view, opts.edit.base);
-  }
+  clipStage(ctx, doc, v, opts);
+  const base = baseMatrix(v, opts);
+  if (opts.edit) drawDimmed(ctx, opts.edit.dim, viewMatrix(v), opts);
   if (opts.onion) {
     const key = `${opts.onion.key}|${base.join(',')}|${opts.outline}|${libraryStamp()}`;
     drawOnion(ctx, layers, key, opts.onion.options, (target, frame, outline) => {
       renderLayers(target, layers, base, { frame, outline: outline || opts.outline, assets: opts.assets });
     });
   }
-  renderLayers(ctx, layers, base, opts);
+  renderLayers(ctx, layers, base, opts, 0, upTo - 1);
   ctx.restore();
+}
 
-  if (opts.grid) drawGrid(ctx, v, opts.grid, x, y, w, h);
+function viewMatrix(v: RenderView): Mat {
+  return [v.dpr * v.zoom, 0, 0, v.dpr * v.zoom, v.dpr * v.panX, v.dpr * v.panY];
+}
+
+// a symbol open in place draws its layers through the place of the instance
+function baseMatrix(v: RenderView, opts: StageOptions): Mat {
+  const view = viewMatrix(v);
+  return opts.edit ? multiply(view, opts.edit.base) : view;
+}
+
+// without the pasteboard everything is cut at the edge of the stage
+function clipStage(ctx: Ctx2D, doc: Doc, v: RenderView, opts: StageOptions) {
+  if (opts.pasteboard) return;
+  ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
+  ctx.beginPath();
+  ctx.rect(v.panX, v.panY, doc.width * v.zoom, doc.height * v.zoom);
+  ctx.clip();
+}
+
+// counts fonts and pictures that arrived, what was drawn before them is stale
+let epoch = 0;
+
+export function invalidateStageCache() {
+  epoch++;
+}
+
+// one kept picture of some layers: a key seen two draws in a row is drawn once into the surface and
+// laid down from then on. a key that changes on every draw, like scrubbing, never pays for the copy
+interface Slot {
+  surface: Surface | null;
+  key: unknown[];
+  built: boolean;
+  seen: unknown[];
+}
+
+const under: Slot = { surface: null, key: [], built: false, seen: [] };
+const above: Slot = { surface: null, key: [], built: false, seen: [] };
+
+function throughSlot(ctx: Ctx2D, slot: Slot, key: unknown[], draw: (target: Ctx2D) => void) {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const fits = slot.surface !== null && slot.surface.width === w && slot.surface.height === h;
+  if (!(slot.built && fits && sameKey(slot.key, key))) {
+    if (!sameKey(slot.seen, key)) {
+      slot.seen = key;
+      slot.built = false;
+      draw(ctx);
+      return;
+    }
+    slot.surface = sized(slot.surface, w, h);
+    const t = context(slot.surface);
+    t.setTransform(1, 0, 0, 1, 0, 0);
+    t.globalAlpha = 1;
+    t.globalCompositeOperation = 'source-over';
+    t.clearRect(0, 0, w, h);
+    draw(t);
+    slot.key = key;
+    slot.built = true;
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(slot.surface!, 0, 0);
+  ctx.restore();
+}
+
+function holdsAny(items: Item[], ids: Map<string, Item> | undefined): boolean {
+  if (!ids || ids.size === 0) return false;
+  for (const item of items) {
+    if (ids.has(item.id)) return true;
+    if (item.type === 'group' && holdsAny(item.children, ids)) return true;
+  }
+  return false;
+}
+
+// the run of layers that draws live: the active one and every layer a tool is changing
+function liveRange(layers: Layer[], opts: StageOptions): { from: number; to: number } | null {
+  if (opts.pose) return null;
+  let from = layers.length;
+  let to = -1;
+  layers.forEach((layer, i) => {
+    const live =
+      layer.id === opts.active ||
+      opts.added?.some((a) => a.layerId === layer.id) ||
+      holdsAny(itemsAt(layer, opts.frame), opts.preview);
+    if (!live) return;
+    from = Math.min(from, i);
+    to = Math.max(to, i);
+  });
+  // nothing live, every layer goes into the picture underneath
+  if (to < from) return { from: layers.length, to: layers.length - 1 };
+  return { from, to };
+}
+
+// a blend mode mixes with what is under it, drawn into an empty picture it would come out wrong
+function blends(items: Item[], depth = 0): boolean {
+  for (const item of items) {
+    if (item.blend && item.blend !== 'normal') return true;
+    if (item.type === 'group' && blends(item.children, depth)) return true;
+    if (item.type === 'instance' && depth < MAX_NESTING) {
+      for (const slice of instanceSlices(item, 0)) if (blends(slice.items, depth + 1)) return true;
+    }
+  }
+  return false;
+}
+
+function layersBlend(layers: Layer[], frame: number, from: number): boolean {
+  for (let i = from; i < layers.length; i++) if (blends(itemsAt(layers[i], frame))) return true;
+  return false;
+}
+
+// what the pictures of the layers depend on besides the run they hold
+function sharedKey(ctx: Ctx2D, doc: Doc, layers: Layer[], v: RenderView, opts: StageOptions): unknown[] {
+  return [
+    ctx.canvas.width,
+    ctx.canvas.height,
+    v.zoom,
+    v.panX,
+    v.panY,
+    v.dpr,
+    layers,
+    opts.frame,
+    opts.outline,
+    opts.assets,
+    opts.hide,
+    opts.pasteboard,
+    doc.width,
+    doc.height,
+    currentLibrary(),
+    epoch
+  ];
+}
+
+// pasteboard, the stage with its shadow, the artwork and the grid on top. while editing, the layers
+// under and over the live ones are kept as two pictures, so a drag only draws the layers it changes
+export function renderStage(ctx: Ctx2D, doc: Doc, layers: Layer[], v: RenderView, opts: StageOptions) {
+  const live = opts.cache ? liveRange(layers, opts) : null;
+  if (!live) {
+    drawUnder(ctx, doc, layers, v, opts, layers.length);
+  } else {
+    const shared = sharedKey(ctx, doc, layers, v, opts);
+    const underKey = [...shared, live.from, doc.bg, opts.colors.pasteboard, opts.colors.shadow, opts.shadow];
+    underKey.push(opts.onion?.key ?? null);
+    if (opts.edit) {
+      underKey.push(...opts.edit.base);
+      for (const l of opts.edit.dim) underKey.push(l.layers, l.frame, l.skip, ...l.base);
+    }
+    throughSlot(ctx, under, underKey, (t) => drawUnder(t, doc, layers, v, opts, live.from));
+
+    const base = baseMatrix(v, opts);
+    const drawRun = (t: Ctx2D, from: number, to: number) => {
+      t.save();
+      clipStage(t, doc, v, opts);
+      renderLayers(t, layers, base, opts, from, to);
+      t.restore();
+    };
+    drawRun(ctx, live.from, live.to);
+    const top = live.to + 1;
+    if (top < layers.length) {
+      if (layersBlend(layers, opts.frame, top)) drawRun(ctx, top, layers.length - 1);
+      else throughSlot(ctx, above, [...shared, top], (t) => drawRun(t, top, layers.length - 1));
+    }
+  }
+  if (opts.grid) drawGrid(ctx, v, opts.grid, v.panX, v.panY, doc.width * v.zoom, doc.height * v.zoom);
 }
