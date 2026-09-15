@@ -50,7 +50,6 @@ export function multiplyInto(out: Mat, m: Mat, n: Mat): Mat {
 }
 
 // a singular matrix has no inverse, identity keeps the callers going
-
 export function invert(m: Mat): Mat {
   const det = m[0] * m[3] - m[1] * m[2];
   if (Math.abs(det) < 1e-12) return identity();

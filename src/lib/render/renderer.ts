@@ -306,7 +306,6 @@ function drawItem(
   const leaf = item.type === 'path' || item.type === 'text' || item.type === 'image';
   const m = leaf ? multiplyInto(LEAF, parent, item.transform) : multiply(parent, item.transform);
   // a group passes its blend on to children that keep the normal one
-
   const mode = item.blend && item.blend !== 'normal' ? item.blend : blend;
   ctx.globalAlpha = a;
   ctx.globalCompositeOperation = compositeOp(mode);

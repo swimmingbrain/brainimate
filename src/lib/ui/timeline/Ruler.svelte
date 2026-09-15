@@ -170,7 +170,6 @@
 
   .ruler {
     display: block;
-
     cursor: ew-resize;
     touch-action: none;
   }

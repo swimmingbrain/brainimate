@@ -139,7 +139,6 @@ class Editor {
     return this.currentLayers().some((l) => l.type === 'rig' && l.bones.length > 0);
   }
 
-
   newDoc(width: number, height: number, fps: number, bg = '#ffffff') {
     const doc = makeDoc(width, height, fps);
     doc.bg = bg;

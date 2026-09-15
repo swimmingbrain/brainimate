@@ -236,7 +236,6 @@
     will-change: transform;
   }
 
-
   .field {
     width: 52px;
   }

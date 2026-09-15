@@ -95,7 +95,6 @@ export interface Tool {
   drawOverlay?(ctx: CanvasRenderingContext2D): void;
   // true while the overlay shows something at the pointer, so a hover move has to draw it again
   followsPointer?(): boolean;
-
   activate?(): void;
   deactivate?(): void;
   // settings shown in the stage bar while the tool is active

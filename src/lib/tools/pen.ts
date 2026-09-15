@@ -446,7 +446,6 @@ export const penTool: Tool = {
 
   activate() {
     window.addEventListener('keyup', onkeyup);
-
     setCursor(PEN_CURSORS.start);
   },
 

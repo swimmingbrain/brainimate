@@ -29,7 +29,6 @@
   import { pause } from '$lib/anim/playback';
   import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
   import { currentTool, doubleClick, drawToolOverlay, pointerDown, pointerMove, pointerUp } from '$lib/tools';
-
   import { coalescedEvents, makeEvent, type ToolEvent } from '$lib/tools/tool';
   import { pickItem } from '$lib/tools/pick';
   import { pointerFactor } from '$lib/core/hit';
@@ -574,7 +573,6 @@
     display: block;
     will-change: transform;
   }
-
 
   .overlay {
     touch-action: none;

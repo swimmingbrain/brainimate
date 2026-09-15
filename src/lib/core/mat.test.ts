@@ -36,7 +36,6 @@ describe('mat', () => {
   });
 
   it('applies the right hand matrix first', () => {
-
     const m = multiply(translate(10, 0), scale(2));
     expect(applyPoint(m, { x: 1, y: 1 })).toEqual({ x: 12, y: 2 });
     const n = multiply(scale(2), translate(10, 0));

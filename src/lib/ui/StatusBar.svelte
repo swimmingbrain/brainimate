@@ -60,7 +60,6 @@
   .left,
   .right {
     display: flex;
-
     align-items: center;
     gap: 3px;
     min-width: 0;
