@@ -10,7 +10,7 @@ import { defaultPreferences, preferences } from '$lib/stores/preferences';
 
 function prefs() {
   const p = defaultPreferences();
-  p.snapping = { enabled: true, points: true, objects: true, pixels: false, smartGuides: true };
+  p.snapping = { ...p.snapping, enabled: true, points: true, objects: true, pixels: false, smartGuides: true };
   p.guides.snap = true;
   p.guides.show = true;
   p.grid.snap = false;
