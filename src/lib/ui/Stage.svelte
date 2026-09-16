@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
   import {
+    activeLayer,
     activeTool,
     addToast,
     anchorSelection,
@@ -24,7 +25,7 @@
     zoomAround
   } from '$lib/editor/view';
   import { editor, hover } from '$lib/editor/editor';
-  import { renderStage, setImageLoaded, type DimLevel } from '$lib/render/renderer';
+  import { invalidateStageCache, renderStage, setImageLoaded, type DimLevel } from '$lib/render/renderer';
   import { onionFrames } from '$lib/render/onion';
   import { pause } from '$lib/anim/playback';
   import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
@@ -173,7 +174,9 @@
         colors,
         onion: onionFor(prefs),
         edit: editLevels(),
-        hide: get(textEditing)
+        hide: get(textEditing),
+        cache: !get(playing),
+        active: get(activeLayer)
       }
     );
   }
@@ -459,7 +462,10 @@
   onMount(() => {
     readColors();
     // desynchronized cuts the pen latency where the browser supports it
-    contentCtx = content!.getContext('2d', { desynchronized: true });
+    // the content always covers itself with the pasteboard, an opaque canvas spares the page under it.
+    // the pen strokes show on the overlay, it gets the low latency path, the content keeps the
+    // normal one, which keeps scrubbing smooth where the browser draws in software
+    contentCtx = content!.getContext('2d', { alpha: false });
     overlayCtx = overlay!.getContext('2d', { desynchronized: true });
 
     const observer = new ResizeObserver(resize);
@@ -482,7 +488,11 @@
     setRedraw(markDirty);
     setImageLoaded(markDirty);
     setStageElement(host);
-    setFontLoaded(markDirty);
+    // a font that arrives lays its texts out again, the kept pictures of the layers are stale
+    setFontLoaded(() => {
+      invalidateStageCache();
+      markDirty();
+    });
 
     let raf = 0;
     const loop = () => {
