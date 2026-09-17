@@ -14,7 +14,8 @@
   import { MAX_DOCK, MAX_TIMELINE, MIN_DOCK, MIN_TIMELINE, preferences, setGroup } from '$lib/stores/preferences';
   import { installShortcuts } from '$lib/editor/shortcuts';
   import { filesPicked, importFiles, setImportInput } from '$lib/editor/importer';
-  import { installUnloadGuard, showWelcome } from '$lib/io/files';
+  import { installUnloadGuard, startup } from '$lib/io/files';
+  import { installSettings } from '$lib/editor/settings';
   import { installAutosave } from '$lib/io/autosave';
 
   // what the stage keeps at the least when the dock or the timeline grow
@@ -43,9 +44,11 @@
     const off = installShortcuts();
     const offAutosave = installAutosave();
     const offGuard = installUnloadGuard();
-    void showWelcome();
+    const offSettings = installSettings();
+    void startup();
     return () => {
       off();
+      offSettings();
       offAutosave();
       offGuard();
       setImportInput(null);
