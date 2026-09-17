@@ -218,6 +218,34 @@ export async function showWelcome() {
   autosaveOffer.set(await findAutosave().catch(() => null));
 }
 
+// the last file opens by itself only while the browser still lets the app read it, else the recent
+// list is one click away
+async function openLast() {
+  const [last] = await loadRecent().catch(() => [] as RecentFile[]);
+  if (!last?.handle) return;
+  const mode: FileSystemHandlePermissionDescriptor = { mode: 'readwrite' };
+  const state = last.handle.queryPermission ? await last.handle.queryPermission(mode).catch(() => 'denied') : 'granted';
+  if (state !== 'granted') {
+    addToast(`${last.name} is in File, Open recent`, 'info', 4000);
+    return;
+  }
+  try {
+    await openFile(await last.handle.getFile(), last.handle);
+  } catch {
+    addToast(`${last.name} is not there anymore`, 'warning', 4000);
+  }
+}
+
+// what the editor starts with: the welcome dialog, or with it skipped the last file or a blank
+// document. an autosaved copy waiting to be restored always brings the welcome back
+export async function startup() {
+  const g = get(preferences).general;
+  if (!g.skipWelcome) return showWelcome();
+  const snap = await findAutosave().catch(() => null);
+  if (snap) return showWelcome();
+  if (g.startWith === 'last') await openLast();
+}
+
 // the page asks before it closes on changes that are not saved
 export function installUnloadGuard(): () => void {
   const onbeforeunload = (e: BeforeUnloadEvent) => {
