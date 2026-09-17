@@ -29,7 +29,16 @@ export class History<T extends object> {
   // number of entries that are applied, the ones after it are redo
   private cursor = 0;
 
-  constructor(private readonly limit = 200) {}
+  constructor(private limit = 200) {}
+
+  // a lower limit drops the oldest steps right away
+  setLimit(limit: number) {
+    this.limit = Math.max(1, Math.round(limit));
+    const extra = this.entries.length - this.limit;
+    if (extra <= 0) return;
+    this.entries.splice(0, extra);
+    this.cursor = Math.max(0, this.cursor - extra);
+  }
 
   push(label: string, patches: Patch[], inverse: Patch[], key: string | null = null, now = Date.now()): void {
     if (patches.length === 0) return;

@@ -63,4 +63,21 @@ describe('History', () => {
     for (let i = 1; i <= 5; i++) s = edit(h, s, 'n', (d) => void (d.n = i));
     expect(h.length).toBe(3);
   });
+
+  it('drops the oldest steps when the limit goes down, redo stays', () => {
+    const h = new History<State>(10);
+    let s: State = { n: 0, list: [] };
+    for (let i = 1; i <= 6; i++) s = edit(h, s, 'n', (d) => void (d.n = i));
+    s = h.undo(s)!.state;
+    expect(s.n).toBe(5);
+    h.setLimit(3);
+    expect(h.length).toBe(3);
+    s = h.redo(s)!.state;
+    expect(s.n).toBe(6);
+    s = h.undo(s)!.state;
+    s = h.undo(s)!.state;
+    s = h.undo(s)!.state;
+    expect(s.n).toBe(3);
+    expect(h.undo(s)).toBeNull();
+  });
 });
