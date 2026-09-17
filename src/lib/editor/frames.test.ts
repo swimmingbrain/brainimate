@@ -149,6 +149,21 @@ describe('layer commands', () => {
     expect(editor.doc.layers).toHaveLength(3);
   });
 
+  it('asks before a layer goes when the preferences say so', () => {
+    addLayer();
+    const id = get(activeLayer)!;
+    setGroup('general', { confirmDelete: true });
+    deleteLayer(id);
+    expect(get(dialog)?.kind).toBe('confirm');
+    expect(editor.doc.layers).toHaveLength(2);
+    dialog.set(null);
+    setGroup('general', { confirmDelete: false });
+    deleteLayer(id);
+    expect(get(dialog)).toBeNull();
+    expect(editor.doc.layers).toHaveLength(1);
+    setGroup('general', { confirmDelete: true });
+  });
+
   it('keeps the last drawing layer', () => {
     addFolder();
     deleteLayer(first().id);

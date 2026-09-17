@@ -6,6 +6,7 @@ import { makeInstance, parentMatrix, withNewIds } from '$lib/core/items';
 import { newId } from '$lib/core/ids';
 import { copySymbol, makesLoop, nextSymbolName, symbolUses } from '$lib/core/library';
 import { addToast, dialog, selection } from '$lib/stores/app';
+import { preferences } from '$lib/stores/preferences';
 import { LAYER_COLORS, editor, makeLayer } from './editor';
 import { replaceInDraft } from './commands';
 import { dominantBone } from '$lib/rig/skin';
@@ -152,16 +153,21 @@ export function deleteSymbol(id: string) {
     addToast(`${symbol.name} is used by ${uses} ${uses === 1 ? 'instance' : 'instances'}`, 'warning');
     return;
   }
+  const remove = () =>
+    editor.commit('Delete symbol', (draft) => {
+      delete draft.symbols[id];
+    });
+  if (!get(preferences).general.confirmDelete) {
+    remove();
+    return;
+  }
   dialog.set({
     kind: 'confirm',
     title: 'Delete symbol',
     message: `${symbol.name} goes from the library. Undo brings it back.`,
     confirm: 'Delete',
     danger: true,
-    onconfirm: () =>
-      editor.commit('Delete symbol', (draft) => {
-        delete draft.symbols[id];
-      })
+    onconfirm: remove
   });
 }
 

@@ -120,7 +120,7 @@ describe('rig commands', () => {
     expect(arm().skin).toBeNull();
     editor.undo();
     expect(arm().skin).not.toBeNull();
-    deleteLayer(rigLayer().id);
+    deleteLayer(rigLayer().id, true);
     expect(arm().skin).toBeNull();
   });
 

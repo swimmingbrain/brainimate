@@ -3,6 +3,7 @@ import type { Item, Layer } from '$lib/core/types';
 import { newId } from '$lib/core/ids';
 import { descendantIds, moveLayer } from '$lib/anim/timeline';
 import { activeLayer, addToast, collapsedFolders, dialog, frameSelection, selection } from '$lib/stores/app';
+import { preferences } from '$lib/stores/preferences';
 import { LAYER_COLORS, editor, makeLayer } from './editor';
 
 // the next free number for names like 'Layer 3' or 'Folder 2'
@@ -55,12 +56,16 @@ export function deleteLayer(id: string, confirmed = false) {
     addToast('The last layer stays', 'warning');
     return;
   }
-  if (gone.size > 1 && !confirmed) {
+  // a folder always asks, a single layer when the preferences say so
+  if ((gone.size > 1 || get(preferences).general.confirmDelete) && !confirmed) {
     const count = gone.size - 1;
+    const folder = gone.size > 1;
     dialog.set({
       kind: 'confirm',
-      title: 'Delete folder',
-      message: `${layers[index].name} holds ${count} ${count === 1 ? 'layer' : 'layers'}, they go with it.`,
+      title: folder ? 'Delete folder' : 'Delete layer',
+      message: folder
+        ? `${layers[index].name} holds ${count} ${count === 1 ? 'layer' : 'layers'}, they go with it.`
+        : `${layers[index].name} goes with all its frames. Undo brings it back.`,
       confirm: 'Delete',
       danger: true,
       onconfirm: () => deleteLayer(id, true)
