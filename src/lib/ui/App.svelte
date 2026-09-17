@@ -16,6 +16,7 @@
   import { filesPicked, importFiles, setImportInput } from '$lib/editor/importer';
   import { installUnloadGuard, startup } from '$lib/io/files';
   import { installSettings } from '$lib/editor/settings';
+  import { installTooltips } from './tooltips';
   import { installAutosave } from '$lib/io/autosave';
 
   // what the stage keeps at the least when the dock or the timeline grow
@@ -45,10 +46,12 @@
     const offAutosave = installAutosave();
     const offGuard = installUnloadGuard();
     const offSettings = installSettings();
+    const offTips = installTooltips();
     void startup();
     return () => {
       off();
       offSettings();
+      offTips();
       offAutosave();
       offGuard();
       setImportInput(null);
