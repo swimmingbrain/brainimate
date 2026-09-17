@@ -3,7 +3,8 @@
   import Icon from '$lib/icons/Icon.svelte';
   import { notYet, redo, showDocumentSettings, undo } from '$lib/editor/commands';
   import { openDocument, save } from '$lib/io/files';
-  import { dialog, dirty, docName, setWorkspace, workspace, WORKSPACES } from '$lib/stores/app';
+  import { dialog, dirty, docName } from '$lib/stores/app';
+  import { BUILTIN_WORKSPACES, setWorkspace, workspace } from '$lib/stores/workspace';
   import { historyState } from '$lib/editor/editor';
 </script>
 
@@ -21,9 +22,9 @@
   </div>
 
   <div class="workspaces">
-    {#each WORKSPACES as ws (ws.id)}
-      <button class="tool-btn" class:active={$workspace === ws.id} title="{ws.label} workspace" onclick={() => setWorkspace(ws.id)}>
-        {ws.label}
+    {#each BUILTIN_WORKSPACES as ws (ws.id)}
+      <button class="tool-btn" class:active={$workspace === ws.id} title="{ws.name} workspace" onclick={() => setWorkspace(ws.id)}>
+        {ws.name}
       </button>
     {/each}
   </div>

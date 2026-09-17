@@ -6,10 +6,10 @@ import {
   contextMenu,
   dialog,
   frameSelection,
-  toggleLibrary,
   toolCursor,
   toolOptions
 } from '$lib/stores/app';
+import { toggleLibrary } from '$lib/stores/workspace';
 import { BUCKET_CURSOR, INK_CURSOR } from '$lib/tools/cursors';
 import { TOOL_IDS, TOOL_INFO } from '$lib/tools/tool';
 import { keyDown, selectTool } from '$lib/tools';

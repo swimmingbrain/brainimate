@@ -9,18 +9,8 @@
   import Align from './panels/Align.svelte';
   import Transform from './panels/Transform.svelte';
   import Rig from './panels/Rig.svelte';
-  import { DOCK_BOTTOM, DOCK_TOP, togglePanel } from '$lib/stores/app';
+  import { DOCK_BOTTOM, DOCK_TOP, PANEL_LABELS, togglePanel } from '$lib/stores/workspace';
   import { preferences, setGroup, type DockTab } from '$lib/stores/preferences';
-
-  const LABELS: Record<DockTab, string> = {
-    properties: 'Properties',
-    color: 'Color',
-    swatches: 'Swatches',
-    library: 'Library',
-    align: 'Align',
-    transform: 'Transform',
-    rig: 'Rig'
-  };
 
   const PANELS: Record<DockTab, Component> = {
     properties: Properties,
@@ -42,7 +32,7 @@
   const bottomTab = $derived(bottom.includes(panels.bottomTab) ? panels.bottomTab : bottom[0]);
 
   function tabsOf(ids: DockTab[]) {
-    return ids.map((id) => ({ id, label: LABELS[id] }));
+    return ids.map((id) => ({ id, label: PANEL_LABELS[id] }));
   }
 
   function resize(delta: number) {

@@ -14,9 +14,9 @@
   import { cssPaint } from '$lib/core/gradient';
   import { docVersion } from '$lib/editor/editor';
   import { activeTool, colorTarget, fillPaint, frame, selection, strokePaint } from '$lib/stores/app';
-  import { preferences } from '$lib/stores/preferences';
+  import { preferences, visibleTools } from '$lib/stores/preferences';
 
-  const tools = $derived($preferences.toolbar.tools.map((id) => TOOL_INFO[id]));
+  const tools = $derived(visibleTools($preferences).map((id) => TOOL_INFO[id]));
   // the chips show the selection like the color panel, or the colors new shapes get
   const paints = $derived.by(() => {
     void $docVersion;

@@ -1,7 +1,8 @@
 <script lang="ts">
   import Menu from './Menu.svelte';
   import { buildMenus } from '$lib/editor/menus';
-  import { outlineMode, selection, workspace } from '$lib/stores/app';
+  import { outlineMode, selection } from '$lib/stores/app';
+  import { workspace } from '$lib/stores/workspace';
   import { preferences } from '$lib/stores/preferences';
   import { historyState } from '$lib/editor/editor';
   import { alignToStage } from '$lib/editor/align';

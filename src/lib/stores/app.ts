@@ -2,7 +2,7 @@ import { get, writable } from 'svelte/store';
 import type { ToolId } from '$lib/tools/tool';
 import type { Paint } from '$lib/core/types';
 import type { FrameClip, FrameRange } from '$lib/anim/timeline';
-import { preferences, setGroup, type DockTab, type Workspace } from './preferences';
+import { preferences } from './preferences';
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error';
 
@@ -24,7 +24,7 @@ export function dismissToast(id: string) {
   toasts.update((t) => t.filter((toast) => toast.id !== id));
 }
 
-export type PreferencesCategory = 'general' | 'toolbar' | 'stage' | 'drawing' | 'timeline';
+export type PreferencesCategory = 'general' | 'tools' | 'pens' | 'canvas' | 'timeline' | 'shortcuts' | 'workspace';
 
 export type Dialog =
   | { kind: 'preferences'; category?: PreferencesCategory }
@@ -120,50 +120,3 @@ export const view = writable<View>({ zoom: 1, panX: 0, panY: 0 });
 
 // size of the stage in document pixels, until the document model holds it
 export const stageSize = writable({ width: 1920, height: 1080, background: '#ffffff' });
-
-export const WORKSPACES: { id: Workspace; label: string }[] = [
-  { id: 'essentials', label: 'Essentials' },
-  { id: 'illustrate', label: 'Illustrate' },
-  { id: 'animate', label: 'Animate' },
-  { id: 'rig', label: 'Rig' }
-];
-
-export const workspace = writable<Workspace>(get(preferences).workspace);
-
-// a workspace picks the panel tabs and how tall the timeline is, widths stay as they are
-const WORKSPACE_PANELS: Record<Workspace, { topTab: DockTab; bottomTab: DockTab; timelineHeight: number }> = {
-  essentials: { topTab: 'properties', bottomTab: 'color', timelineHeight: 220 },
-  illustrate: { topTab: 'properties', bottomTab: 'swatches', timelineHeight: 120 },
-  animate: { topTab: 'properties', bottomTab: 'library', timelineHeight: 300 },
-  rig: { topTab: 'rig', bottomTab: 'library', timelineHeight: 240 }
-};
-
-export function setWorkspace(ws: Workspace) {
-  const panels = WORKSPACE_PANELS[ws];
-  preferences.update((p) => ({ ...p, workspace: ws, panels: { ...p.panels, ...panels, hidden: [] } }));
-  workspace.set(ws);
-}
-
-// the dock holds two panel groups, one above the other
-export const DOCK_TOP: DockTab[] = ['properties', 'transform', 'align', 'rig'];
-export const DOCK_BOTTOM: DockTab[] = ['color', 'swatches', 'library'];
-
-export function showDockTab(tab: DockTab) {
-  const hidden = get(preferences).panels.hidden.filter((t) => t !== tab);
-  if (DOCK_TOP.includes(tab)) setGroup('panels', { topTab: tab, hidden });
-  else setGroup('panels', { bottomTab: tab, hidden });
-}
-
-export function togglePanel(tab: DockTab) {
-  const hidden = get(preferences).panels.hidden;
-  if (hidden.includes(tab)) showDockTab(tab);
-  else setGroup('panels', { hidden: [...hidden, tab] });
-}
-
-// the library tab comes to the front, or goes away when it already is there
-export function toggleLibrary() {
-  const p = get(preferences).panels;
-  const front = p.bottomTab === 'library' && !p.hidden.includes('library');
-  if (front) setGroup('panels', { hidden: [...p.hidden, 'library'] });
-  else showDockTab('library');
-}

@@ -10,7 +10,8 @@ import { editor, hover } from '$lib/editor/editor';
 import { clearSelection, select } from '$lib/editor/selection';
 import { styledItems } from '$lib/editor/commands';
 import { clearSnap, snapEvent } from '$lib/editor/snap';
-import { activeStop, colorTarget, fillPaint, showDockTab, strokePaint, toolCursor, view } from '$lib/stores/app';
+import { activeStop, colorTarget, fillPaint, strokePaint, toolCursor, view } from '$lib/stores/app';
+import { showDockTab } from '$lib/stores/workspace';
 import { pickItem } from './pick';
 import { toolBase, type Tool, type ToolEvent } from './tool';
 

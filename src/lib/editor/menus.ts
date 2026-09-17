@@ -1,5 +1,6 @@
-import { dialog, setWorkspace, togglePanel, WORKSPACES, type MenuItem } from '$lib/stores/app';
-import { setGroup, type DockTab, type Preferences, type Workspace } from '$lib/stores/preferences';
+import { dialog, type MenuItem } from '$lib/stores/app';
+import { setGroup, type DockTab, type Preferences } from '$lib/stores/preferences';
+import { allWorkspaces, resetWorkspace, setWorkspace, togglePanel } from '$lib/stores/workspace';
 import {
   addFolder,
   addLayer,
@@ -84,7 +85,7 @@ function recentItems(recent: RecentFile[]): MenuItem[] {
   ];
 }
 
-export function buildMenus(p: Preferences, outline: boolean, workspace: Workspace, ctx: MenuContext): TopMenu[] {
+export function buildMenus(p: Preferences, outline: boolean, workspace: string, ctx: MenuContext): TopMenu[] {
   const none = !ctx.hasSelection;
   return [
     {
@@ -313,13 +314,13 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: Workspac
           action: () => togglePanel(panel.id)
         })),
         SEP,
-        ...WORKSPACES.map((ws) => ({
-          label: `${ws.label} workspace`,
+        ...allWorkspaces(p).map((ws) => ({
+          label: `${ws.name} workspace`,
           checked: workspace === ws.id,
           action: () => setWorkspace(ws.id)
         })),
         SEP,
-        { label: 'Reset workspace', action: () => setWorkspace(workspace) }
+        { label: 'Reset workspace', action: resetWorkspace }
       ]
     },
     {
