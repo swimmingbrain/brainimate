@@ -2,6 +2,7 @@ import { delMany, get, getMany, set } from 'idb-keyval';
 import { get as read, writable } from 'svelte/store';
 import { docVersion, editor } from '$lib/editor/editor';
 import { dirty } from '$lib/stores/app';
+import { preferences } from '$lib/stores/preferences';
 import { db } from './db';
 import { serialize } from './project';
 
@@ -12,7 +13,6 @@ export interface Snapshot {
   blob: Blob;
 }
 
-export const AUTOSAVE_DELAY = 2000;
 const SLOTS = 5;
 const SAVED_KEY = 'saved-at';
 const slotKey = (i: number) => `autosave-${i}`;
@@ -47,12 +47,18 @@ export async function takeSnapshot(): Promise<Snapshot | null> {
   return snap;
 }
 
+// the delay and the switch come from the preferences, in seconds
 function schedule() {
   if (timer) clearTimeout(timer);
-  timer = setTimeout(() => {
-    timer = null;
-    void takeSnapshot().catch(() => {});
-  }, AUTOSAVE_DELAY);
+  const g = read(preferences).general;
+  if (!g.autosave) return;
+  timer = setTimeout(
+    () => {
+      timer = null;
+      void takeSnapshot().catch(() => {});
+    },
+    Math.max(1, g.autosaveDelay) * 1000
+  );
 }
 
 // a snapshot comes 2 s after the last change. the document is read once the edit is done, never
