@@ -29,6 +29,8 @@ export type PreferencesCategory = 'general' | 'tools' | 'pens' | 'canvas' | 'tim
 export type Dialog =
   | { kind: 'preferences'; category?: PreferencesCategory }
   | { kind: 'shortcuts' }
+  | { kind: 'palette' }
+  | { kind: 'getting-started' }
   | { kind: 'about' }
   | { kind: 'export' }
   | { kind: 'welcome' }
