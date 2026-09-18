@@ -89,3 +89,19 @@ describe('commands', () => {
     expect(commandById('insert.stress')?.dev).toBe(true);
   });
 });
+
+describe('key bindings', () => {
+  it('put every command on its tinykeys spelling and follow the overrides', async () => {
+    const { bindingsFor } = await import('./shortcuts');
+    const map = bindingsFor({});
+    for (const key of ['$mod+s', '$mod+Shift+s', '$mod+o', '$mod+e', '$mod+i', 'r', 'Shift+Comma', 'F6', 'Shift+Slash']) {
+      expect(map[key], key).toBeTypeOf('function');
+    }
+    const moved = bindingsFor({ 'tool.rect': 'Shift+R' });
+    expect(moved['Shift+r']).toBeTypeOf('function');
+    expect(moved.r).toBeUndefined();
+    // only the file keys work from inside a field
+    const fields = bindingsFor({}, true);
+    expect(Object.keys(fields).sort()).toEqual(['$mod+Shift+s', '$mod+e', '$mod+i', '$mod+o', '$mod+s']);
+  });
+});
