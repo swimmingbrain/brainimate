@@ -1,7 +1,9 @@
 <script lang="ts">
   import Dialog from '../Dialog.svelte';
-  import { TOOL_INFO } from '$lib/tools';
-  import { TOOL_IDS } from '$lib/tools/tool';
+  import { COMMANDS, keysOf } from '$lib/editor/actions';
+  import { keyLabel } from '$lib/editor/keys';
+  import { dialog } from '$lib/stores/app';
+  import { preferences } from '$lib/stores/preferences';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -10,132 +12,55 @@
     what: string;
   }
 
-  const tools: Shortcut[] = TOOL_IDS.filter((id) => TOOL_INFO[id].shortcut).map((id) => ({
-    keys: TOOL_INFO[id].shortcut.split('+'),
-    what: TOOL_INFO[id].name
-  }));
-
-  const groups: { name: string; items: Shortcut[] }[] = [
-    {
-      name: 'Tools',
-      items: [
-        ...tools,
-        { keys: ['S'], what: 'Ink bottle, the bucket for strokes' },
-        { keys: ['Space'], what: 'Hand while held' },
-        { keys: ['Shift', 'click'], what: 'Bucket inks the stroke' },
-        { keys: ['Alt', 'click'], what: 'Eyedropper styles the selection' }
-      ]
-    },
-    {
-      name: 'Colors',
-      items: [
-        { keys: ['X'], what: 'Fill or stroke in front' },
-        { keys: ['Shift', 'X'], what: 'Swap fill and stroke' },
-        { keys: ['D'], what: 'Black stroke and white fill' },
-        { keys: ['/'], what: 'No color for the chip in front' }
-      ]
-    },
-    {
-      name: 'Timeline',
-      items: [
-        { keys: ['Enter'], what: 'Play and pause' },
-        { keys: [',/.'], what: 'One frame back and forward' },
-        { keys: ['Shift', ',/.'], what: 'First and last frame' },
-        { keys: ['F5'], what: 'Insert frame' },
-        { keys: ['Shift', 'F5'], what: 'Remove frame' },
-        { keys: ['F6'], what: 'Insert keyframe' },
-        { keys: ['F7'], what: 'Insert blank keyframe' },
-        { keys: ['Shift', 'F6'], what: 'Clear keyframe' },
-        { keys: ['Ctrl', 'Alt', 'C/V'], what: 'Copy and paste frames' },
-        { keys: ['Alt', 'Shift', 'O'], what: 'Onion skin' },
-        { keys: ['Ctrl', 'Wheel'], what: 'Zoom the frames' }
-      ]
-    },
-    {
-      name: 'Rig',
-      items: [
-        { keys: ['Esc'], what: 'End the bone chain and bind what it reaches' },
-        { keys: ['Shift', 'click'], what: 'Bone at 15 degree steps' },
-        { keys: ['Drag'], what: 'Pose a joint with the selection tool' },
-        { keys: ['Alt', 'drag'], what: 'Turn only the bone a joint sits on' },
-        { keys: ['Double click'], what: 'Pin or unpin a joint' },
-        { keys: ['Delete'], what: 'Delete the picked bone' }
-      ]
-    },
-    {
-      name: 'File',
-      items: [
-        { keys: ['Ctrl', 'O'], what: 'Open a document' },
-        { keys: ['Ctrl', 'S'], what: 'Save' },
-        { keys: ['Ctrl', 'Shift', 'S'], what: 'Save as a new file' },
-        { keys: ['Ctrl', 'I'], what: 'Import svg, pictures and fonts' },
-        { keys: ['Ctrl', 'E'], what: 'Export' }
-      ]
-    },
-    {
-      name: 'Edit',
-      items: [
-        { keys: ['Ctrl', 'Z'], what: 'Undo' },
-        { keys: ['Ctrl', 'Shift', 'Z'], what: 'Redo' },
-        { keys: ['Ctrl', 'C/X/V'], what: 'Copy, cut, paste' },
-        { keys: ['Ctrl', 'Shift', 'V'], what: 'Paste in place' },
-        { keys: ['Ctrl', 'D'], what: 'Duplicate' },
-        { keys: ['Ctrl', 'A'], what: 'Select all' },
-        { keys: ['Ctrl', 'G'], what: 'Group' },
-        { keys: ['Ctrl', 'Shift', 'G'], what: 'Ungroup' },
-        { keys: ['Ctrl', 'B'], what: 'Break apart' },
-        { keys: ['Ctrl', 'J'], what: 'Join paths' },
-        { keys: ['Ctrl', 'Up/Down'], what: 'Bring forward, send backward' },
-        { keys: ['Ctrl', 'Shift', 'Up/Down'], what: 'Bring to front, send to back' },
-        { keys: ['F8'], what: 'Convert to symbol' },
-        { keys: ['Ctrl', 'Shift', 'O'], what: 'Create outlines from text' },
-        { keys: ['Delete'], what: 'Delete the selection' },
-        { keys: ['Arrows'], what: 'Nudge 1 px, with Shift 10 px' },
-        { keys: ['Double click'], what: 'Edit a symbol in place or type into text' },
-        { keys: ['Esc'], what: 'Deselect, leave a symbol, or end the path being drawn' },
-        { keys: ['Enter'], what: 'End the path being drawn' },
-        { keys: ['Backspace'], what: 'Remove the last anchor while drawing' }
-      ]
-    },
-    {
-      name: 'View',
-      items: [
-        { keys: ['Ctrl', '='], what: 'Zoom in' },
-        { keys: ['Ctrl', '-'], what: 'Zoom out' },
-        { keys: ['Ctrl', '1'], what: 'Actual size' },
-        { keys: ['Ctrl', '0'], what: 'Fit the stage in the window' },
-        { keys: ['Ctrl', 'wheel'], what: 'Zoom around the pointer' },
-        { keys: ['Ctrl', "'"], what: 'Grid' },
-        { keys: ['Ctrl', 'R'], what: 'Rulers' },
-        { keys: ['Ctrl', ';'], what: 'Guides' },
-        { keys: ['Ctrl', 'U'], what: 'Smart guides' },
-        { keys: ['Ctrl', 'L'], what: 'Library' }
-      ]
-    },
-    {
-      name: 'File',
-      items: [
-        { keys: ['Ctrl', 'N'], what: 'New document' },
-        { keys: ['Ctrl', 'O'], what: 'Open' },
-        { keys: ['Ctrl', 'S'], what: 'Save' },
-        { keys: ['Ctrl', 'Shift', 'S'], what: 'Save as' },
-        { keys: ['Ctrl', 'Shift', 'E'], what: 'Export' },
-        { keys: ['Ctrl', ','], what: 'Preferences' }
-      ]
-    }
+  // what the pointer does with a key held, these have no command of their own
+  const POINTER: Shortcut[] = [
+    { keys: ['Space'], what: 'Hand while held' },
+    { keys: ['Shift', 'drag'], what: 'Keep angles at 45 degrees and shapes square' },
+    { keys: ['Alt', 'drag'], what: 'Drag a copy, or draw from the center' },
+    { keys: ['Shift', 'click'], what: 'Add to the selection, the bucket inks the stroke' },
+    { keys: ['Alt', 'click'], what: 'Eyedropper styles the selection' },
+    { keys: ['Ctrl', 'drag'], what: 'Pull a corner out of a segment' },
+    { keys: ['Ctrl', 'wheel'], what: 'Zoom around the pointer, the frames in the timeline' },
+    { keys: ['Double click'], what: 'Enter a group or a symbol, type into text, pin a joint' },
+    { keys: ['Alt', 'drag joint'], what: 'Turn only the bone a joint sits on' }
   ];
+
+  // the commands that have a key, in the groups of the command list, the keys in use
+  const groups = $derived.by(() => {
+    const out: { name: string; items: Shortcut[] }[] = [];
+    for (const cmd of COMMANDS) {
+      if (cmd.dev && !import.meta.env.DEV) continue;
+      const keys = keysOf(cmd.id, $preferences.shortcuts);
+      if (keys.length === 0) continue;
+      let group = out.find((g) => g.name === cmd.group);
+      if (!group) {
+        group = { name: cmd.group, items: [] };
+        out.push(group);
+      }
+      group.items.push({ keys: keys.map(keyLabel), what: cmd.label });
+    }
+    out.push({ name: 'Pointer', items: POINTER });
+    return out;
+  });
+
+  function edit() {
+    dialog.set({ kind: 'preferences', category: 'shortcuts' });
+  }
 </script>
 
-<Dialog title="Keyboard shortcuts" description="The keys the editor listens to." width={760} {onclose}>
+<Dialog title="Keyboard shortcuts" description="The keys the editor listens to, as they are set now." width={760} {onclose}>
   <div class="columns">
     {#each groups as group (group.name)}
       <section class="group">
         <h3 class="group-name">{group.name}</h3>
-        {#each group.items as item}
+        {#each group.items as item, n (n)}
           <div class="row">
             <span class="keys">
-              {#each item.keys as key, i}
-                {#if i > 0}<span class="plus">+</span>{/if}<kbd>{key}</kbd>
+              {#each item.keys as combo, k (k)}
+                {#if k > 0}<span class="or">or</span>{/if}
+                {#each combo.split(/\+(?=.)/) as key, i (i)}
+                  {#if i > 0}<span class="plus">+</span>{/if}<kbd>{key}</kbd>
+                {/each}
               {/each}
             </span>
             <span class="what">{item.what}</span>
@@ -145,6 +70,7 @@
     {/each}
   </div>
   {#snippet footer()}
+    <button class="dialog-btn" onclick={edit}>Change keys...</button>
     <button class="dialog-btn" onclick={onclose}>Close</button>
   {/snippet}
 </Dialog>
@@ -184,13 +110,18 @@
     display: flex;
     align-items: center;
     gap: 2px;
-    flex: 0 0 124px;
+    flex: 0 0 150px;
     flex-wrap: wrap;
   }
 
-  .plus {
+  .plus,
+  .or {
     font-size: 10px;
     color: var(--text-muted);
+  }
+
+  .or {
+    margin: 0 3px;
   }
 
   .what {
