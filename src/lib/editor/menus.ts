@@ -1,55 +1,13 @@
 import { dialog, type MenuItem } from '$lib/stores/app';
-import { setGroup, type DockTab, type Preferences } from '$lib/stores/preferences';
-import { allWorkspaces, resetWorkspace, setWorkspace, togglePanel } from '$lib/stores/workspace';
-import {
-  addFolder,
-  addLayer,
-  addRigLayer,
-  arrangeSelection,
-  booleanSelection,
-  breakApart,
-  closeSelectedPaths,
-  flipSelection,
-  groupSelection,
-  joinSelectedPaths,
-  outlineSelectedStrokes,
-  simplifySelectedPaths,
-  smoothSelectedPaths,
-  ungroupSelection,
-  insertBlankKeyframes,
-  insertFrames,
-  insertKeyframes,
-  redo,
-  removeTransform,
-  reverseSelectedPaths,
-  rotateSelection,
-  showDocumentSettings,
-  toggleGrid,
-  toggleGuides,
-  toggleOnion,
-  toggleOutline,
-  togglePasteboard,
-  toggleRulers,
-  toggleSmartGuides,
-  toggleSnapToGrid,
-  toggleSnapToGuides,
-  toggleSnapping,
-  undo
-} from './commands';
-import { clearGuides, toggleGuideLock } from './guides';
-import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
-import { copy, cut, duplicate, pasteFromSystem } from './clipboard';
-import { clearSelection, deleteSelection, selectAll } from './selection';
-import { alignSelection, alignToStage, distributeSelection } from './align';
-import { newSymbol, openConvertDialog } from './symbols';
-import { outlineSelectedText } from './outlines';
-import { addRigTemplate, bindSelection, resetPose, unbindSelection } from './rig';
-import { TEMPLATES } from '$lib/rig/templates';
-import { FONT_ACCEPT, IMAGE_ACCEPT, SVG_ACCEPT, openImport } from './importer';
-import { selectTool } from '$lib/tools';
+import { setGroup, type Preferences } from '$lib/stores/preferences';
+import { allWorkspaces, setWorkspace } from '$lib/stores/workspace';
+import { alignToStage } from './align';
+import { commandById, keysOf } from './actions';
+import { keyLabel } from './keys';
 import type { HistoryState } from './history';
 import { clearRecent, type RecentFile } from '$lib/io/recent';
-import { closeDocument, newDocument, openDocument, openRecent, save, saveAs } from '$lib/io/files';
+import { openRecent } from '$lib/io/files';
+import { TEMPLATES } from '$lib/rig/templates';
 
 export interface TopMenu {
   label: string;
@@ -58,17 +16,7 @@ export interface TopMenu {
 
 const SEP: MenuItem = { label: '', separator: true };
 
-const PANELS: { id: DockTab; label: string }[] = [
-  { id: 'properties', label: 'Properties' },
-  { id: 'color', label: 'Color' },
-  { id: 'swatches', label: 'Swatches' },
-  { id: 'library', label: 'Library' },
-  { id: 'align', label: 'Align' },
-  { id: 'transform', label: 'Transform' },
-  { id: 'rig', label: 'Rig' }
-];
-
-// what the edit menu needs to know to grey out entries
+// what the menus need to know to grey out and tick entries
 export interface MenuContext {
   history: HistoryState;
   hasSelection: boolean;
@@ -87,82 +35,90 @@ function recentItems(recent: RecentFile[]): MenuItem[] {
 
 export function buildMenus(p: Preferences, outline: boolean, workspace: string, ctx: MenuContext): TopMenu[] {
   const none = !ctx.hasSelection;
+  // an entry for a command with the key it answers to now, the label can read a little different
+  const c = (id: string, extra: Partial<MenuItem> = {}): MenuItem => {
+    const cmd = commandById(id);
+    if (!cmd) return { label: id, disabled: true };
+    const key = keysOf(id, p.shortcuts)[0];
+    return { label: cmd.label, shortcut: key ? keyLabel(key) : undefined, action: cmd.run, ...extra };
+  };
+  // the same for an entry that only makes sense with something selected
+  const s = (id: string, extra: Partial<MenuItem> = {}): MenuItem => c(id, { disabled: none, ...extra });
+  const tick = (id: string, checked: boolean, label?: string): MenuItem => c(id, { checked, ...(label ? { label } : {}) });
+
   return [
     {
       label: 'File',
       items: [
-        { label: 'New...', action: newDocument },
-        { label: 'Open...', shortcut: 'Ctrl+O', action: openDocument },
+        c('file.new', { label: 'New...' }),
+        c('file.open', { label: 'Open...' }),
         { label: 'Open recent', children: recentItems(ctx.recent) },
         SEP,
-        { label: 'Save', shortcut: 'Ctrl+S', action: () => void save() },
-        { label: 'Save as...', shortcut: 'Ctrl+Shift+S', action: () => void saveAs() },
-        { label: 'Close', action: closeDocument },
+        c('file.save'),
+        c('file.save-as', { label: 'Save as...' }),
+        c('file.close', { label: 'Close' }),
         SEP,
         {
-          label: 'Import',
-          shortcut: 'Ctrl+I',
+          ...c('file.import'),
+          action: undefined,
           children: [
-            { label: 'SVG...', action: () => openImport(SVG_ACCEPT) },
-            { label: 'Image...', action: () => openImport(IMAGE_ACCEPT) },
-            { label: 'Font...', action: () => openImport(FONT_ACCEPT) }
+            c('file.import-svg', { label: 'SVG...' }),
+            c('file.import-image', { label: 'Image...' }),
+            c('file.import-font', { label: 'Font...' })
           ]
         },
-        { label: 'Export...', shortcut: 'Ctrl+E', action: () => dialog.set({ kind: 'export' }) },
+        c('file.export', { label: 'Export...' }),
         SEP,
-        { label: 'Document settings...', action: showDocumentSettings }
+        c('file.settings', { label: 'Document settings...' })
       ]
     },
     {
       label: 'Edit',
       items: [
-        {
+        c('edit.undo', {
           label: ctx.history.undoLabel ? `Undo ${ctx.history.undoLabel.toLowerCase()}` : 'Undo',
-          shortcut: 'Ctrl+Z',
-          disabled: !ctx.history.canUndo,
-          action: undo
-        },
-        {
+          disabled: !ctx.history.canUndo
+        }),
+        c('edit.redo', {
           label: ctx.history.redoLabel ? `Redo ${ctx.history.redoLabel.toLowerCase()}` : 'Redo',
-          shortcut: 'Ctrl+Shift+Z',
-          disabled: !ctx.history.canRedo,
-          action: redo
-        },
+          disabled: !ctx.history.canRedo
+        }),
         SEP,
-        { label: 'Cut', shortcut: 'Ctrl+X', disabled: none, action: () => cut() },
-        { label: 'Copy', shortcut: 'Ctrl+C', disabled: none, action: () => copy() },
-        { label: 'Paste', shortcut: 'Ctrl+V', action: () => pasteFromSystem() },
-        { label: 'Paste in place', shortcut: 'Ctrl+Shift+V', action: () => pasteFromSystem(true) },
-        { label: 'Duplicate', shortcut: 'Ctrl+D', disabled: none, action: duplicate },
-        { label: 'Delete', shortcut: 'Delete', disabled: none, action: deleteSelection },
+        s('edit.cut'),
+        s('edit.copy'),
+        c('edit.paste'),
+        c('edit.paste-in-place'),
+        s('edit.duplicate'),
+        s('edit.delete'),
         SEP,
-        { label: 'Select all', shortcut: 'Ctrl+A', action: selectAll },
-        { label: 'Deselect', shortcut: 'Ctrl+Shift+A', disabled: none, action: clearSelection },
+        c('edit.select-all'),
+        s('edit.deselect'),
         SEP,
-        { label: 'Preferences...', shortcut: 'Ctrl+,', action: () => dialog.set({ kind: 'preferences' }) },
-        { label: 'Keyboard shortcuts', shortcut: '?', action: () => dialog.set({ kind: 'shortcuts' }) }
+        c('edit.palette', { label: 'Command palette...' }),
+        c('edit.preferences', { label: 'Preferences...' }),
+        c('help.shortcuts')
       ]
     },
     {
       label: 'View',
       items: [
-        { label: 'Zoom in', shortcut: 'Ctrl+=', action: zoomIn },
-        { label: 'Zoom out', shortcut: 'Ctrl+-', action: zoomOut },
-        { label: 'Actual size', shortcut: 'Ctrl+1', action: zoomActual },
-        { label: 'Fit in window', shortcut: 'Ctrl+0', action: zoomFit },
+        c('view.zoom-in'),
+        c('view.zoom-out'),
+        c('view.actual'),
+        c('view.fit'),
         SEP,
-        { label: 'Rulers', shortcut: 'Ctrl+R', checked: p.rulers.show, action: toggleRulers },
-        { label: 'Grid', shortcut: "Ctrl+'", checked: p.grid.show, action: toggleGrid },
-        { label: 'Guides', shortcut: 'Ctrl+;', checked: p.guides.show, action: toggleGuides },
-        { label: 'Lock guides', checked: p.guides.lock, action: toggleGuideLock },
-        { label: 'Clear guides', action: clearGuides },
+        tick('view.rulers', p.rulers.show),
+        tick('view.grid', p.grid.show),
+        tick('view.guides', p.guides.show),
+        tick('view.lock-guides', p.guides.lock),
+        c('view.clear-guides'),
         {
           label: 'Snapping',
           children: [
-            { label: 'Snapping', checked: p.snapping.enabled, action: toggleSnapping },
+            tick('view.snapping', p.snapping.enabled),
             SEP,
-            { label: 'Snap to grid', checked: p.grid.snap, action: toggleSnapToGrid },
-            { label: 'Snap to guides', checked: p.guides.snap, action: toggleSnapToGuides },
+            tick('view.snap-grid', p.grid.snap),
+            tick('view.snap-guides', p.guides.snap),
             {
               label: 'Snap to points',
               checked: p.snapping.points,
@@ -178,82 +134,55 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
               checked: p.snapping.pixels,
               action: () => setGroup('snapping', { pixels: !p.snapping.pixels })
             },
-            { label: 'Smart guides', shortcut: 'Ctrl+U', checked: p.snapping.smartGuides, action: toggleSmartGuides }
+            tick('view.smart-guides', p.snapping.smartGuides)
           ]
         },
         SEP,
-        { label: 'Outline mode', checked: outline, action: toggleOutline },
-        { label: 'Onion skin', shortcut: 'Alt+Shift+O', checked: p.timeline.onion, action: toggleOnion },
-        { label: 'Pasteboard', checked: p.stage.pasteboard, action: togglePasteboard }
+        tick('view.outline', outline),
+        tick('view.onion', p.timeline.onion),
+        tick('view.pasteboard', p.stage.pasteboard)
       ]
     },
     {
       label: 'Insert',
       items: [
-        { label: 'Layer', action: addLayer },
-        { label: 'Layer folder', action: addFolder },
-        { label: 'Rig layer', action: addRigLayer },
+        c('insert.layer', { label: 'Layer' }),
+        c('insert.folder', { label: 'Layer folder' }),
+        c('insert.rig-layer', { label: 'Rig layer' }),
         SEP,
-        { label: 'Frame', shortcut: 'F5', action: insertFrames },
-        { label: 'Keyframe', shortcut: 'F6', action: insertKeyframes },
-        { label: 'Blank keyframe', shortcut: 'F7', action: insertBlankKeyframes },
+        c('timeline.insert-frame', { label: 'Frame' }),
+        c('timeline.keyframe', { label: 'Keyframe' }),
+        c('timeline.blank-keyframe', { label: 'Blank keyframe' }),
         SEP,
-        { label: 'New symbol', action: newSymbol },
-        { label: 'Text', shortcut: 'T', action: () => selectTool('text') }
+        c('insert.symbol'),
+        c('tool.text', { label: 'Text' })
       ]
     },
     {
       label: 'Modify',
       items: [
-        { label: 'Group', shortcut: 'Ctrl+G', disabled: none, action: groupSelection },
-        { label: 'Ungroup', shortcut: 'Ctrl+Shift+G', disabled: none, action: ungroupSelection },
-        { label: 'Convert to symbol...', shortcut: 'F8', disabled: none, action: openConvertDialog },
-        { label: 'Break apart', shortcut: 'Ctrl+B', disabled: none, action: breakApart },
+        s('modify.group'),
+        s('modify.ungroup'),
+        s('modify.symbol', { label: 'Convert to symbol...' }),
+        s('modify.break'),
         SEP,
         {
           label: 'Arrange',
-          children: [
-            {
-              label: 'Bring to front',
-              shortcut: 'Ctrl+Shift+Up',
-              disabled: none,
-              action: () => arrangeSelection('front')
-            },
-            {
-              label: 'Bring forward',
-              shortcut: 'Ctrl+Up',
-              disabled: none,
-              action: () => arrangeSelection('forward')
-            },
-            {
-              label: 'Send backward',
-              shortcut: 'Ctrl+Down',
-              disabled: none,
-              action: () => arrangeSelection('backward')
-            },
-            {
-              label: 'Send to back',
-              shortcut: 'Ctrl+Shift+Down',
-              disabled: none,
-              action: () => arrangeSelection('back')
-            }
-          ]
+          children: [s('modify.front'), s('modify.forward'), s('modify.backward'), s('modify.back')]
         },
         {
           label: 'Align',
           children: [
-            { label: 'Left', disabled: none, action: () => alignSelection('left') },
-            { label: 'Horizontal center', disabled: none, action: () => alignSelection('hcenter') },
-            { label: 'Right', disabled: none, action: () => alignSelection('right') },
+            s('align.left', { label: 'Left' }),
+            s('align.hcenter', { label: 'Horizontal center' }),
+            s('align.right', { label: 'Right' }),
             SEP,
-            { label: 'Top', disabled: none, action: () => alignSelection('top') },
-            { label: 'Vertical center', disabled: none, action: () => alignSelection('vcenter') },
-            { label: 'Bottom', disabled: none, action: () => alignSelection('bottom') },
+            s('align.top', { label: 'Top' }),
+            s('align.vcenter', { label: 'Vertical center' }),
+            s('align.bottom', { label: 'Bottom' }),
             SEP,
-            { label: 'Distribute horizontal centers', disabled: none, action: () => distributeSelection('hcenters') },
-            { label: 'Distribute vertical centers', disabled: none, action: () => distributeSelection('vcenters') },
-            { label: 'Same horizontal spacing', disabled: none, action: () => distributeSelection('hspace') },
-            { label: 'Same vertical spacing', disabled: none, action: () => distributeSelection('vspace') },
+            s('align.distribute-h'),
+            s('align.distribute-v'),
             SEP,
             { label: 'To stage', checked: ctx.alignToStage, action: () => alignToStage.set(!ctx.alignToStage) }
           ]
@@ -261,44 +190,44 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
         {
           label: 'Transform',
           children: [
-            { label: 'Flip horizontal', disabled: none, action: () => flipSelection(true) },
-            { label: 'Flip vertical', disabled: none, action: () => flipSelection(false) },
+            s('modify.flip-h'),
+            s('modify.flip-v'),
             SEP,
-            { label: 'Rotate 90° clockwise', disabled: none, action: () => rotateSelection(90) },
-            { label: 'Rotate 90° counterclockwise', disabled: none, action: () => rotateSelection(-90) },
+            s('modify.rotate-cw'),
+            s('modify.rotate-ccw'),
             SEP,
-            { label: 'Remove transform', disabled: none, action: removeTransform }
+            s('modify.reset-transform')
           ]
         },
         {
           label: 'Path',
           children: [
-            { label: 'Join', shortcut: 'Ctrl+J', disabled: none, action: joinSelectedPaths },
-            { label: 'Close', disabled: none, action: closeSelectedPaths },
-            { label: 'Reverse direction', disabled: none, action: reverseSelectedPaths },
-            { label: 'Simplify', disabled: none, action: simplifySelectedPaths },
-            { label: 'Smooth', disabled: none, action: smoothSelectedPaths },
-            { label: 'Outline stroke', disabled: none, action: outlineSelectedStrokes },
+            s('path.join', { label: 'Join' }),
+            s('path.close', { label: 'Close' }),
+            s('path.reverse', { label: 'Reverse direction' }),
+            s('path.simplify', { label: 'Simplify' }),
+            s('path.smooth', { label: 'Smooth' }),
+            s('path.outline-stroke'),
             SEP,
-            { label: 'Unite', disabled: none, action: () => booleanSelection('unite') },
-            { label: 'Subtract', disabled: none, action: () => booleanSelection('subtract') },
-            { label: 'Intersect', disabled: none, action: () => booleanSelection('intersect') },
-            { label: 'Exclude', disabled: none, action: () => booleanSelection('exclude') },
-            { label: 'Divide', disabled: none, action: () => booleanSelection('divide') },
+            s('path.unite'),
+            s('path.subtract'),
+            s('path.intersect'),
+            s('path.exclude'),
+            s('path.divide'),
             SEP,
-            { label: 'Create outlines', shortcut: 'Ctrl+Shift+O', disabled: none, action: outlineSelectedText }
+            s('path.outlines')
           ]
         },
         {
           label: 'Rig',
           children: [
-            { label: 'Bind to bones', disabled: none, action: bindSelection },
-            { label: 'Unbind', disabled: none, action: unbindSelection },
-            { label: 'Reset pose', action: resetPose },
+            s('rig.bind'),
+            s('rig.unbind'),
+            c('rig.reset-pose'),
             SEP,
             {
               label: 'Add template',
-              children: TEMPLATES.map((t) => ({ label: t.label, action: () => addRigTemplate(t.id) }))
+              children: TEMPLATES.map((t) => c(`rig.template-${t.id}`, { label: t.label }))
             }
           ]
         }
@@ -307,12 +236,14 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
     {
       label: 'Window',
       items: [
-        ...PANELS.map((panel) => ({
-          label: panel.label,
-          shortcut: panel.id === 'library' ? 'Ctrl+L' : undefined,
-          checked: !p.panels.hidden.includes(panel.id),
-          action: () => togglePanel(panel.id)
-        })),
+        tick('window.properties', !p.panels.hidden.includes('properties'), 'Properties'),
+        tick('window.color', !p.panels.hidden.includes('color'), 'Color'),
+        tick('window.swatches', !p.panels.hidden.includes('swatches'), 'Swatches'),
+        tick('window.library', !p.panels.hidden.includes('library'), 'Library'),
+        tick('window.align', !p.panels.hidden.includes('align'), 'Align'),
+        tick('window.transform', !p.panels.hidden.includes('transform'), 'Transform'),
+        tick('window.rig', !p.panels.hidden.includes('rig'), 'Rig'),
+        tick('window.timeline', p.panels.timeline),
         SEP,
         ...allWorkspaces(p).map((ws) => ({
           label: `${ws.name} workspace`,
@@ -320,15 +251,21 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
           action: () => setWorkspace(ws.id)
         })),
         SEP,
-        { label: 'Reset workspace', action: resetWorkspace }
+        c('window.reset-workspace'),
+        {
+          label: 'Workspaces...',
+          action: () => dialog.set({ kind: 'preferences', category: 'workspace' })
+        }
       ]
     },
     {
       label: 'Help',
       items: [
-        { label: 'Keyboard shortcuts', shortcut: '?', action: () => dialog.set({ kind: 'shortcuts' }) },
+        c('help.shortcuts'),
+        c('help.start', { label: 'Getting started' }),
         SEP,
-        { label: 'About brainIMATE', action: () => dialog.set({ kind: 'about' }) }
+        c('help.about'),
+        c('help.report', { label: 'Report a problem...' })
       ]
     }
   ];
