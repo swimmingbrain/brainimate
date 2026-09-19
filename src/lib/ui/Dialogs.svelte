@@ -8,6 +8,7 @@
   import NewDoc from './dialogs/NewDoc.svelte';
   import DocSettings from './dialogs/DocSettings.svelte';
   import Export from './dialogs/Export.svelte';
+  import CommandPalette from './CommandPalette.svelte';
   import { dialog } from '$lib/stores/app';
 
   function close() {
@@ -21,6 +22,8 @@
       <Preferences category={$dialog.category} onclose={close} />
     {:else if $dialog.kind === 'shortcuts'}
       <Shortcuts onclose={close} />
+    {:else if $dialog.kind === 'palette'}
+      <CommandPalette onclose={close} />
     {:else if $dialog.kind === 'about'}
       <About onclose={close} />
     {:else if $dialog.kind === 'confirm'}
