@@ -1,7 +1,16 @@
 <script lang="ts">
   import Logo from './Logo.svelte';
   import Icon from '$lib/icons/Icon.svelte';
-  import { notYet, redo, showDocumentSettings, undo } from '$lib/editor/commands';
+  import { redo, showDocumentSettings, undo } from '$lib/editor/commands';
+  import { openPalette, openPreferences, shortcutOf } from '$lib/editor/actions';
+  import { keyLabel } from '$lib/editor/keys';
+  import { preferences } from '$lib/stores/preferences';
+
+  // the name of a button with the key it answers to now
+  function tip(name: string, id: string): string {
+    const key = shortcutOf(id, $preferences.shortcuts);
+    return key ? `${name} (${keyLabel(key)})` : name;
+  }
   import { openDocument, save } from '$lib/io/files';
   import { dialog, dirty, docName } from '$lib/stores/app';
   import { BUILTIN_WORKSPACES, setWorkspace, workspace } from '$lib/stores/workspace';
@@ -30,11 +39,11 @@
   </div>
 
   <div class="topbar-actions">
-    <button class="action-btn" onclick={openDocument} title="Open a file (Ctrl+O)">
+    <button class="action-btn" onclick={openDocument} title={tip('Open a file', 'file.open')}>
       <Icon name="open" size={14} />
       <span>Open</span>
     </button>
-    <button class="action-btn" onclick={() => save()} title="Save (Ctrl+S)">
+    <button class="action-btn" onclick={() => save()} title={tip('Save', 'file.save')}>
       <Icon name="save" size={14} />
       <span>Save</span>
     </button>
@@ -43,7 +52,7 @@
       class="action-btn icon-only"
       onclick={undo}
       disabled={!$historyState.canUndo}
-      title={$historyState.undoLabel ? `Undo ${$historyState.undoLabel.toLowerCase()} (Ctrl+Z)` : 'Undo (Ctrl+Z)'}
+      title={tip($historyState.undoLabel ? `Undo ${$historyState.undoLabel.toLowerCase()}` : 'Undo', 'edit.undo')}
       aria-label="Undo">
       <Icon name="undo" size={14} />
     </button>
@@ -51,22 +60,22 @@
       class="action-btn icon-only"
       onclick={redo}
       disabled={!$historyState.canRedo}
-      title={$historyState.redoLabel ? `Redo ${$historyState.redoLabel.toLowerCase()} (Ctrl+Shift+Z)` : 'Redo (Ctrl+Shift+Z)'}
+      title={tip($historyState.redoLabel ? `Redo ${$historyState.redoLabel.toLowerCase()}` : 'Redo', 'edit.redo')}
       aria-label="Redo">
       <Icon name="redo" size={14} />
     </button>
     <span class="separator"></span>
     <button
       class="action-btn icon-only"
-      onclick={() => notYet('The command palette')}
-      title="Command palette (Ctrl+K)"
+      onclick={openPalette}
+      title={tip('Command palette', 'edit.palette')}
       aria-label="Command palette">
       <Icon name="command" size={14} />
     </button>
     <button
       class="action-btn icon-only"
-      onclick={() => dialog.set({ kind: 'preferences' })}
-      title="Preferences (Ctrl+,)"
+      onclick={openPreferences}
+      title={tip('Preferences', 'edit.preferences')}
       aria-label="Preferences">
       <Icon name="settings" size={14} />
     </button>
@@ -79,7 +88,7 @@
       aria-label="GitHub">
       <Icon name="github" size={14} />
     </a>
-    <button class="action-btn accent" onclick={() => dialog.set({ kind: 'export' })} title="Export (Ctrl+E)">
+    <button class="action-btn accent" onclick={() => dialog.set({ kind: 'export' })} title={tip('Export', 'file.export')}>
       <Icon name="export" size={14} />
       <span>Export</span>
     </button>
