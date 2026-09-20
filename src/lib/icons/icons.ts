@@ -58,6 +58,7 @@ export const ICONS: Record<string, string> = {
   'chevron-right': '<path d="M6 4l4 4-4 4"/>',
   'chevron-left': '<path d="M10 4 6 8l4 4"/>',
   check: '<path d="M3 8.4 6.3 11.6 13 4.8"/>',
+  grip: '<g fill="currentColor" stroke="none"><circle cx="6" cy="4" r="1.1"/><circle cx="10" cy="4" r="1.1"/><circle cx="6" cy="8" r="1.1"/><circle cx="10" cy="8" r="1.1"/><circle cx="6" cy="12" r="1.1"/><circle cx="10" cy="12" r="1.1"/></g>',
   more: '<circle cx="3.4" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="12.6" cy="8" r="1.1" fill="currentColor" stroke="none"/>',
   grid: '<rect x="2" y="2" width="12" height="12" rx="1"/><path d="M6 2v12M10 2v12M2 6h12M2 10h12"/>',
   rulers: '<path d="M2 2h12v4H6v8H2z"/><path d="M9 2v2M12 2v2M2 9h2M2 12h2"/>',
