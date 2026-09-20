@@ -57,11 +57,6 @@ import { preferences, setGroup } from '$lib/stores/preferences';
 import { editor } from './editor';
 import { select, transformSelection } from './selection';
 
-// menu entries whose work comes later say so instead of doing nothing
-export function notYet(what = 'This') {
-  addToast(`${what} is not there yet`);
-}
-
 export function undo() {
   if (editor.undo() === null) addToast('Nothing to undo');
 }

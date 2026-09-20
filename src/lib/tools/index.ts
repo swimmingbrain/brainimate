@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
-import { activeTool, addToast, toolCursor } from '$lib/stores/app';
-import { TOOL_IDS, TOOL_INFO, getTool, registerTool, toolBase, type Tool, type ToolEvent, type ToolId } from './tool';
+import { activeTool, toolCursor } from '$lib/stores/app';
+import { TOOL_INFO, getTool, registerTool, type Tool, type ToolEvent, type ToolId } from './tool';
 import { selectionTool, transformTool } from './select';
 import { directTool } from './direct';
 import { handTool } from './hand';
@@ -22,22 +22,6 @@ import { boneTool } from './bone';
 import { bindTool } from './bind';
 
 export { TOOL_INFO, type ToolInfo } from './tool';
-
-// a tool that comes in a later step says so once each time it is picked
-function placeholder(id: ToolId): Tool {
-  let told = false;
-  return {
-    ...toolBase(id),
-    activate() {
-      told = false;
-    },
-    down() {
-      if (told) return;
-      told = true;
-      addToast(`The ${TOOL_INFO[id].name.toLowerCase()} tool is not there yet`);
-    }
-  };
-}
 
 const TOOLS = [
   selectionTool,
@@ -62,7 +46,6 @@ const TOOLS = [
   handTool
 ];
 for (const tool of TOOLS) registerTool(tool);
-for (const id of TOOL_IDS) if (!getTool(id)) registerTool(placeholder(id));
 
 export function currentTool(): Tool | undefined {
   return getTool(get(activeTool));
