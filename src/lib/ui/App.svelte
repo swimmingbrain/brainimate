@@ -26,7 +26,16 @@
   let mainWidth = $state(0);
   let mainHeight = $state(0);
 
-  const panels = $derived($preferences.panels);
+  const panels = $derived({ ...$preferences.panels, right: $preferences.toolbar.side === 'right' });
+  // the toolbar column sits left or right of the stage, the timeline row goes away when it is hidden
+  const grid = $derived.by(() => {
+    const tools = $preferences.toolbar.buttons === 'small' ? '28px' : 'var(--toolbar-h)';
+    const cols = panels.right
+      ? `minmax(0, 1fr) ${tools} 3px ${panels.dockWidth}px`
+      : `${tools} minmax(0, 1fr) 3px ${panels.dockWidth}px`;
+    const rows = panels.timeline ? `minmax(0, 1fr) 3px ${panels.timelineHeight}px` : 'minmax(0, 1fr)';
+    return `grid-template-columns: ${cols}; grid-template-rows: ${rows}`;
+  });
 
   function resizeDock(delta: number) {
     const limit = Math.min(MAX_DOCK, mainWidth - MIN_STAGE_W);
@@ -87,9 +96,11 @@
 
   <main
     class="main-area"
+    class:right={panels.right}
+    class:no-timeline={!panels.timeline}
     bind:clientWidth={mainWidth}
     bind:clientHeight={mainHeight}
-    style="grid-template-columns: var(--toolbar-h) minmax(0, 1fr) 3px {panels.dockWidth}px; grid-template-rows: minmax(0, 1fr) 3px {panels.timelineHeight}px">
+    style={grid}>
     <div class="toolbar-area">
       <Toolbar />
     </div>
@@ -107,13 +118,15 @@
       <Dock />
     </div>
 
-    <div class="rz rz-h">
-      <Resizer direction="horizontal" onresize={resizeTimeline} />
-    </div>
+    {#if panels.timeline}
+      <div class="rz rz-h">
+        <Resizer direction="horizontal" onresize={resizeTimeline} />
+      </div>
 
-    <div class="timeline-area" data-panel="timeline">
-      <Timeline />
-    </div>
+      <div class="timeline-area" data-panel="timeline">
+        <Timeline />
+      </div>
+    {/if}
   </main>
 
   <StatusBar />
@@ -198,7 +211,25 @@
     min-height: 0;
   }
 
-  /* one column on a narrow window: tools, stage, timeline, then the panels. nothing is dropped */
+  /* the toolbar on the right: the stage and the timeline take the first column */
+  .main-area.right .toolbar-area {
+    grid-column: 2;
+  }
+
+  .main-area.right .stage-area,
+  .main-area.right .rz-h,
+  .main-area.right .timeline-area {
+    grid-column: 1;
+  }
+
+  .main-area.no-timeline .toolbar-area,
+  .main-area.no-timeline .rz-v,
+  .main-area.no-timeline .dock-area {
+    grid-row: 1;
+  }
+
+  /* one column on a narrow window: tools, stage, timeline, then the panels. nothing is dropped and
+     the side of the toolbar does not matter here */
   @media (max-width: 900px) {
     .main-area {
       grid-template-columns: minmax(0, 1fr) !important;
@@ -206,30 +237,42 @@
       overflow-y: auto;
     }
 
+    .main-area.no-timeline {
+      grid-template-rows: var(--toolbar-h) minmax(300px, 1fr) 360px !important;
+    }
+
     .rz {
       display: none;
     }
 
-    .toolbar-area {
+    .main-area .toolbar-area {
       grid-column: 1;
       grid-row: 1;
     }
 
-    .stage-area {
+    .main-area .stage-area {
       grid-column: 1;
       grid-row: 2;
     }
 
-    .timeline-area {
+    .main-area .timeline-area {
       grid-column: 1;
       grid-row: 3;
       border-top: 1px solid var(--border);
     }
 
-    .dock-area {
+    .main-area .dock-area {
       grid-column: 1;
       grid-row: 4;
       border-top: 1px solid var(--border);
+    }
+
+    .main-area.no-timeline .dock-area {
+      grid-row: 3;
+    }
+
+    .main-area.right .toolbar-area {
+      grid-column: 1;
     }
   }
 </style>
