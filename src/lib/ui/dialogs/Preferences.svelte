@@ -2,6 +2,7 @@
   import { untrack, type Component } from 'svelte';
   import Dialog from '../Dialog.svelte';
   import GeneralTab from './prefs/GeneralTab.svelte';
+  import ToolsTab from './prefs/ToolsTab.svelte';
   import { type PreferencesCategory } from '$lib/stores/app';
   import { resetParts, resetPreferences } from '$lib/stores/preferences';
   import { setWorkspace } from '$lib/stores/workspace';
@@ -16,7 +17,10 @@
   }
 
   // every page of the preferences and what its reset puts back
-  const TABS: Tab[] = [{ id: 'general', label: 'General', page: GeneralTab, reset: () => resetParts(['general']) }];
+  const TABS: Tab[] = [
+    { id: 'general', label: 'General', page: GeneralTab, reset: () => resetParts(['general']) },
+    { id: 'tools', label: 'Tools', page: ToolsTab, reset: () => resetParts(['toolbar']) }
+  ];
 
   let tab = $state<PreferencesCategory>(untrack(() => (TABS.some((t) => t.id === category) ? category : 'general')));
   const current = $derived(TABS.find((t) => t.id === tab) ?? TABS[0]);
