@@ -15,8 +15,12 @@
   import { docVersion } from '$lib/editor/editor';
   import { activeTool, colorTarget, fillPaint, frame, selection, strokePaint } from '$lib/stores/app';
   import { preferences, visibleTools } from '$lib/stores/preferences';
+  import { shortcutOf } from '$lib/editor/actions';
+  import { keyLabel } from '$lib/editor/keys';
 
   const tools = $derived(visibleTools($preferences).map((id) => TOOL_INFO[id]));
+  const right = $derived($preferences.toolbar.side === 'right');
+  const small = $derived($preferences.toolbar.buttons === 'small');
   // the chips show the selection like the color panel, or the colors new shapes get
   const paints = $derived.by(() => {
     void $docVersion;
@@ -33,8 +37,10 @@
   // a click on the chip closes an open picker first, it must not open it again right away
   let closedAt = 0;
 
-  function title(name: string, shortcut: string): string {
-    return shortcut ? `${name} (${shortcut})` : name;
+  // the name with the key it answers to now, like Pen (P)
+  function title(name: string, command: string): string {
+    const key = shortcutOf(command, $preferences.shortcuts);
+    return key ? `${name} (${keyLabel(key)})` : name;
   }
 
   // a click on the chip in front opens the picker, on the one behind brings it to the front
@@ -45,11 +51,11 @@
     }
     if (performance.now() - closedAt < 250) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    picker = { target, x: rect.right + 8, y: rect.top - 300 };
+    picker = { target, x: right ? rect.left - 268 : rect.right + 8, y: rect.top - 300 };
   }
 </script>
 
-<div class="toolbar" role="toolbar" aria-label="Tools" aria-orientation="vertical">
+<div class="toolbar" class:right class:small role="toolbar" aria-label="Tools" aria-orientation="vertical">
   <div class="tools">
     {#each tools as tool, i (tool.id)}
       {#if i > 0 && tools[i - 1].group !== tool.group}
@@ -58,7 +64,7 @@
       <button
         class="tool-btn"
         class:active={$activeTool === tool.id}
-        title={title(tool.name, tool.shortcut)}
+        title={title(tool.name, `tool.${tool.id}`)}
         aria-label={tool.name}
         aria-pressed={$activeTool === tool.id}
         onclick={() => selectTool(tool.id)}>
@@ -74,7 +80,7 @@
         class:front={$colorTarget === 'stroke'}
         class:none={strokeColor === null}
         style={strokeColor ? `--c: ${strokeColor}` : ''}
-        title="Stroke color"
+        title={title('Stroke color', 'color.target')}
         aria-label="Stroke color"
         onclick={(e) => pick('stroke', e)}></button>
       <button
@@ -82,18 +88,22 @@
         class:front={$colorTarget === 'fill'}
         class:none={fillColor === null}
         style={fillColor ? `--c: ${fillColor}` : ''}
-        title="Fill color"
+        title={title('Fill color', 'color.target')}
         aria-label="Fill color"
         onclick={(e) => pick('fill', e)}></button>
     </div>
     <div class="chip-actions">
-      <button class="mini" onclick={resetColors} title="Default colors (D)" aria-label="Default colors">
+      <button class="mini" onclick={resetColors} title={title('Default colors', 'color.default')} aria-label="Default colors">
         <span class="mini-default"></span>
       </button>
-      <button class="mini" onclick={swapColors} title="Swap fill and stroke (Shift+X)" aria-label="Swap fill and stroke">
+      <button
+        class="mini"
+        onclick={swapColors}
+        title={title('Swap fill and stroke', 'color.swap')}
+        aria-label="Swap fill and stroke">
         <Icon name="swap" size={11} />
       </button>
-      <button class="mini" onclick={clearColor} title="None (/)" aria-label="No color">
+      <button class="mini" onclick={clearColor} title={title('None', 'color.none')} aria-label="No color">
         <Icon name="none" size={11} />
       </button>
     </div>
@@ -157,6 +167,30 @@
   .tool-btn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .toolbar.right {
+    border-right: none;
+    border-left: 1px solid var(--border);
+  }
+
+  .toolbar.small {
+    width: 28px;
+  }
+
+  .toolbar.small .tool-btn {
+    width: 22px;
+    height: 22px;
+  }
+
+  .toolbar.small .chips {
+    width: 24px;
+    height: 24px;
+  }
+
+  .toolbar.small .chip {
+    width: 15px;
+    height: 15px;
   }
 
   .tool-btn.active {
@@ -290,8 +324,11 @@
   }
 
   @media (max-width: 900px) {
-    .toolbar {
+    .toolbar,
+    .toolbar.small,
+    .toolbar.right {
       width: 100%;
+      border-left: none;
       height: var(--toolbar-h);
       flex-direction: row;
       border-right: none;
