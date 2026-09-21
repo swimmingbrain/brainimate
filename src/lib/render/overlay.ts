@@ -14,8 +14,8 @@ import { isLayerShown } from '$lib/anim/timeline';
 import { drawBones, weightColor } from './bones';
 
 export const HANDLE_SIZE = 7;
-export const ANCHOR_SIZE = 7;
-export const HANDLE_DOT = 6;
+// screen pixels of the anchor glyphs and the handle dots, the preferences set them
+export const marks = { anchor: 7, handleDot: 6, showAnchors: true };
 export const SMART_GUIDE = '#e06cd0';
 
 // what the tools ask the overlay to show besides the selection
@@ -101,7 +101,8 @@ function drawAnchors(ctx: CanvasRenderingContext2D, v: View, item: PathItem, wor
   const m = screenMatrix(v, world);
   const refs = get(anchorSelection).filter((a) => a.itemId === item.id);
   const list = contours(item);
-  const half = ANCHOR_SIZE / 2;
+  const size = marks.anchor;
+  const half = size / 2;
   ctx.lineWidth = 1;
   ctx.strokeStyle = color;
 
@@ -121,7 +122,7 @@ function drawAnchors(ctx: CanvasRenderingContext2D, v: View, item: PathItem, wor
       ctx.lineTo(h.x, h.y);
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(h.x, h.y, HANDLE_DOT / 2, 0, Math.PI * 2);
+      ctx.arc(h.x, h.y, marks.handleDot / 2, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
     }
@@ -134,7 +135,7 @@ function drawAnchors(ctx: CanvasRenderingContext2D, v: View, item: PathItem, wor
       ctx.fillStyle = picked.has(i) ? color : '#ffffff';
       ctx.beginPath();
       if (a.kind === 'corner') {
-        ctx.rect(Math.round(p.x - half) + 0.5, Math.round(p.y - half) + 0.5, ANCHOR_SIZE - 1, ANCHOR_SIZE - 1);
+        ctx.rect(Math.round(p.x - half) + 0.5, Math.round(p.y - half) + 0.5, size - 1, size - 1);
       } else {
         ctx.arc(p.x, p.y, half, 0, Math.PI * 2);
       }
@@ -292,7 +293,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
   // playback redraws every frame, so it leaves out the hover and the anchors
   const busy = get(playing);
   // the path tools show anchors too, so you can see where to add, remove or go on
-  const anchors = !busy && (direct || tool === 'pen' || tool === 'curvature');
+  const anchors = !busy && (direct || ((tool === 'pen' || tool === 'curvature') && marks.showAnchors));
   drawGuides(ctx, v, ctx.canvas.width / dpr, ctx.canvas.height / dpr);
 
   // outlines and anchors follow what shows, a bound item bent by the rig
@@ -357,7 +358,7 @@ export function worldAnchor(
   color: string,
   zoom: number
 ) {
-  const half = ANCHOR_SIZE / 2 / zoom;
+  const half = marks.anchor / 2 / zoom;
   ctx.lineWidth = 1 / zoom;
   ctx.strokeStyle = color;
   ctx.fillStyle = filled ? color : '#ffffff';
@@ -378,6 +379,6 @@ export function worldHandle(ctx: CanvasRenderingContext2D, from: Vec, to: Vec, c
   ctx.lineTo(to.x, to.y);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(to.x, to.y, HANDLE_DOT / 2 / zoom, 0, Math.PI * 2);
+  ctx.arc(to.x, to.y, marks.handleDot / 2 / zoom, 0, Math.PI * 2);
   ctx.fill();
 }
