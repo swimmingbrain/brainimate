@@ -3,16 +3,14 @@
   import SelectField from '$lib/ui/SelectField.svelte';
   import Slider from '$lib/ui/Slider.svelte';
   import ToggleField from '$lib/ui/ToggleField.svelte';
+  import PresetPicker from './PresetPicker.svelte';
   import { preferences, setGroup } from '$lib/stores/preferences';
-
-  const MODES = [
-    { value: 'normal', label: 'Normal' },
-    { value: 'behind', label: 'Paint behind' }
-  ];
+  import { BRUSH_MODES as MODES } from '../presets';
 
   const d = $derived($preferences.drawing);
 </script>
 
+<PresetPicker tool="brush" />
 <div class="opt">
   <span>Size</span>
   <span class="field">

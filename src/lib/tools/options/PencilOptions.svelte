@@ -3,17 +3,14 @@
   import Slider from '$lib/ui/Slider.svelte';
   import ToggleField from '$lib/ui/ToggleField.svelte';
   import StrokeOptions from './StrokeOptions.svelte';
+  import PresetPicker from './PresetPicker.svelte';
   import { preferences, setGroup, type PencilMode } from '$lib/stores/preferences';
-
-  const MODES = [
-    { value: 'smooth', label: 'Smooth' },
-    { value: 'ink', label: 'Ink' },
-    { value: 'straighten', label: 'Straighten' }
-  ];
+  import { PENCIL_MODES as MODES } from '../presets';
 
   const d = $derived($preferences.drawing);
 </script>
 
+<PresetPicker tool="pencil" />
 <StrokeOptions />
 <div class="opt">
   <span>Mode</span>
