@@ -10,6 +10,7 @@ import { editor, hover } from '$lib/editor/editor';
 import { select } from '$lib/editor/selection';
 import { worldAnchor } from '$lib/render/overlay';
 import { anchorSelection, selection, toolCursor, view } from '$lib/stores/app';
+import { preferences } from '$lib/stores/preferences';
 import { clearSnap, snapEvent } from '$lib/editor/snap';
 import { PEN_CURSORS } from './cursors';
 import { PREVIEW_COLOR, currentStyle, drawingLayer, setPreviewStroke } from './draw';
@@ -289,7 +290,7 @@ function drawOverlay(ctx: CanvasRenderingContext2D) {
     return;
   }
   const drawing = drawingItem();
-  if (!drawing || g || !pointer) return;
+  if (!drawing || g || !pointer || !get(preferences).pen.rubberBand) return;
   const t = targetAt(pointer);
   if (t.kind !== 'draw' && t.kind !== 'close') return;
   const world = editor.worldMatrixOf(drawing.id);

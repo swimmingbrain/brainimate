@@ -9,6 +9,7 @@ import { editor, hover } from '$lib/editor/editor';
 import { select } from '$lib/editor/selection';
 import { worldAnchor, worldHandle } from '$lib/render/overlay';
 import { anchorSelection, selection, toolCursor, view } from '$lib/stores/app';
+import { preferences } from '$lib/stores/preferences';
 import { clearSnap, snapEvent } from '$lib/editor/snap';
 import { PEN_CURSORS } from './cursors';
 import { directTool } from './direct';
@@ -373,6 +374,8 @@ function drawOverlay(ctx: CanvasRenderingContext2D) {
   }
   const drawing = drawingItem();
   if (!drawing || g || !pointer || pointer.ctrl || direct) return;
+  // the preview of the next segment can be switched off in the preferences
+  if (!get(preferences).pen.rubberBand) return;
   const t = targetAt(pointer);
   if (t.kind !== 'draw' && t.kind !== 'close') return;
   const world = editor.worldMatrixOf(drawing.id);
