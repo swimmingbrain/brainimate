@@ -24,7 +24,7 @@
     return [...recent, ...available.filter((c) => !recent.includes(c))];
   });
 
-  const shown = $derived(fuzzyFilter(ordered, query, (c) => `${c.label} ${c.group}`));
+  const shown = $derived(fuzzyFilter(ordered, query, (c) => c.label));
   const recentIds = $derived(new Set($preferences.recentCommands));
 
   $effect(() => {
