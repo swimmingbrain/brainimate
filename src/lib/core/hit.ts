@@ -8,9 +8,8 @@ import { shapePath2D, textPath2D } from '$lib/render/pathcache';
 import { itemLayout } from './fonts';
 import { MAX_NESTING, instanceSlices, stageOffset } from '$lib/render/frame';
 
-// screen pixels, doubled for fingers and pens
-export const ANCHOR_TOLERANCE = 6;
-export const HANDLE_TOLERANCE = 5;
+// screen pixels, doubled for fingers and pens, the preferences set the anchor reach and the tablet mode
+export const hitSettings = { anchor: 6, tablet: false };
 // the least band around a stroke that counts as a hit, a thin line is still easy to grab
 export const STROKE_TOLERANCE = 4;
 
@@ -24,8 +23,9 @@ function hitContext(): Ctx2D | null {
   return shared;
 }
 
+// tablet mode gives the mouse the bigger reach too
 export function pointerFactor(pointerType: string): number {
-  return pointerType === 'touch' || pointerType === 'pen' ? 2 : 1;
+  return hitSettings.tablet || pointerType === 'touch' || pointerType === 'pen' ? 2 : 1;
 }
 
 // half the width of the band around a stroke that counts as a hit, in screen pixels
@@ -135,7 +135,7 @@ export function hitAnchor(
   showHandles: (index: number) => boolean = () => false
 ): AnchorHit | null {
   let best: AnchorHit | null = null;
-  let bestD = (ANCHOR_TOLERANCE * factor) / zoom;
+  let bestD = (hitSettings.anchor * factor) / zoom;
   for (let i = 0; i < path.anchors.length; i++) {
     const w = applyPoint(m, path.anchors[i]);
     const d = Math.hypot(w.x - p.x, w.y - p.y);
@@ -145,7 +145,8 @@ export function hitAnchor(
     }
   }
   if (best) return best;
-  bestD = (HANDLE_TOLERANCE * factor) / zoom;
+  // a handle reaches a pixel less than an anchor
+  bestD = (Math.max(2, hitSettings.anchor - 1) * factor) / zoom;
   for (let i = 0; i < path.anchors.length; i++) {
     const a = path.anchors[i];
     if (!showHandles(i)) continue;
