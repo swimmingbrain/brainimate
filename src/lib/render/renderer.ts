@@ -45,7 +45,7 @@ export interface RenderOptions {
 export interface StageOptions extends RenderOptions {
   // false clips everything to the stage rect
   pasteboard: boolean;
-  grid: { size: number; color: string } | null;
+  grid: GridLook | null;
   colors: { pasteboard: string; shadow: string };
   // ghosts of the frames around this one under the artwork, key says when they need drawing again
   onion?: { options: OnionOptions; key: string } | null;
@@ -375,8 +375,37 @@ export function renderLayers(
   ctx.restore();
 }
 
-// one device pixel lines, only the ones inside both the stage and the canvas
-function drawGrid(ctx: Ctx2D, v: RenderView, grid: { size: number; color: string }, x: number, y: number, w: number, h: number) {
+export interface GridLook {
+  size: number;
+  color: string;
+  // lines inside each cell, 1 for none
+  subdivisions?: number;
+  // 0 to 1
+  opacity?: number;
+}
+
+// the lines every step device pixels, the ones on a multiple of skip left out
+function gridLines(ctx: Ctx2D, step: number, skip: number, x0: number, y0: number, x1: number, y1: number) {
+  const top = Math.max(y0, 0);
+  const left = Math.max(x0, 0);
+  ctx.beginPath();
+  for (let i = Math.max(1, Math.ceil(-x0 / step)); x0 + i * step < x1; i++) {
+    if (skip > 1 && i % skip === 0) continue;
+    const px = Math.round(x0 + i * step) + 0.5;
+    ctx.moveTo(px, top);
+    ctx.lineTo(px, y1);
+  }
+  for (let i = Math.max(1, Math.ceil(-y0 / step)); y0 + i * step < y1; i++) {
+    if (skip > 1 && i % skip === 0) continue;
+    const py = Math.round(y0 + i * step) + 0.5;
+    ctx.moveTo(left, py);
+    ctx.lineTo(x1, py);
+  }
+  ctx.stroke();
+}
+
+// one device pixel lines, only the ones inside both the stage and the canvas, the subdivisions fainter
+function drawGrid(ctx: Ctx2D, v: RenderView, grid: GridLook, x: number, y: number, w: number, h: number) {
   const dpr = v.dpr;
   const step = grid.size * v.zoom * dpr;
   if (step < 5) return;
@@ -384,26 +413,19 @@ function drawGrid(ctx: Ctx2D, v: RenderView, grid: { size: number; color: string
   const y0 = y * dpr;
   const x1 = Math.min((x + w) * dpr, v.width * dpr);
   const y1 = Math.min((y + h) * dpr, v.height * dpr);
-  const top = Math.max(y0, 0);
-  const left = Math.max(x0, 0);
+  const alpha = grid.opacity ?? 0.45;
+  const subs = Math.max(1, Math.round(grid.subdivisions ?? 1));
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.strokeStyle = grid.color;
-  ctx.globalAlpha = 0.45;
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let i = Math.max(1, Math.ceil(-x0 / step)); x0 + i * step < x1; i++) {
-    const px = Math.round(x0 + i * step) + 0.5;
-    ctx.moveTo(px, top);
-    ctx.lineTo(px, y1);
+  if (subs > 1 && step / subs >= 5) {
+    ctx.globalAlpha = alpha * 0.4;
+    gridLines(ctx, step / subs, subs, x0, y0, x1, y1);
   }
-  for (let i = Math.max(1, Math.ceil(-y0 / step)); y0 + i * step < y1; i++) {
-    const py = Math.round(y0 + i * step) + 0.5;
-    ctx.moveTo(left, py);
-    ctx.lineTo(x1, py);
-  }
-  ctx.stroke();
+  ctx.globalAlpha = alpha;
+  gridLines(ctx, step, 1, x0, y0, x1, y1);
   ctx.restore();
 }
 
