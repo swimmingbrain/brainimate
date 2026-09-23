@@ -4,6 +4,7 @@
   import GeneralTab from './prefs/GeneralTab.svelte';
   import ToolsTab from './prefs/ToolsTab.svelte';
   import PensTab from './prefs/PensTab.svelte';
+  import CanvasTab from './prefs/CanvasTab.svelte';
   import { type PreferencesCategory } from '$lib/stores/app';
   import { defaultPreferences, resetParts, resetPreferences, setGroup } from '$lib/stores/preferences';
   import { setWorkspace } from '$lib/stores/workspace';
@@ -21,7 +22,13 @@
   const TABS: Tab[] = [
     { id: 'general', label: 'General', page: GeneralTab, reset: () => resetParts(['general']) },
     { id: 'tools', label: 'Tools', page: ToolsTab, reset: () => resetParts(['toolbar']) },
-    { id: 'pens', label: 'Pens', page: PensTab, reset: resetPens }
+    { id: 'pens', label: 'Pens', page: PensTab, reset: resetPens },
+    {
+      id: 'canvas',
+      label: 'Canvas',
+      page: CanvasTab,
+      reset: () => resetParts(['grid', 'guides', 'rulers', 'snapping', 'stage'])
+    }
   ];
 
   let tab = $state<PreferencesCategory>(untrack(() => (TABS.some((t) => t.id === category) ? category : 'general')));
