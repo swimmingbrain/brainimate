@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import { fileOpen, fileSave } from 'browser-fs-access';
 import type { Doc } from '$lib/core/types';
 import { editor, makeDoc } from '$lib/editor/editor';
-import { zoomFit } from '$lib/editor/view';
+import { zoomForOpen } from '$lib/editor/view';
 import { textEditing } from '$lib/editor/text';
 import { addToast, dialog, dirty } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
@@ -55,7 +55,7 @@ async function remember(doc: Doc, name: string, fileHandle: FileSystemFileHandle
 function takeOver(doc: Doc, fileHandle: FileSystemFileHandle | null) {
   textEditing.set(null);
   editor.loadDoc(doc);
-  zoomFit();
+  zoomForOpen();
   handle = fileHandle;
 }
 

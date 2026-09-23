@@ -1,5 +1,6 @@
 import { get } from 'svelte/store';
 import { stageSize, view, type View } from '$lib/stores/app';
+import { preferences } from '$lib/stores/preferences';
 
 export const ZOOM_MIN = 0.02;
 export const ZOOM_MAX = 64;
@@ -124,4 +125,18 @@ export function zoomFit() {
   const size = get(stageSize);
   view.set(fitView(viewport.width, viewport.height, size.width, size.height));
   autoFit = true;
+}
+
+// the stage at 100 percent in the middle of the window
+export function zoomCentered() {
+  if (viewport.width === 0 || viewport.height === 0) return;
+  const size = get(stageSize);
+  autoFit = false;
+  view.set({ zoom: 1, panX: (viewport.width - size.width) / 2, panY: (viewport.height - size.height) / 2 });
+}
+
+// a document that opens fits the window or shows at 100 percent, as the preferences say
+export function zoomForOpen() {
+  if (get(preferences).stage.zoomOnOpen === 'actual') zoomCentered();
+  else zoomFit();
 }
