@@ -3,8 +3,9 @@
   import Dialog from '../Dialog.svelte';
   import GeneralTab from './prefs/GeneralTab.svelte';
   import ToolsTab from './prefs/ToolsTab.svelte';
+  import PensTab from './prefs/PensTab.svelte';
   import { type PreferencesCategory } from '$lib/stores/app';
-  import { resetParts, resetPreferences } from '$lib/stores/preferences';
+  import { defaultPreferences, resetParts, resetPreferences, setGroup } from '$lib/stores/preferences';
   import { setWorkspace } from '$lib/stores/workspace';
 
   let { category = 'general', onclose }: { category?: PreferencesCategory; onclose: () => void } = $props();
@@ -19,7 +20,8 @@
   // every page of the preferences and what its reset puts back
   const TABS: Tab[] = [
     { id: 'general', label: 'General', page: GeneralTab, reset: () => resetParts(['general']) },
-    { id: 'tools', label: 'Tools', page: ToolsTab, reset: () => resetParts(['toolbar']) }
+    { id: 'tools', label: 'Tools', page: ToolsTab, reset: () => resetParts(['toolbar']) },
+    { id: 'pens', label: 'Pens', page: PensTab, reset: resetPens }
   ];
 
   let tab = $state<PreferencesCategory>(untrack(() => (TABS.some((t) => t.id === category) ? category : 'general')));
@@ -33,6 +35,13 @@
     const next = TABS[(i + (e.key === 'ArrowDown' ? 1 : -1) + TABS.length) % TABS.length];
     tab = next.id;
     nav?.querySelector<HTMLElement>(`[data-tab="${next.id}"]`)?.focus();
+  }
+
+  // the pen presets and settings, with the brush pressure and the eraser size that sit in the drawing group
+  function resetPens() {
+    const d = defaultPreferences().drawing;
+    resetParts(['pens', 'pen']);
+    setGroup('drawing', { brushPressure: d.brushPressure, eraserSize: d.eraserSize });
   }
 
   function resetAll() {
