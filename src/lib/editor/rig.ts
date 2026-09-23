@@ -395,7 +395,8 @@ export function commitPoses(poses: Map<string, Pose>, label = 'Pose', key?: stri
       const list = editor.draftLayers(draft);
       for (const [layerId, pose] of own) {
         const layer = list.find((l) => l.id === layerId);
-        if (layer) poseKeyframe(layer, frame, prefs.timeline.autoKey, prefs.rig.ease).pose = pose;
+        const ease = prefs.rig.tweenPoses ? prefs.rig.ease : null;
+        if (layer) poseKeyframe(layer, frame, prefs.timeline.autoKey, ease).pose = pose;
       }
       for (const l of list) if (extend.includes(l.id)) l.length = frame + 1;
     },

@@ -669,7 +669,8 @@ export function removeFrames() {
 function keyLayer(layer: Layer, frame: number) {
   const had = isKeyframe(layer, frame);
   insertKeyframe(layer, frame);
-  if (!had && layer.type === 'rig') tweenInto(layer, frame, get(preferences).rig.ease);
+  const rig = get(preferences).rig;
+  if (!had && layer.type === 'rig' && rig.tweenPoses) tweenInto(layer, frame, rig.ease);
 }
 
 export function insertKeyframes() {

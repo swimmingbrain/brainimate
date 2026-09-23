@@ -123,11 +123,12 @@ export function tweenInto(layer: Layer, frame: number, ease: string) {
   if (prev && !prev.tween) prev.tween = { ease };
 }
 
-// the keyframe a pose change at frame lands in, a new one on a rig layer gets the tween into it
-export function poseKeyframe(layer: Layer, frame: number, autoKey: boolean, ease: string): Keyframe {
+// the keyframe a pose change at frame lands in, a new one on a rig layer gets the tween into it unless
+// ease is null
+export function poseKeyframe(layer: Layer, frame: number, autoKey: boolean, ease: string | null): Keyframe {
   const had = isKeyframe(layer, frame);
   const key = keyframeForEdit(layer, frame, autoKey);
-  if (!had && key.frame === frame && layer.type === 'rig') tweenInto(layer, frame, ease);
+  if (ease !== null && !had && key.frame === frame && layer.type === 'rig') tweenInto(layer, frame, ease);
   return key;
 }
 
