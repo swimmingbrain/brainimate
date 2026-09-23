@@ -16,7 +16,6 @@ import { drawBones, weightColor } from './bones';
 export const HANDLE_SIZE = 7;
 // screen pixels of the anchor glyphs and the handle dots, the preferences set them
 export const marks = { anchor: 7, handleDot: 6, showAnchors: true };
-export const SMART_GUIDE = '#e06cd0';
 
 // what the tools ask the overlay to show besides the selection
 export const overlayState: {
@@ -254,7 +253,9 @@ function drawSnap(ctx: CanvasRenderingContext2D, v: View) {
   const doc = editor.doc;
   // the lines run across the stage, inside an open symbol across the stage seen from its space
   const stage = transformBox(fromRect(0, 0, doc.width, doc.height), invert(editor.base()));
-  ctx.strokeStyle = SMART_GUIDE;
+  // magenta unless the preferences pick another color
+  const color = get(preferences).snapping.smartColor;
+  ctx.strokeStyle = color;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (const line of r.lines) {
@@ -278,7 +279,7 @@ function drawSnap(ctx: CanvasRenderingContext2D, v: View) {
   const w = ctx.measureText(r.label).width + 8;
   ctx.fillStyle = 'rgba(17, 17, 19, 0.85)';
   ctx.fillRect(p.x + 10, p.y - 20, w, 14);
-  ctx.fillStyle = SMART_GUIDE;
+  ctx.fillStyle = color;
   ctx.fillText(r.label, p.x + 14, p.y - 13);
 }
 
