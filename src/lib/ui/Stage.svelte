@@ -148,9 +148,11 @@
         ...ghosts,
         beforeColor: t.onionBeforeColor,
         afterColor: t.onionAfterColor,
-        outline: t.onionOutline
+        outline: t.onionOutline,
+        start: t.onionStart,
+        step: t.onionStep
       },
-      key: `${at}|${ghosts.before.join(',')}|${ghosts.after.join(',')}|${t.onionBeforeColor}|${t.onionAfterColor}|${t.onionOutline}`
+      key: `${at}|${ghosts.before.join(',')}|${ghosts.after.join(',')}|${t.onionBeforeColor}|${t.onionAfterColor}|${t.onionOutline}|${t.onionStart}|${t.onionStep}`
     };
   }
 

@@ -11,6 +11,9 @@ export interface OnionOptions {
   afterColor: string;
   // strokes only, in the tint color
   outline: boolean;
+  // the alpha next to the playhead and what each step further takes off
+  start?: number;
+  step?: number;
 }
 
 // the frames next to the playhead, or with keyframes only the keyframes of the visible layers
@@ -41,9 +44,9 @@ export function onionFrames(
   };
 }
 
-// 0.5 right next to the playhead, 0.15 less for every step further away
-export function onionAlpha(distance: number): number {
-  return Math.max(0.05, 0.5 - 0.15 * (distance - 1));
+// 0.5 right next to the playhead, 0.15 less for every step further away, unless the preferences say otherwise
+export function onionAlpha(distance: number, start = 0.5, step = 0.15): number {
+  return Math.max(0.05, start - step * (distance - 1));
 }
 
 // one ghost layer per frame is drawn into scratch, tinted and laid onto the composite. the
@@ -93,7 +96,7 @@ export function drawOnion(
       tmp.fillRect(0, 0, w, h);
       tmp.globalCompositeOperation = 'source-over';
       tmp.globalAlpha = 1;
-      out.globalAlpha = onionAlpha(g.distance);
+      out.globalAlpha = onionAlpha(g.distance, opts.start, opts.step);
       out.drawImage(scratch!, 0, 0);
     }
     out.globalAlpha = 1;

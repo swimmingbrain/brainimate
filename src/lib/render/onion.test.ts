@@ -36,4 +36,10 @@ describe('onion skin', () => {
     expect(onionAlpha(3)).toBeCloseTo(0.2);
     expect(onionAlpha(9)).toBeCloseTo(0.05);
   });
+
+  it('starts and steps as the preferences say', () => {
+    expect(onionAlpha(1, 0.8, 0.1)).toBeCloseTo(0.8);
+    expect(onionAlpha(3, 0.8, 0.1)).toBeCloseTo(0.6);
+    expect(onionAlpha(4, 0.3, 0)).toBeCloseTo(0.3);
+  });
 });
