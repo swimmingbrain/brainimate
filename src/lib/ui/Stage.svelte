@@ -14,7 +14,7 @@
     view,
     type View
   } from '$lib/stores/app';
-  import { preferences, setGroup, type Preferences } from '$lib/stores/preferences';
+  import { preferences, setGroup, type PasteboardShade, type Preferences } from '$lib/stores/preferences';
   import {
     fitView,
     isAutoFit,
@@ -22,7 +22,8 @@
     setRedraw,
     setStageElement,
     setViewport,
-    zoomAround
+    zoomAround,
+    zoomForOpen
   } from '$lib/editor/view';
   import { editor, hover } from '$lib/editor/editor';
   import { invalidateStageCache, renderStage, setImageLoaded, type DimLevel } from '$lib/render/renderer';
@@ -60,6 +61,7 @@
   let height = 0;
   let dpr = 1;
   let panStart: { x: number; y: number; panX: number; panY: number } | null = null;
+  let sized = false;
   // css pixels on the stage, the rulers mark where it is with two thin lines over the canvas
   let pointerAt = $state<{ x: number; y: number } | null>(null);
 
@@ -72,6 +74,14 @@
     label: '#85858e',
     border: '#2e2e33',
     accent: '#d19a66'
+  };
+
+  // the three greys of the theme the pasteboard can take
+  const shades: Record<PasteboardShade, string> = { deep: '#111113', surface: '#19191c', elevated: '#212124' };
+  const SHADE_VARS: Record<PasteboardShade, string> = {
+    deep: 'var(--bg-deep)',
+    surface: 'var(--bg-surface)',
+    elevated: 'var(--bg-elevated)'
   };
 
   const cursor = $derived.by(() => {
@@ -90,6 +100,9 @@
     const style = getComputedStyle(document.documentElement);
     const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
     colors.pasteboard = read('--pasteboard', colors.pasteboard);
+    shades.deep = read('--bg-deep', shades.deep);
+    shades.surface = read('--bg-surface', shades.surface);
+    shades.elevated = read('--bg-elevated', shades.elevated);
     colors.shadow = read('--stage-shadow', colors.shadow);
     colors.ruler = read('--stage-ruler', colors.ruler);
     colors.tick = read('--stage-ruler-tick', colors.tick);
@@ -111,7 +124,11 @@
       canvas.style.height = `${height}px`;
     }
     setViewport(width, height);
-    if (isAutoFit() && width > 0 && height > 0) {
+    if (!sized && width > 0 && height > 0) {
+      // the first size the stage gets shows the document the way it opens
+      sized = true;
+      zoomForOpen();
+    } else if (isAutoFit() && width > 0 && height > 0) {
       const size = get(stageSize);
       view.set(fitView(width, height, size.width, size.height));
     }
@@ -170,8 +187,16 @@
         pose: editor.posePreview,
         assets: editor.doc.assets,
         pasteboard: prefs.stage.pasteboard,
-        grid: prefs.grid.show ? { size: prefs.grid.size, color: prefs.grid.color } : null,
-        colors,
+        grid: prefs.grid.show
+          ? {
+              size: prefs.grid.size,
+              color: prefs.grid.color,
+              subdivisions: prefs.grid.subdivisions,
+              opacity: prefs.grid.opacity / 100
+            }
+          : null,
+        colors: { ...colors, pasteboard: shades[prefs.stage.shade] },
+        shadow: prefs.stage.shadow,
         onion: onionFor(prefs),
         edit: editLevels(),
         hide: get(textEditing),
@@ -398,7 +423,9 @@
     const rect = overlay!.getBoundingClientRect();
     // a line is about 16 pixels when the wheel counts in lines
     const unit = e.deltaMode === 1 ? 16 : 1;
-    if (e.ctrlKey || e.metaKey) {
+    // the preferences can make the plain wheel zoom, then ctrl scrolls
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl !== (get(preferences).stage.wheel === 'zoom')) {
       const factor = Math.exp(-e.deltaY * unit * 0.002);
       view.update((v) => zoomAround(v, v.zoom * factor, e.clientX - rect.left, e.clientY - rect.top));
       return;
@@ -527,7 +554,7 @@
   class="stage"
   class:dropping
   bind:this={host}
-  style="cursor: {cursor}"
+  style="cursor: {cursor}; --pasteboard: {SHADE_VARS[$preferences.stage.shade]}"
   role="application"
   {ondragover}
   ondragleave={() => (dropping = false)}
