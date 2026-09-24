@@ -5,6 +5,7 @@
   import ToolsTab from './prefs/ToolsTab.svelte';
   import PensTab from './prefs/PensTab.svelte';
   import CanvasTab from './prefs/CanvasTab.svelte';
+  import TimelineTab from './prefs/TimelineTab.svelte';
   import { type PreferencesCategory } from '$lib/stores/app';
   import { defaultPreferences, resetParts, resetPreferences, setGroup } from '$lib/stores/preferences';
   import { setWorkspace } from '$lib/stores/workspace';
@@ -28,7 +29,8 @@
       label: 'Canvas',
       page: CanvasTab,
       reset: () => resetParts(['grid', 'guides', 'rulers', 'snapping', 'stage'])
-    }
+    },
+    { id: 'timeline', label: 'Timeline', page: TimelineTab, reset: resetTimeline }
   ];
 
   let tab = $state<PreferencesCategory>(untrack(() => (TABS.some((t) => t.id === category) ? category : 'general')));
@@ -49,6 +51,11 @@
     const d = defaultPreferences().drawing;
     resetParts(['pens', 'pen']);
     setGroup('drawing', { brushPressure: d.brushPressure, eraserSize: d.eraserSize });
+  }
+
+  function resetTimeline() {
+    resetParts(['timeline']);
+    setGroup('rig', { tweenPoses: defaultPreferences().rig.tweenPoses });
   }
 
   function resetAll() {
