@@ -13,7 +13,7 @@
   }
   import { openDocument, save } from '$lib/io/files';
   import { dialog, dirty, docName } from '$lib/stores/app';
-  import { BUILTIN_WORKSPACES, setWorkspace, workspace } from '$lib/stores/workspace';
+  import { allWorkspaces, setWorkspace, workspace } from '$lib/stores/workspace';
   import { historyState } from '$lib/editor/editor';
 </script>
 
@@ -31,7 +31,7 @@
   </div>
 
   <div class="workspaces">
-    {#each BUILTIN_WORKSPACES as ws (ws.id)}
+    {#each allWorkspaces($preferences) as ws (ws.id)}
       <button class="tool-btn" class:active={$workspace === ws.id} title="{ws.name} workspace" onclick={() => setWorkspace(ws.id)}>
         {ws.name}
       </button>
