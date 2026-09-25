@@ -4,6 +4,8 @@
   import {
     activeLayer,
     activeTool,
+    contextMenu,
+    selection,
     addToast,
     anchorSelection,
     frameSelection,
@@ -32,7 +34,9 @@
   import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
   import { currentTool, doubleClick, drawToolOverlay, pointerDown, pointerMove, pointerUp } from '$lib/tools';
   import { coalescedEvents, makeEvent, type ToolEvent } from '$lib/tools/tool';
-  import { pickItem } from '$lib/tools/pick';
+  import { pickForSelect, pickItem } from '$lib/tools/pick';
+  import { stageMenu } from '$lib/editor/menus';
+  import { select } from '$lib/editor/selection';
   import { pointerFactor } from '$lib/core/hit';
   import { finishGuideDrag, guideAt, guideState, guidesLocked, type GuideAxis } from '$lib/editor/guides';
   import { clearSnap, snapPoint } from '$lib/editor/snap';
@@ -414,6 +418,18 @@
     editor.markOverlay();
   }
 
+  // a right click picks what is under the pointer when it is not selected yet, then the menu opens
+  function oncontextmenu(e: MouseEvent) {
+    e.preventDefault();
+    if (panStart) return;
+    const ev = toolEvent(e);
+    const hit = pickForSelect(ev, ev.zoom, pointerFactor('mouse'));
+    if (hit && !get(selection).has(hit.id)) select([hit.id]);
+    const canBind = editor.currentLayers().some((l) => l.type === 'rig' && l.bones.length > 0);
+    const items = stageMenu(get(preferences).shortcuts, get(selection).size > 0, canBind);
+    contextMenu.set({ x: e.clientX, y: e.clientY, items });
+  }
+
   function ondblclick(e: MouseEvent) {
     doubleClick(toolEvent(e));
     editor.markOverlay();
@@ -578,7 +594,7 @@
       // the middle button pans, it must not start the browser's autoscroll
       if (e.button === 1) e.preventDefault();
     }}
-    oncontextmenu={(e) => e.preventDefault()}></canvas>
+    {oncontextmenu}></canvas>
   {#if pointerAt && $preferences.rulers.show}
     {#if pointerAt.x > RULER}
       <div class="ruler-mark x" style="transform: translateX({Math.round(pointerAt.x)}px)"></div>
