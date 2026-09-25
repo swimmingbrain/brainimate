@@ -7,6 +7,7 @@
   import CanvasTab from './prefs/CanvasTab.svelte';
   import TimelineTab from './prefs/TimelineTab.svelte';
   import ShortcutsTab from './prefs/ShortcutsTab.svelte';
+  import WorkspaceTab from './prefs/WorkspaceTab.svelte';
   import { type PreferencesCategory } from '$lib/stores/app';
   import { defaultPreferences, resetParts, resetPreferences, setGroup } from '$lib/stores/preferences';
   import { setWorkspace } from '$lib/stores/workspace';
@@ -32,7 +33,8 @@
       reset: () => resetParts(['grid', 'guides', 'rulers', 'snapping', 'stage'])
     },
     { id: 'timeline', label: 'Timeline', page: TimelineTab, reset: resetTimeline },
-    { id: 'shortcuts', label: 'Shortcuts', page: ShortcutsTab, reset: () => resetParts(['shortcuts']) }
+    { id: 'shortcuts', label: 'Shortcuts', page: ShortcutsTab, reset: () => resetParts(['shortcuts']) },
+    { id: 'workspace', label: 'Workspace', page: WorkspaceTab, reset: resetWorkspaces }
   ];
 
   let tab = $state<PreferencesCategory>(untrack(() => (TABS.some((t) => t.id === category) ? category : 'general')));
@@ -58,6 +60,12 @@
   function resetTimeline() {
     resetParts(['timeline']);
     setGroup('rig', { tweenPoses: defaultPreferences().rig.tweenPoses });
+  }
+
+  // the saved workspaces go and essentials comes back
+  function resetWorkspaces() {
+    resetParts(['workspaces']);
+    setWorkspace('essentials');
   }
 
   function resetAll() {
