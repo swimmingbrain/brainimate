@@ -5,6 +5,9 @@
   import type { LayerRow } from '$lib/anim/timeline';
   import { LAYER_COLORS } from '$lib/editor/editor';
   import {
+    addFolder,
+    addLayer,
+    addRigLayer,
     deleteLayer,
     duplicateLayer,
     hideOtherLayers,
@@ -101,9 +104,17 @@
     e.preventDefault();
     setActiveLayer(layer.id);
     const items: MenuItem[] = [
+      { label: 'New layer', action: addLayer },
+      { label: 'New folder', action: addFolder },
+      { label: 'New rig layer', action: addRigLayer },
+      { label: '', separator: true },
       { label: 'Rename', action: () => startRename(layer) },
       { label: 'Duplicate layer', action: () => duplicateLayer(layer.id) },
       { label: 'Delete', danger: true, action: () => deleteLayer(layer.id) },
+      { label: '', separator: true },
+      { label: 'Visible', checked: layer.visible, action: () => setLayerFlag(layer.id, 'visible', !layer.visible) },
+      { label: 'Locked', checked: layer.locked, action: () => setLayerFlag(layer.id, 'locked', !layer.locked) },
+      { label: 'Outlines', checked: layer.outline, action: () => setLayerFlag(layer.id, 'outline', !layer.outline) },
       { label: '', separator: true },
       { label: 'Show all', action: showAllLayers },
       { label: 'Hide others', action: () => hideOtherLayers(layer.id) },
