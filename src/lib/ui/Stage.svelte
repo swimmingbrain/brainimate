@@ -575,7 +575,10 @@
   style="cursor: {cursor}; --pasteboard: {SHADE_VARS[$preferences.stage.shade]}"
   role="application"
   {ondragover}
-  ondragleave={() => (dropping = false)}
+  ondragleave={(e) => {
+    // moving over the canvases inside is no leave
+    if (!host?.contains(e.relatedTarget as Node | null)) dropping = false;
+  }}
   {ondrop}>
   <canvas class="content" bind:this={content}></canvas>
   <canvas
@@ -602,6 +605,9 @@
     {#if pointerAt.y > RULER}
       <div class="ruler-mark y" style="transform: translateY({Math.round(pointerAt.y)}px)"></div>
     {/if}
+  {/if}
+  {#if dropping}
+    <div class="drop-note">Drop to place it here</div>
   {/if}
   {#if $textEditing}
     {#key $textEditing}
@@ -655,8 +661,22 @@
   .stage.dropping::after {
     content: '';
     position: absolute;
-    inset: 0;
+    inset: 6px;
     border: 2px dashed var(--accent);
+    background: var(--accent-dim);
     pointer-events: none;
+  }
+
+  .drop-note {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #111;
+    background: var(--accent);
+    pointer-events: none;
+    z-index: 2;
   }
 </style>
