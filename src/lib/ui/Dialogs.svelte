@@ -9,6 +9,7 @@
   import DocSettings from './dialogs/DocSettings.svelte';
   import Export from './dialogs/Export.svelte';
   import CommandPalette from './CommandPalette.svelte';
+  import GettingStarted from './dialogs/GettingStarted.svelte';
   import { dialog } from '$lib/stores/app';
 
   function close() {
@@ -24,6 +25,8 @@
       <Shortcuts onclose={close} />
     {:else if $dialog.kind === 'palette'}
       <CommandPalette onclose={close} />
+    {:else if $dialog.kind === 'getting-started'}
+      <GettingStarted onclose={close} />
     {:else if $dialog.kind === 'about'}
       <About onclose={close} />
     {:else if $dialog.kind === 'confirm'}
