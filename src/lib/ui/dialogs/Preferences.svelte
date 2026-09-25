@@ -6,6 +6,7 @@
   import PensTab from './prefs/PensTab.svelte';
   import CanvasTab from './prefs/CanvasTab.svelte';
   import TimelineTab from './prefs/TimelineTab.svelte';
+  import ShortcutsTab from './prefs/ShortcutsTab.svelte';
   import { type PreferencesCategory } from '$lib/stores/app';
   import { defaultPreferences, resetParts, resetPreferences, setGroup } from '$lib/stores/preferences';
   import { setWorkspace } from '$lib/stores/workspace';
@@ -30,7 +31,8 @@
       page: CanvasTab,
       reset: () => resetParts(['grid', 'guides', 'rulers', 'snapping', 'stage'])
     },
-    { id: 'timeline', label: 'Timeline', page: TimelineTab, reset: resetTimeline }
+    { id: 'timeline', label: 'Timeline', page: TimelineTab, reset: resetTimeline },
+    { id: 'shortcuts', label: 'Shortcuts', page: ShortcutsTab, reset: () => resetParts(['shortcuts']) }
   ];
 
   let tab = $state<PreferencesCategory>(untrack(() => (TABS.some((t) => t.id === category) ? category : 'general')));
