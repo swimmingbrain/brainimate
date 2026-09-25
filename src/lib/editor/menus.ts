@@ -24,6 +24,44 @@ export interface MenuContext {
   recent: RecentFile[];
 }
 
+// a menu entry for a command with the key it answers to now, the label can read a little different
+export function commandItem(id: string, shortcuts: Record<string, string>, extra: Partial<MenuItem> = {}): MenuItem {
+  const cmd = commandById(id);
+  if (!cmd) return { label: id, disabled: true };
+  const key = keysOf(id, shortcuts)[0];
+  return { label: cmd.label, shortcut: key ? keyLabel(key) : undefined, action: cmd.run, ...extra };
+}
+
+// the right click menu of the stage, for what is selected
+export function stageMenu(shortcuts: Record<string, string>, hasSelection: boolean, canBind: boolean): MenuItem[] {
+  const none = !hasSelection;
+  const c = (id: string, extra: Partial<MenuItem> = {}) => commandItem(id, shortcuts, extra);
+  const s = (id: string, extra: Partial<MenuItem> = {}) => c(id, { disabled: none, ...extra });
+  return [
+    s('edit.cut'),
+    s('edit.copy'),
+    c('edit.paste'),
+    c('edit.paste-in-place'),
+    s('edit.duplicate'),
+    s('edit.delete'),
+    SEP,
+    s('modify.group'),
+    s('modify.ungroup'),
+    {
+      label: 'Arrange',
+      disabled: none,
+      children: [s('modify.front'), s('modify.forward'), s('modify.backward'), s('modify.back')]
+    },
+    SEP,
+    s('modify.symbol', { label: 'Convert to symbol...' }),
+    s('rig.bind', { disabled: none || !canBind }),
+    s('rig.unbind'),
+    SEP,
+    c('edit.select-all'),
+    s('edit.deselect')
+  ];
+}
+
 function recentItems(recent: RecentFile[]): MenuItem[] {
   if (recent.length === 0) return [{ label: 'No recent files', disabled: true }];
   return [
@@ -36,12 +74,7 @@ function recentItems(recent: RecentFile[]): MenuItem[] {
 export function buildMenus(p: Preferences, outline: boolean, workspace: string, ctx: MenuContext): TopMenu[] {
   const none = !ctx.hasSelection;
   // an entry for a command with the key it answers to now, the label can read a little different
-  const c = (id: string, extra: Partial<MenuItem> = {}): MenuItem => {
-    const cmd = commandById(id);
-    if (!cmd) return { label: id, disabled: true };
-    const key = keysOf(id, p.shortcuts)[0];
-    return { label: cmd.label, shortcut: key ? keyLabel(key) : undefined, action: cmd.run, ...extra };
-  };
+  const c = (id: string, extra: Partial<MenuItem> = {}): MenuItem => commandItem(id, p.shortcuts, extra);
   // the same for an entry that only makes sense with something selected
   const s = (id: string, extra: Partial<MenuItem> = {}): MenuItem => c(id, { disabled: none, ...extra });
   const tick = (id: string, checked: boolean, label?: string): MenuItem => c(id, { checked, ...(label ? { label } : {}) });
