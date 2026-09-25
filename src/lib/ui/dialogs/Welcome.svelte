@@ -6,6 +6,7 @@
   import { recentFiles, removeRecent } from '$lib/io/recent';
   import { autosaveOffer } from '$lib/io/autosave';
   import { confirmDiscard, createDocument, openDocument, openRecent, restoreAutosave } from '$lib/io/files';
+  import { preferences, setGroup } from '$lib/stores/preferences';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -84,6 +85,13 @@
   {#snippet footer()}
     <div class="foot">
       <span class="version">brainIMATE {version}</span>
+      <label class="skip" title="The preferences bring it back, General, Start">
+        <input
+          type="checkbox"
+          checked={$preferences.general.skipWelcome}
+          onchange={(e) => setGroup('general', { skipWelcome: e.currentTarget.checked })} />
+        Don't show again
+      </label>
       <a href="https://github.com/swimmingbrain/brainimate" target="_blank" rel="noopener" class="github">
         <Icon name="github" size={12} /> GitHub
       </a>
@@ -279,6 +287,22 @@
     font-family: var(--font-editor);
     font-size: 10.5px;
     color: var(--text-muted);
+  }
+
+  .skip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    margin-right: 16px;
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .skip input {
+    accent-color: var(--accent);
   }
 
   .github {
