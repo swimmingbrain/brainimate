@@ -11,6 +11,7 @@
   import { fontVersion } from '$lib/core/fonts';
   import { docVersion, editor } from '$lib/editor/editor';
   import { stagePoint } from '$lib/editor/view';
+  import { stageCenter } from '$lib/editor/importer';
   import { clearSnap, snapPoint } from '$lib/editor/snap';
   import {
     deleteSymbol,
@@ -126,11 +127,14 @@
     e.preventDefault();
     picked = symbol.id;
     const items: MenuItem[] = [
+      { label: 'Place on stage', action: () => placeInstance(symbol.id, stageCenter()) },
       { label: 'Edit in place', action: () => editSymbol(symbol.id) },
       { label: 'Rename', action: () => startRename(symbol) },
       { label: 'Duplicate', action: () => duplicateSymbol(symbol.id) },
       { label: '', separator: true },
-      { label: 'Delete', danger: true, action: () => deleteSymbol(symbol.id) }
+      { label: 'Delete', danger: true, action: () => deleteSymbol(symbol.id) },
+      { label: '', separator: true },
+      { label: 'New symbol', action: newSymbol }
     ];
     contextMenu.set({ x: e.clientX, y: e.clientY, items });
   }
