@@ -139,6 +139,20 @@ html, body {
   background: var(--text-muted);
 }
 
+/* firefox knows no webkit scrollbars, it gets the same thin dark ones */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+}
+
+/* keyboard focus is a thin accent line inside the control, a click leaves no ring */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
 a {
   color: var(--accent);
   text-decoration: none;
