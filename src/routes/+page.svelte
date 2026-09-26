@@ -8,7 +8,17 @@
     { title: 'Bones and poses', text: 'Rig a character with bones, bind the drawing and pose it by dragging a hand or a foot.' },
     { title: 'Symbols', text: 'Draw a part once, reuse it as a symbol and change every copy in one place.' },
     { title: 'Export', text: 'PNG, SVG, GIF, WebM and MP4, image sequences and sprite sheets for games.' },
-    { title: 'Stays on your machine', text: 'No account and no upload. The app works offline once it has loaded.' }
+    { title: 'Stays on your machine', text: 'No account and no upload. The app works offline once it has loaded.' },
+    { title: 'Made your way', text: 'Reorder the toolbar, save brush presets, change any key and keep your own workspaces.' },
+    { title: 'Fast with a lot on stage', text: 'Hundreds of shapes stay smooth to drag and scrub, layers you are not touching are kept ready.' },
+    { title: 'Open source', text: 'MIT licensed, on GitHub. Read how it works, file a problem or send a fix.' }
+  ];
+
+  const steps = [
+    { title: 'Draw', text: 'Brush, pencil or pen on a stage of any size. Every shape stays a curve you can bend later.' },
+    { title: 'Key it', text: 'Go to a later frame and press F6, then change the drawing there. Each keyframe holds a pose.' },
+    { title: 'Tween or rig', text: 'Let a tween fill the frames in between, or give a character bones and drag it into poses.' },
+    { title: 'Export', text: 'Save a GIF, a video, PNG frames, SVG or a sprite sheet, right from the browser.' }
   ];
 </script>
 
@@ -129,6 +139,21 @@
       </div>
     </div>
   </div>
+
+  <section class="how">
+    <div class="features-inner">
+      <h2 class="features-heading">How it works</h2>
+      <ol class="how-list">
+        {#each steps as step, i (step.title)}
+          <li class="how-step">
+            <span class="how-num">{i + 1}</span>
+            <h3>{step.title}</h3>
+            <p>{step.text}</p>
+          </li>
+        {/each}
+      </ol>
+    </div>
+  </section>
 
   <section class="features">
     <div class="features-inner">
@@ -510,9 +535,43 @@
     border-right: 3.5px solid transparent;
   }
 
-  .features {
+  .features,
+  .how {
     border-top: 1px solid var(--border);
     padding: 64px 32px;
+  }
+
+  .how-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+
+  .how-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-bottom: 12px;
+    font-family: var(--font-editor);
+    font-size: 12px;
+    color: #111;
+    background: var(--accent);
+  }
+
+  .how-step h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+
+  .how-step p {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
   }
 
   .features-inner {
@@ -656,11 +715,13 @@
       width: 100%;
     }
 
-    .features {
+    .features,
+    .how {
       padding: 48px 20px;
     }
 
-    .features-grid {
+    .features-grid,
+    .how-list {
       grid-template-columns: 1fr;
       gap: 24px;
     }
