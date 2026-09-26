@@ -36,6 +36,6 @@
   }
 
   .select {
-    width: 112px;
+    width: 100px;
   }
 </style>

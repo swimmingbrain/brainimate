@@ -206,6 +206,7 @@
     color: var(--accent);
   }
 
+  /* many tool settings on a narrow window scroll sideways instead of running under the buttons */
   .options {
     flex: 1;
     min-width: 0;
@@ -214,7 +215,18 @@
     gap: 8px;
     padding-left: 10px;
     border-left: 1px solid var(--border);
-    height: 18px;
+    height: 26px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .options::-webkit-scrollbar {
+    display: none;
+  }
+
+  .options > :global(*) {
+    flex-shrink: 0;
   }
 
   .tool-name {
