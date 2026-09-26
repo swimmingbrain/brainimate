@@ -16,6 +16,8 @@
     toggleSnapping
   } from '$lib/editor/commands';
   import { zoomFit, zoomTo } from '$lib/editor/view';
+  import { tip } from '$lib/editor/actions';
+  import { commandItem } from '$lib/editor/menus';
   import { activeTool, outlineMode, view, type MenuItem } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
   import { docVersion, editStack, editor } from '$lib/editor/editor';
@@ -31,28 +33,44 @@
   // the active tool's settings, or just its name when it has none
   const Options = $derived(getTool($activeTool)?.options);
 
-  const zoomItems: MenuItem[] = [
+  const zoomItems: MenuItem[] = $derived([
     ...ZOOMS.map((z) => ({ label: `${z}%`, action: () => zoomTo(z / 100) })),
     { label: '', separator: true },
-    { label: 'Fit in window', shortcut: 'Ctrl+0', action: zoomFit }
-  ];
+    commandItem('view.fit', $preferences.shortcuts)
+  ]);
 
   // view toggles, then the snapping ones, then onion skin and outlines, a gap between the groups
+  const keys = $derived($preferences.shortcuts);
   const toggles = $derived([
     [
-      { icon: 'grid', label: "Grid (Ctrl+')", on: $preferences.grid.show, run: toggleGrid },
-      { icon: 'rulers', label: 'Rulers (Ctrl+R)', on: $preferences.rulers.show, run: toggleRulers },
-      { icon: 'guides', label: 'Guides (Ctrl+;)', on: $preferences.guides.show, run: toggleGuides }
+      { icon: 'grid', label: tip('Grid', 'view.grid', keys), on: $preferences.grid.show, run: toggleGrid },
+      { icon: 'rulers', label: tip('Rulers', 'view.rulers', keys), on: $preferences.rulers.show, run: toggleRulers },
+      { icon: 'guides', label: tip('Guides', 'view.guides', keys), on: $preferences.guides.show, run: toggleGuides }
     ],
     [
-      { icon: 'snap', label: 'Snapping', on: $preferences.snapping.enabled, run: toggleSnapping },
-      { icon: 'snap-grid', label: 'Snap to grid', on: $preferences.grid.snap, run: toggleSnapToGrid },
-      { icon: 'snap-guides', label: 'Snap to guides', on: $preferences.guides.snap, run: toggleSnapToGuides },
-      { icon: 'smart', label: 'Smart guides (Ctrl+U)', on: $preferences.snapping.smartGuides, run: toggleSmartGuides }
+      { icon: 'snap', label: tip('Snapping', 'view.snapping', keys), on: $preferences.snapping.enabled, run: toggleSnapping },
+      {
+        icon: 'snap-grid',
+        label: tip('Snap to grid', 'view.snap-grid', keys),
+        on: $preferences.grid.snap,
+        run: toggleSnapToGrid
+      },
+      {
+        icon: 'snap-guides',
+        label: tip('Snap to guides', 'view.snap-guides', keys),
+        on: $preferences.guides.snap,
+        run: toggleSnapToGuides
+      },
+      {
+        icon: 'smart',
+        label: tip('Smart guides', 'view.smart-guides', keys),
+        on: $preferences.snapping.smartGuides,
+        run: toggleSmartGuides
+      }
     ],
     [
-      { icon: 'onion', label: 'Onion skin', on: $preferences.timeline.onion, run: toggleOnion },
-      { icon: 'outline', label: 'Outline mode', on: $outlineMode, run: toggleOutline }
+      { icon: 'onion', label: tip('Onion skin', 'view.onion', keys), on: $preferences.timeline.onion, run: toggleOnion },
+      { icon: 'outline', label: tip('Outline mode', 'view.outline', keys), on: $outlineMode, run: toggleOutline }
     ]
   ]);
 </script>
@@ -112,7 +130,7 @@
         {/snippet}
       </Menu>
     </div>
-    <button class="icon-btn" onclick={zoomFit} title="Fit in window (Ctrl+0)" aria-label="Fit in window">
+    <button class="icon-btn" onclick={zoomFit} title={tip('Fit in window', 'view.fit', keys)} aria-label="Fit in window">
       <Icon name="fit" size={14} />
     </button>
     {#each toggles as group, g (g)}
