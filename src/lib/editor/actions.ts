@@ -85,7 +85,7 @@ import { FONT_ACCEPT, IMAGE_ACCEPT, SVG_ACCEPT, openImport } from './importer';
 import { insertStressTest } from './stress';
 import { TEMPLATES } from '$lib/rig/templates';
 import { closeDocument, newDocument, openDocument, save, saveAs } from '$lib/io/files';
-import { normalizeCombo, sameCombo } from './keys';
+import { keyLabel, normalizeCombo, sameCombo } from './keys';
 
 export const REPO = 'https://github.com/swimmingbrain/brainimate';
 
@@ -404,6 +404,12 @@ export function keysOf(id: string, overrides: Record<string, string>): string[] 
 // the combo menus and tooltips show for a command, empty when it has none
 export function shortcutOf(id: string, overrides = get(preferences).shortcuts): string {
   return keysOf(id, overrides)[0] ?? '';
+}
+
+// a tooltip with the key a command answers to now, like Pen (P)
+export function tip(name: string, id: string, overrides: Record<string, string>): string {
+  const key = keysOf(id, overrides)[0];
+  return key ? `${name} (${keyLabel(key)})` : name;
 }
 
 // the other commands that answer to a combo
