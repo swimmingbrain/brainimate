@@ -109,9 +109,9 @@
   <thead>
     <tr>
       <th>Command</th>
-      <th>Default</th>
-      <th>Key</th>
-      <th></th>
+      <th class="col-default">Default</th>
+      <th class="col-key">Key</th>
+      <th class="col-acts"></th>
     </tr>
   </thead>
   <tbody>
@@ -125,7 +125,7 @@
             <span class="group">{c.group}</span>
           </span>
         </td>
-        <td class="keys muted">{labels(c.keys)}</td>
+        <td class="keys muted" title={labels(c.keys)}>{labels(c.keys)}</td>
         <td class="keys">
           <button
             class="record"
@@ -213,11 +213,22 @@
     color: var(--text-muted);
   }
 
+  /* fixed columns, a long combo is cut short instead of pushing the table wider */
   .table {
     width: calc(100% - 16px);
     margin: 0 8px;
     border-collapse: collapse;
+    table-layout: fixed;
     font-size: 11.5px;
+  }
+
+  .col-default,
+  .col-key {
+    width: 26%;
+  }
+
+  .col-acts {
+    width: 56px;
   }
 
   th {
@@ -243,6 +254,9 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
   }
 
   .label {
@@ -258,6 +272,8 @@
     font-family: var(--font-editor);
     font-size: 10.5px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .muted {
@@ -269,7 +285,10 @@
   }
 
   .record {
-    min-width: 96px;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     padding: 3px 8px;
     text-align: left;
     font-family: var(--font-editor);
