@@ -14,6 +14,7 @@
     togglePlay
   } from '$lib/editor/commands';
   import { formatTime } from '$lib/anim/playback';
+  import { tip } from '$lib/editor/actions';
   import { MAX_FRAME_W, MIN_FRAME_W } from './metrics';
 
   const timeline = $derived($preferences.timeline);
@@ -59,6 +60,8 @@
       'doc-fps'
     );
   }
+
+  const keys = $derived($preferences.shortcuts);
 </script>
 
 <div class="bar">
@@ -68,7 +71,7 @@
       class:on={timeline.onion}
       onclick={toggleOnion}
       oncontextmenu={onionMenu}
-      title="Onion skin (Alt+Shift+O), right click for options"
+      title={`${tip('Onion skin', 'view.onion', keys)}, right click for options`}
       aria-label="Onion skin"
       aria-pressed={timeline.onion}>
       <Icon name="onion" size={14} />
@@ -114,24 +117,28 @@
   <span class="sep"></span>
 
   <div class="group transport">
-    <button class="icon-btn" title="First frame (Shift+,)" aria-label="First frame" onclick={firstFrame}>
+    <button class="icon-btn" title={tip('First frame', 'timeline.first', keys)} aria-label="First frame" onclick={firstFrame}>
       <Icon name="first" size={13} />
     </button>
-    <button class="icon-btn" title="Previous frame (,)" aria-label="Previous frame" onclick={() => stepFrame(-1)}>
+    <button
+      class="icon-btn"
+      title={tip('Previous frame', 'timeline.previous', keys)}
+      aria-label="Previous frame"
+      onclick={() => stepFrame(-1)}>
       <Icon name="prev" size={13} />
     </button>
     <button
       class="icon-btn play"
       class:on={$playing}
-      title={$playing ? 'Pause (Enter)' : 'Play (Enter)'}
+      title={tip($playing ? 'Pause' : 'Play', 'timeline.play', keys)}
       aria-label={$playing ? 'Pause' : 'Play'}
       onclick={togglePlay}>
       <Icon name={$playing ? 'pause' : 'play'} size={13} />
     </button>
-    <button class="icon-btn" title="Next frame (.)" aria-label="Next frame" onclick={() => stepFrame(1)}>
+    <button class="icon-btn" title={tip('Next frame', 'timeline.next', keys)} aria-label="Next frame" onclick={() => stepFrame(1)}>
       <Icon name="next" size={13} />
     </button>
-    <button class="icon-btn" title="Last frame (Shift+.)" aria-label="Last frame" onclick={lastFrame}>
+    <button class="icon-btn" title={tip('Last frame', 'timeline.last', keys)} aria-label="Last frame" onclick={lastFrame}>
       <Icon name="last" size={13} />
     </button>
   </div>
