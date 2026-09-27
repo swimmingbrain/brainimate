@@ -15,7 +15,7 @@
 
 brainIMATE is an open source app for drawing and animating, like Adobe Animate and Illustrator, but in a browser tab. It is made for illustrators and for people who never animated before. There is no account and no server, everything stays in your browser.
 
-It is early. The drawing tools, the timeline, symbols, text, pictures, the rig, saving and export work, the preferences and the last polish come next.
+It is young. The drawing tools, the timeline, symbols, text, pictures, the rig, saving, export and the preferences work, a last round of testing comes next.
 
 ## Features
 
@@ -34,7 +34,12 @@ It is early. The drawing tools, the timeline, symbols, text, pictures, the rig, 
 - `.brainimate` files that carry their pictures and fonts, open, save and save as, recent files with thumbnails, a project dropped on the window opens
 - Autosave in the browser two seconds after every change, a restore on the welcome screen when the tab closed before a save
 - Export a frame to PNG or SVG, the animation to GIF, WebM, MP4, a PNG sequence or a sprite sheet with a json for game engines, posed rigs included
+- A command palette (`Ctrl+Shift+P`) that finds every command by a few letters, with the ones you ran last on top
 - Offline use once loaded
+
+### Customization
+
+Preferences (`Ctrl+K`) has a tab for each part. Tools: show, hide and drag the tools of the toolbar into your own order, on the left or the right, small or normal. Pens: brush and pencil presets you save from the stage bar, the eraser size and how the pen draws its anchors and rubber band. Canvas: grid size, subdivisions, color and opacity, guide and smart guide colors, the pasteboard, the wheel and a tablet mode with bigger hit areas. Shortcuts: record any key for any command, a clash shows in red until you keep or undo it. Workspaces: Essentials, Illustrate, Animate and Rig set the panels, sizes, toolbar side, rulers and bones, and you can save your own next to them.
 
 ### Rigging
 
@@ -67,7 +72,8 @@ Draw an arm on a layer, press `M`, click the shoulder, the elbow and the wrist, 
 | `Ctrl+Z` `Ctrl+Shift+Z` | Undo, redo |
 | `Ctrl+O` `Ctrl+S` `Ctrl+Shift+S` | Open, save, save as |
 | `Ctrl+I` `Ctrl+E` | Import, export |
-| `?` | All shortcuts |
+| `Ctrl+Shift+P` `Ctrl+K` | Command palette, preferences |
+| `?` | All shortcuts, they can all be changed in the preferences |
 
 ## Running locally
 
@@ -80,7 +86,7 @@ Open `http://localhost:5173`. `pnpm test` runs the tests, `pnpm check` the type 
 
 ## How it works
 
-- The stage is two stacked canvases, the drawing below and the handles on top. Both are drawn only when something changed.
+- The stage is two stacked canvases, the drawing below and the handles on top. Both are drawn only when something changed. While you edit, the layers under and over the one you work on are kept as two pictures, so a drag only draws its own layer, and a grid of the item boxes finds what is under the pointer without testing every shape.
 - A drawing is a list of paths made of cubic curves, kept as plain objects. Undo stores immer patches, not copies.
 - A layer holds keyframes. Between two keyframes with a tween, items with the same id are blended: the transform as move, turn, scale and skew, the paths point by point, the colors in rgb. A frame is worked out once and kept, so playback only pays for frames it has not seen.
 - Onion skin draws the frames around the playhead offscreen, tints them and keeps the result until something changes.
