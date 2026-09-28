@@ -10,10 +10,11 @@
   import { layerRows } from '$lib/anim/timeline';
   import { collapsedFolders, frame, timelineView } from '$lib/stores/app';
   import { preferences, setGroup } from '$lib/stores/preferences';
-  import { EXTRA_FRAMES, MAX_FRAME_W, MIN_FRAME_W, ROW_H } from './metrics';
+  import { EXTRA_FRAMES, MAX_FRAME_W, MIN_FRAME_W, ROW_H, prepareCanvas, timelineColors } from './metrics';
 
   let body = $state<HTMLDivElement | null>(null);
   let gridEl = $state<HTMLDivElement | null>(null);
+  let headCanvas = $state<HTMLCanvasElement | null>(null);
   let gridW = $state(0);
   let gridH = $state(0);
 
@@ -53,6 +54,17 @@
     const sy = Math.max(0, Math.min(maxY(), y));
     timelineView.update((v) => (v.scrollX === sx && v.scrollY === sy ? v : { ...v, scrollX: sx, scrollY: sy }));
   }
+
+  // the playhead line is a canvas of its own over the frames, a moving element cost more per frame
+  $effect(() => {
+    const x = playheadX;
+    if (!headCanvas || gridW <= 0 || gridH <= 0) return;
+    const ctx = prepareCanvas(headCanvas, gridW, gridH);
+    if (!ctx) return;
+    ctx.clearRect(0, 0, gridW, gridH);
+    ctx.fillStyle = timelineColors().accent;
+    ctx.fillRect(Math.round(x - 0.5), 0, 1, gridH);
+  });
 
   $effect(() => {
     const w = gridW;
@@ -145,9 +157,7 @@
     </div>
     <div class="grid" bind:this={gridEl} bind:clientWidth={gridW} bind:clientHeight={gridH}>
       <FrameGrid {rows} frameWidth={fw} {scrollX} {scrollY} width={gridW} height={gridH} />
-      {#if playheadX > -2 && playheadX < gridW + 2}
-        <div class="playhead" style="transform: translateX({playheadX}px)"></div>
-      {/if}
+      <canvas class="playhead" bind:this={headCanvas} style="width: {gridW}px; height: {gridH}px"></canvas>
     </div>
   </div>
 
@@ -231,13 +241,8 @@
   .playhead {
     position: absolute;
     top: 0;
-    bottom: 0;
     left: 0;
-    width: 1px;
-    margin-left: -0.5px;
-    background: var(--playhead);
     pointer-events: none;
-    will-change: transform;
     z-index: 4;
   }
 </style>
