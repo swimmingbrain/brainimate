@@ -19,7 +19,9 @@ Open `http://localhost:5173` in Chrome, Edge or Firefox. A pen tablet helps for 
 - `src/lib/editor` holds the document, undo, the view and what the menus and keys call.
 - `src/lib/tools` are the stage tools, one file each, `src/lib/render` draws the stage.
 - `src/lib/anim` is the timeline and the tweens, `src/lib/rig` the bones, `src/lib/io` opening, saving and exports.
-- `src/lib/stores` are the small app wide stores and the preferences, `src/lib/ui` the Svelte components, one per file.
+- `src/lib/stores` are the small app wide stores, the preferences and the workspaces, `src/lib/ui` the Svelte components, one per file.
+- A new command goes into the list in `src/lib/editor/actions.ts` with a label, a group and its default keys. The keys, the menus, the command palette and the shortcuts editor all read that list.
+- `pnpm dev` adds a hidden "Insert stress test" to the command palette, 600 shapes on six layers, to see how the stage keeps up.
 
 ## Style
 
