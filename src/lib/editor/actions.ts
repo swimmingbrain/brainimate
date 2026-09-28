@@ -82,7 +82,6 @@ import { zoomActual, zoomFit, zoomIn, zoomOut } from './view';
 import { leaveSymbol, newSymbol, openConvertDialog } from './symbols';
 import { outlineSelectedText } from './outlines';
 import { FONT_ACCEPT, IMAGE_ACCEPT, SVG_ACCEPT, openImport } from './importer';
-import { insertStressTest } from './stress';
 import { TEMPLATES } from '$lib/rig/templates';
 import { closeDocument, newDocument, openDocument, save, saveAs } from '$lib/io/files';
 import { keyLabel, normalizeCombo, sameCombo } from './keys';
@@ -266,7 +265,14 @@ function build(): Command[] {
     { id: 'insert.folder', label: 'New layer folder', group: 'Insert', keys: [], run: addFolder },
     { id: 'insert.rig-layer', label: 'New rig layer', group: 'Insert', keys: [], run: addRigLayer },
     { id: 'insert.symbol', label: 'New symbol', group: 'Insert', keys: [], run: newSymbol },
-    { id: 'insert.stress', label: 'Insert stress test', group: 'Insert', keys: [], run: insertStressTest, dev: true },
+    {
+      id: 'insert.stress',
+      label: 'Insert stress test',
+      group: 'Insert',
+      keys: [],
+      run: () => void import('./stress').then((m) => m.insertStressTest()),
+      dev: true
+    },
 
     { id: 'modify.group', label: 'Group', group: 'Modify', keys: ['Ctrl+G'], run: groupSelection },
     { id: 'modify.ungroup', label: 'Ungroup', group: 'Modify', keys: ['Ctrl+Shift+G'], run: ungroupSelection },
@@ -381,7 +387,8 @@ function build(): Command[] {
   return list;
 }
 
-export const COMMANDS: Command[] = build();
+// a build for the web leaves the commands that only help to measure out
+export const COMMANDS: Command[] = build().filter((c) => !c.dev || import.meta.env.DEV);
 
 const byId = new Map(COMMANDS.map((c) => [c.id, c]));
 
