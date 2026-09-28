@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import Icon from '$lib/icons/Icon.svelte';
   import NumberField from '../NumberField.svelte';
   import { contextMenu, frame, playing } from '$lib/stores/app';
@@ -16,6 +18,25 @@
   import { formatTime } from '$lib/anim/playback';
   import { tip } from '$lib/editor/actions';
   import { MAX_FRAME_W, MIN_FRAME_W } from './metrics';
+
+  // the readouts follow the playhead at most ten times a second, every text that changes paints the
+  // page again and playing or scrubbing moves the frame on every animation frame. the ruler shows
+  // the exact place in between and the last frame always lands
+  const READOUT_MS = 100;
+  let shown = $state(get(frame));
+  let pending: ReturnType<typeof setTimeout> | null = null;
+  const offFrame = frame.subscribe((f) => {
+    if (pending) return;
+    shown = f;
+    pending = setTimeout(() => {
+      pending = null;
+      shown = get(frame);
+    }, READOUT_MS);
+  });
+  onDestroy(() => {
+    offFrame();
+    if (pending) clearTimeout(pending);
+  });
 
   const timeline = $derived($preferences.timeline);
   // the frame rate belongs to the document, the preference is only the default for new ones
@@ -148,7 +169,7 @@
   <div class="group readout">
     <div class="field" title="Current frame">
       <NumberField
-        value={$frame + 1}
+        value={shown + 1}
         min={1}
         max={99999}
         precision={0}
@@ -158,7 +179,7 @@
     <div class="field fps" title="Frames per second">
       <NumberField value={fps} min={1} max={120} precision={0} unit=" fps" label="Frames per second" onchange={setFps} />
     </div>
-    <span class="time" title="Minutes, seconds and frames of {length} frames">{formatTime($frame, fps)}</span>
+    <span class="time" title="Minutes, seconds and frames of {length} frames">{formatTime(shown, fps)}</span>
   </div>
 
   <div class="spacer"></div>
