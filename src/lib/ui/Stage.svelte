@@ -506,11 +506,10 @@
 
   onMount(() => {
     readColors();
-    // desynchronized cuts the pen latency where the browser supports it
-    // the content always covers itself with the pasteboard, an opaque canvas spares the page under it.
-    // the pen strokes show on the overlay, it gets the low latency path, the content keeps the
-    // normal one, which keeps scrubbing smooth where the browser draws in software
-    contentCtx = content!.getContext('2d', { alpha: false });
+    // desynchronized cuts the pen latency where the browser supports it and spares the copy of
+    // the whole canvas on every frame. the content always covers itself with the pasteboard, an
+    // opaque canvas spares the page under it
+    contentCtx = content!.getContext('2d', { desynchronized: true, alpha: false });
     overlayCtx = overlay!.getContext('2d', { desynchronized: true });
 
     const observer = new ResizeObserver(resize);
