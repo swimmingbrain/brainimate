@@ -117,39 +117,81 @@ function setMatrix(ctx: Ctx2D, m: Mat) {
   ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
 }
 
+// the line settings each context has now, canvas setters cost more than a compare. a draw that sets
+// them some other way forgets the entry, the next path sets them again
+const lineState = new WeakMap<Ctx2D, { cap: string; join: string; dash: string; fill: unknown; stroke: unknown }>();
+
+function lineOf(ctx: Ctx2D) {
+  let st = lineState.get(ctx);
+  if (!st) {
+    st = { cap: '', join: '', dash: '?', fill: null, stroke: null };
+    lineState.set(ctx, st);
+  }
+  return st;
+}
+
+function forgetLine(ctx: Ctx2D) {
+  lineState.delete(ctx);
+}
+
 function drawPath(ctx: Ctx2D, item: PathItem, m: Mat, outline: string | null, s: DrawState) {
   if (item.path.anchors.length === 0) return;
   setMatrix(ctx, m);
   const shape = shapePath2D(item.path, item.subpaths);
   const scale = Math.max(scaleFactor(m), 1e-9);
+  const st = lineOf(ctx);
   if (outline) {
     ctx.strokeStyle = outline;
+    st.stroke = null;
     ctx.lineWidth = 1 / scale;
-    ctx.setLineDash([]);
+    if (st.dash !== '') {
+      ctx.setLineDash([]);
+      st.dash = '';
+    }
     ctx.stroke(shape);
     return;
   }
   const style = item.style;
   const box = needsBox(style.fill) || needsBox(style.stroke) ? compoundBounds(item.path, item.subpaths) : null;
   if (style.fill) {
-    ctx.fillStyle = canvasPaint(ctx, style.fill, box);
+    const paint = canvasPaint(ctx, style.fill, box);
+    if (paint !== st.fill) {
+      ctx.fillStyle = paint;
+      st.fill = paint;
+    }
     ctx.fill(shape);
   }
   if (style.stroke && style.width > 0) {
     // without scale stroke the width stays in world units whatever the item transform does
     const k = style.scaleStroke ? 1 : s.viewScale / scale;
-    ctx.strokeStyle = canvasPaint(ctx, style.stroke, box);
+    const paint = canvasPaint(ctx, style.stroke, box);
+    if (paint !== st.stroke) {
+      ctx.strokeStyle = paint;
+      st.stroke = paint;
+    }
     ctx.lineWidth = style.width * k;
-    ctx.lineCap = style.cap;
-    ctx.lineJoin = style.join;
-    ctx.miterLimit = 10;
-    ctx.setLineDash(style.dash.length > 0 ? style.dash.map((d) => d * k) : []);
+    if (st.cap !== style.cap) {
+      ctx.lineCap = style.cap;
+      st.cap = style.cap;
+    }
+    if (st.join !== style.join) {
+      ctx.lineJoin = style.join;
+      ctx.miterLimit = 10;
+      st.join = style.join;
+    }
+    const dash = style.dash.length > 0 ? `${style.dash.join(',')}@${k}` : '';
+    if (dash !== st.dash) {
+      ctx.setLineDash(style.dash.length > 0 ? style.dash.map((d) => d * k) : []);
+      st.dash = dash;
+    }
     ctx.stroke(shape);
   }
 }
 
 // the glyph outlines of the laid out text, filled and stroked like a path
 function drawText(ctx: Ctx2D, item: TextItem, m: Mat, outline: string | null, s: DrawState) {
+  // text sets the line settings its own way
+  forgetLine(ctx);
   const layout = itemLayout(item);
   if (!layout) {
     drawTextFallback(ctx, item, m, outline);
@@ -207,6 +249,7 @@ function drawTextFallback(ctx: Ctx2D, item: TextItem, m: Mat, outline: string | 
 
 function drawImage(ctx: Ctx2D, item: ImageItem, m: Mat, outline: string | null, s: DrawState) {
   setMatrix(ctx, m);
+  forgetLine(ctx);
   if (outline) {
     ctx.strokeStyle = outline;
     ctx.lineWidth = 1 / Math.max(scaleFactor(m), 1e-9);
@@ -271,6 +314,7 @@ function drawTinted(
   const surf = sized(tintSurfaces[depth] ?? null, w, h);
   tintSurfaces[depth] = surf;
   const t = context(surf);
+  forgetLine(t);
   t.setTransform(1, 0, 0, 1, 0, 0);
   t.globalAlpha = 1;
   t.globalCompositeOperation = 'source-over';
@@ -283,6 +327,7 @@ function drawTinted(
   t.globalAlpha = Math.min(1, item.tintAmount);
   t.fillStyle = item.tint!;
   t.fillRect(x0, y0, x1 - x0, y1 - y0);
+  forgetLine(t);
   t.globalCompositeOperation = 'source-over';
   t.globalAlpha = 1;
   ctx.save();
@@ -355,6 +400,7 @@ export function renderLayers(
   const rig = rigFor(layers, opts.frame, opts.pose ?? null);
   const s: DrawState = { opts, viewScale: scaleFactor(base), preview: rig ? undefined : opts.preview };
   ctx.save();
+  forgetLine(ctx);
   for (let i = Math.max(0, from); i <= Math.min(to, layers.length - 1); i++) {
     const layer = layers[i];
     if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
@@ -373,6 +419,7 @@ export function renderLayers(
     }
   }
   ctx.restore();
+  forgetLine(ctx);
 }
 
 export interface GridLook {
