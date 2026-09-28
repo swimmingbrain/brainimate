@@ -1,8 +1,8 @@
 <script lang="ts">
   import { RULER_H, prepareCanvas, timelineColors } from './metrics';
 
-  // frame numbers every 5 frames (1 based) and a tick on every frame on the canvas. the playhead and the
-  // onion range sit on top as plain elements, so playing moves them without drawing the ruler again
+  // frame numbers every 5 frames (1 based), a tick on every frame, the onion range and the playhead, all on
+  // one canvas. moving elements over it cost more per frame than drawing the few ticks again
   let {
     frame,
     frameWidth,
@@ -40,9 +40,6 @@
     return side === 'before' ? x(frame - onion.before) : x(frame + onion.after + 1);
   }
 
-  const head = $derived(x(frame));
-  const range = $derived(onion ? { a: bracketX('before'), b: bracketX('after') } : null);
-
   function draw() {
     if (!canvas || width <= 0) return;
     const ctx = prepareCanvas(canvas, width, RULER_H);
@@ -77,6 +74,41 @@
         ctx.fillText(String(n), x(f) + frameWidth / 2, 11);
       }
     }
+
+    if (onion) {
+      const a = bracketX('before');
+      const b = bracketX('after');
+      ctx.fillStyle = c.accentDim;
+      ctx.fillRect(a, 14, b - a, 12);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = onion.beforeColor;
+      ctx.beginPath();
+      ctx.moveTo(a + 4, 14.75);
+      ctx.lineTo(a + 0.75, 14.75);
+      ctx.lineTo(a + 0.75, 25.25);
+      ctx.lineTo(a + 4, 25.25);
+      ctx.stroke();
+      ctx.strokeStyle = onion.afterColor;
+      ctx.beginPath();
+      ctx.moveTo(b - 4, 14.75);
+      ctx.lineTo(b - 0.75, 14.75);
+      ctx.lineTo(b - 0.75, 25.25);
+      ctx.lineTo(b - 4, 25.25);
+      ctx.stroke();
+    }
+
+    // the playhead cell with its triangle handle at the bottom
+    const head = x(frame);
+    ctx.fillStyle = c.accentDim;
+    ctx.fillRect(head, 0, frameWidth, h - 1);
+    const mid = head + frameWidth / 2;
+    ctx.fillStyle = c.accent;
+    ctx.beginPath();
+    ctx.moveTo(mid - 5, h - 8);
+    ctx.lineTo(mid + 5, h - 8);
+    ctx.lineTo(mid, h - 1);
+    ctx.closePath();
+    ctx.fill();
 
     ctx.fillStyle = c.border;
     ctx.fillRect(0, h - 1, width, 1);
@@ -132,7 +164,7 @@
   }
 
   $effect(() => {
-    void [frameWidth, scrollX, width, length];
+    void [frame, frameWidth, scrollX, width, length, onion];
     draw();
   });
 </script>
@@ -149,17 +181,6 @@
     {onpointerup}
     onpointercancel={onpointerup}
     onpointerleave={() => (hoverBracket = false)}></canvas>
-  {#if onion && range}
-    <div class="onion" style="transform: translateX({range.a}px); width: {Math.max(0, range.b - range.a)}px">
-      <span class="bracket-mark before" style="border-color: {onion.beforeColor}"></span>
-      <span class="bracket-mark after" style="border-color: {onion.afterColor}"></span>
-    </div>
-  {/if}
-  {#if head > -frameWidth - 8 && head < width + 8}
-    <div class="head" style="transform: translateX({head}px); width: {frameWidth}px">
-      <span class="triangle"></span>
-    </div>
-  {/if}
 </div>
 
 <style>
@@ -177,54 +198,4 @@
   .ruler.bracket {
     cursor: col-resize;
   }
-
-  .onion,
-  .head {
-    position: absolute;
-    left: 0;
-    pointer-events: none;
-    will-change: transform;
-  }
-
-  .onion {
-    top: 14px;
-    height: 12px;
-    background: var(--accent-dim);
-  }
-
-  .bracket-mark {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    border: 1.5px solid;
-  }
-
-  .bracket-mark.before {
-    left: 0;
-    border-right: none;
-  }
-
-  .bracket-mark.after {
-    right: 0;
-    border-left: none;
-  }
-
-  /* the playhead cell with its triangle handle at the bottom */
-  .head {
-    top: 0;
-    bottom: 1px;
-    background: var(--accent-dim);
-  }
-
-  .triangle {
-    position: absolute;
-    left: 50%;
-    bottom: 1px;
-    margin-left: -5px;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 7px solid var(--accent);
-  }
-
 </style>
