@@ -13,7 +13,7 @@ import { overlayState } from '$lib/render/overlay';
 import { clearSnap, snapEvent, snapPoint } from '$lib/editor/snap';
 import { anchorSelection, selection, toolCursor, type AnchorRef } from '$lib/stores/app';
 import { pickDeep } from './pick';
-import { BEND_CURSOR } from './cursors';
+import { DIRECT_BEND_CURSOR, DIRECT_CURSOR } from './cursors';
 import { toolBase, type Tool, type ToolEvent } from './tool';
 
 const DRAG = 3;
@@ -377,6 +377,7 @@ function deleteAnchors() {
 
 export const directTool: Tool = {
   ...toolBase('direct'),
+  cursor: DIRECT_CURSOR,
 
   down,
 
@@ -385,13 +386,13 @@ export const directTool: Tool = {
       const factor = pointerFactor(e.pointerType);
       const hit = pickDeep(e, e.zoom, factor);
       if (get(hover) !== (hit?.id ?? null)) hover.set(hit?.id ?? null);
-      let cursor = 'default';
+      let cursor = DIRECT_CURSOR;
       for (const rest of selectedPaths()) {
         const item = shownPath(rest);
         const world = editor.shownWorld(item.id);
         if (hitContours(item, world, e, e.zoom, factor)) break;
         if (hitItemSegment(item, world, e, e.zoom, strokeTolerance(item, world, e.zoom, factor))) {
-          cursor = BEND_CURSOR;
+          cursor = DIRECT_BEND_CURSOR;
           break;
         }
       }

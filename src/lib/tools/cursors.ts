@@ -15,6 +15,12 @@ function svgCursor(body: string, x: number, y: number, fallback: string): string
 // the arrow with a little arc, over a segment that bends when dragged
 export const BEND_CURSOR = svgCursor(ARROW + glyph('M13 21.5q4.5-7 9 0'), 3, 2, 'default');
 
+// the direct selection has the hollow arrow of its toolbar icon, like illustrator's white arrow
+const HOLLOW = ARROW.replace("fill='black' stroke='white'", "fill='white' stroke='black'");
+
+export const DIRECT_CURSOR = svgCursor(HOLLOW, 3, 2, 'default');
+export const DIRECT_BEND_CURSOR = svgCursor(HOLLOW + glyph('M13 21.5q4.5-7 9 0'), 3, 2, 'default');
+
 // the arrow with a little corner, over an anchor or when ctrl pulls a new corner out
 export const CORNER_CURSOR = svgCursor(ARROW + glyph('M14 22l4-6 4 6'), 3, 2, 'default');
 
