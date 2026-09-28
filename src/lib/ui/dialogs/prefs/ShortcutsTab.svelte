@@ -307,7 +307,8 @@
     border-color: var(--accent);
   }
 
-  .record.clash {
+  .record.clash,
+  tr.changed .record.clash {
     color: var(--error);
     border-color: var(--error);
   }
