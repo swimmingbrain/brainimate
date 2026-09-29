@@ -43,8 +43,7 @@
 <Dialog title="Document settings" width={400} {onclose}>
   <div class="fields">
     <Field label="Name">
-      <!-- svelte-ignore a11y_autofocus -->
-      <input class="text" bind:value={name} aria-label="Document name" spellcheck="false" autofocus {onkeydown} />
+      <input class="text" bind:value={name} aria-label="Document name" spellcheck="false" data-autofocus {onkeydown} />
     </Field>
     <Field label="Width">
       <NumberField

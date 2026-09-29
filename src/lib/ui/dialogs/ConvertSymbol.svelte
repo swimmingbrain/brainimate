@@ -38,13 +38,12 @@
   {onclose}>
   <label class="row">
     <span class="label">Name</span>
-    <!-- svelte-ignore a11y_autofocus -->
     <input
       class="text"
       bind:value={name}
       spellcheck="false"
       aria-label="Symbol name"
-      autofocus
+      data-autofocus
       {onkeydown}
       onfocus={(e) => e.currentTarget.select()} />
   </label>

@@ -52,10 +52,11 @@
     }
   }
 
-  // a field marked autofocus gets the focus, else the first thing that can take it
+  // a field marked data-autofocus gets the focus, else the first thing that can take it. the plain
+  // attribute would have the browser try too and log that it could not
   $effect(() => {
     const items = focusable();
-    const wanted = panel?.querySelector<HTMLElement>('[autofocus]');
+    const wanted = panel?.querySelector<HTMLElement>('[data-autofocus]');
     (wanted ?? items[0] ?? panel)?.focus();
   });
 </script>
