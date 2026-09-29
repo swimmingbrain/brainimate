@@ -16,27 +16,29 @@ import {
 describe('pen presets', () => {
   it('match the settings the tool has now', () => {
     const p = defaultPreferences();
-    expect(matchingPreset(p, 'brush', 1.5)?.id).toBe('brush-round');
-    expect(matchingPreset(p, 'pencil', 1.5)?.id).toBe('pencil-clean');
-    expect(matchingPreset(p, 'pencil', 3)).toBeNull();
+    expect(matchingPreset(p, 'brush')?.id).toBe('brush-round');
+    expect(matchingPreset(p, 'pencil')?.id).toBe('pencil-clean');
+    expect(matchingPreset({ ...p, drawing: { ...p.drawing, pencilWidth: 3 } }, 'pencil')).toBeNull();
     const changed = { ...p, drawing: { ...p.drawing, brushSize: 9 } };
-    expect(matchingPreset(changed, 'brush', 1.5)).toBeNull();
+    expect(matchingPreset(changed, 'brush')).toBeNull();
   });
 
   it('set the brush and the pencil to a preset', () => {
     const p = defaultPreferences();
     const marker = p.pens.brush.find((q) => q.id === 'brush-marker')!;
     const next = withPreset(p, 'brush', marker);
-    expect(currentPen(next, 'brush', 1)).toEqual({ size: 24, smoothing: 40, pressure: false, mode: 'normal' });
+    expect(currentPen(next, 'brush')).toEqual({ size: 24, smoothing: 40, pressure: false, mode: 'normal' });
     const ink = p.pens.pencil.find((q) => q.id === 'pencil-ink')!;
     expect(withPreset(p, 'pencil', ink).drawing.pencilMode).toBe('ink');
   });
 
-  it('give the pencil size to the stroke width', () => {
+  it('give the pencil size to the pencil and leave the stroke width of the other tools', () => {
     preferences.set(defaultPreferences());
+    strokeWidth.set(4);
     applyPreset('pencil', 'pencil-shapes');
-    expect(get(strokeWidth)).toBe(2);
+    expect(get(preferences).drawing.pencilWidth).toBe(2);
     expect(get(preferences).drawing.pencilMode).toBe('straighten');
+    expect(get(strokeWidth)).toBe(4);
     strokeWidth.set(1.5);
   });
 
