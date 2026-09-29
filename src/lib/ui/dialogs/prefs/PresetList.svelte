@@ -1,7 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import Icon from '$lib/icons/Icon.svelte';
-  import { strokeWidth } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
   import {
     BRUSH_MODES,
@@ -20,7 +19,7 @@
 
   const list = $derived($preferences.pens[tool]);
   const def = $derived(tool === 'brush' ? $preferences.pens.brushDefault : $preferences.pens.pencilDefault);
-  const active = $derived(matchingPreset($preferences, tool, $strokeWidth)?.id ?? null);
+  const active = $derived(matchingPreset($preferences, tool)?.id ?? null);
   const modes = $derived(tool === 'brush' ? BRUSH_MODES : PENCIL_MODES);
 
   let renaming = $state<string | null>(null);

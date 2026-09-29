@@ -1,13 +1,12 @@
 <script lang="ts">
   import SelectField from '$lib/ui/SelectField.svelte';
-  import { strokeWidth } from '$lib/stores/app';
   import { preferences } from '$lib/stores/preferences';
   import { applyPreset, matchingPreset, type PenTool } from '../presets';
 
   // the saved presets of the brush or the pencil, custom shows while the settings match none
   let { tool }: { tool: PenTool } = $props();
 
-  const match = $derived(matchingPreset($preferences, tool, $strokeWidth));
+  const match = $derived(matchingPreset($preferences, tool));
   const options = $derived([
     ...(match ? [] : [{ value: '', label: 'Custom' }]),
     ...$preferences.pens[tool].map((q) => ({ value: q.id, label: q.name }))

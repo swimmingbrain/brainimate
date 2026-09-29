@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import type { Mat, PathData, Vec } from '$lib/core/types';
+import type { Mat, PathData, Style, Vec } from '$lib/core/types';
 import { identity } from '$lib/core/mat';
 import { makePathItem } from '$lib/core/items';
 import { fitPath } from '$lib/core/fit';
@@ -26,6 +26,11 @@ let pointer: ToolEvent | null = null;
 // smoothing 0 to 100 becomes 0.5 to 30 screen pixels of fit tolerance
 export function smoothingTolerance(smoothing: number): number {
   return 0.5 + (Math.max(0, Math.min(100, smoothing)) / 100) * 29.5;
+}
+
+// the stroke chip's color at the pencil's own width
+function pencilStyle(): Style {
+  return { ...lineStyle(), width: get(preferences).drawing.pencilWidth };
 }
 
 function reset() {
@@ -81,7 +86,7 @@ export const pencilTool: Tool = {
     const target = layerId;
     reset();
     if (!shape || shape.path.anchors.length < 2) return;
-    const item = makePathItem(shape.name, shape.path, lineStyle(), shape.transform);
+    const item = makePathItem(shape.name, shape.path, pencilStyle(), shape.transform);
     editor.insertItem(target, item, 'Draw with pencil');
   },
 
@@ -96,7 +101,7 @@ export const pencilTool: Tool = {
   drawOverlay(ctx) {
     if (!last || points.length === 0) return;
     const zoom = get(view).zoom;
-    setPreviewStroke(ctx, lineStyle(), zoom);
+    setPreviewStroke(ctx, pencilStyle(), zoom);
     const line = pointer?.shift ? [points[0], points[points.length - 1]] : points;
     polylinePath(ctx, line);
     ctx.stroke();

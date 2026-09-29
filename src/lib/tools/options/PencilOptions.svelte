@@ -2,7 +2,7 @@
   import SelectField from '$lib/ui/SelectField.svelte';
   import Slider from '$lib/ui/Slider.svelte';
   import ToggleField from '$lib/ui/ToggleField.svelte';
-  import StrokeOptions from './StrokeOptions.svelte';
+  import NumberField from '$lib/ui/NumberField.svelte';
   import PresetPicker from './PresetPicker.svelte';
   import { preferences, setGroup, type PencilMode } from '$lib/stores/preferences';
   import { PENCIL_MODES as MODES } from '../presets';
@@ -11,7 +11,20 @@
 </script>
 
 <PresetPicker tool="pencil" />
-<StrokeOptions />
+<label class="opt">
+  <span>Width</span>
+  <span class="field">
+    <NumberField
+      value={d.pencilWidth}
+      min={0.1}
+      max={500}
+      step={0.5}
+      precision={2}
+      unit=" px"
+      label="Pencil width"
+      onchange={(v) => setGroup('drawing', { pencilWidth: v })} />
+  </span>
+</label>
 <div class="opt">
   <span>Mode</span>
   <span class="select">
@@ -55,6 +68,10 @@
 
   .select {
     width: 96px;
+  }
+
+  .field {
+    width: 64px;
   }
 
   .slider {

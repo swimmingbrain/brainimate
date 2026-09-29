@@ -1,6 +1,5 @@
 import { get } from 'svelte/store';
 import { newId } from '$lib/core/ids';
-import { strokeWidth } from '$lib/stores/app';
 import { preferences, type PenPreset, type Preferences } from '$lib/stores/preferences';
 
 export type PenTool = 'brush' | 'pencil';
@@ -16,18 +15,18 @@ export const PENCIL_MODES = [
   { value: 'straighten', label: 'Straighten' }
 ];
 
-// the settings a preset holds, as the tool has them now. the pencil size is the stroke width
-export function currentPen(p: Preferences, tool: PenTool, width: number): Omit<PenPreset, 'id' | 'name'> {
+// the settings a preset holds, as the tool has them now. the pencil size is its stroke width
+export function currentPen(p: Preferences, tool: PenTool): Omit<PenPreset, 'id' | 'name'> {
   const d = p.drawing;
   if (tool === 'brush') {
     return { size: d.brushSize, smoothing: d.brushSmoothing, pressure: d.brushPressure, mode: d.brushMode };
   }
-  return { size: width, smoothing: d.pencilSmoothing, pressure: false, mode: d.pencilMode };
+  return { size: d.pencilWidth, smoothing: d.pencilSmoothing, pressure: false, mode: d.pencilMode };
 }
 
 // the preset that matches what the tool has now, null for settings of its own
-export function matchingPreset(p: Preferences, tool: PenTool, width: number): PenPreset | null {
-  const now = currentPen(p, tool, width);
+export function matchingPreset(p: Preferences, tool: PenTool): PenPreset | null {
+  const now = currentPen(p, tool);
   return (
     p.pens[tool].find(
       (q) =>
@@ -50,14 +49,13 @@ export function withPreset(p: Preferences, tool: PenTool, preset: PenPreset): Pr
     };
   }
   const mode = preset.mode === 'ink' || preset.mode === 'straighten' ? preset.mode : 'smooth';
-  return { ...p, drawing: { ...d, pencilSmoothing: preset.smoothing, pencilMode: mode } };
+  return { ...p, drawing: { ...d, pencilWidth: preset.size, pencilSmoothing: preset.smoothing, pencilMode: mode } };
 }
 
 export function applyPreset(tool: PenTool, id: string) {
   const preset = get(preferences).pens[tool].find((q) => q.id === id);
   if (!preset) return;
   preferences.update((p) => withPreset(p, tool, preset));
-  if (tool === 'pencil') strokeWidth.set(preset.size);
 }
 
 function setPresets(tool: PenTool, list: PenPreset[]) {
@@ -71,7 +69,7 @@ export function addPresetFromCurrent(tool: PenTool): string {
   const base = tool === 'brush' ? 'Brush' : 'Pencil';
   let n = list.length + 1;
   while (list.some((q) => q.name === `${base} ${n}`)) n++;
-  const preset: PenPreset = { id: newId(), name: `${base} ${n}`, ...currentPen(p, tool, get(strokeWidth)) };
+  const preset: PenPreset = { id: newId(), name: `${base} ${n}`, ...currentPen(p, tool) };
   setPresets(tool, [...list, preset]);
   return preset.id;
 }

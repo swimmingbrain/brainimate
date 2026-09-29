@@ -88,6 +88,8 @@ export interface Preferences {
     pencilMode: PencilMode;
     // ends closer than a few pixels make a closed path
     pencilClose: boolean;
+    // the pencil has its own stroke width, the shape tools use the one of the stroke chip
+    pencilWidth: number;
     brushSize: number;
     brushPressure: boolean;
     brushSmoothing: number;
@@ -210,6 +212,7 @@ export function defaultPreferences(): Preferences {
       pencilSmoothing: 50,
       pencilMode: 'smooth',
       pencilClose: true,
+      pencilWidth: 1.5,
       brushSize: 8,
       brushPressure: true,
       brushSmoothing: 50,
@@ -392,6 +395,7 @@ export function mergePreferences(stored: unknown): Preferences {
   const d = p.drawing;
   d.pencilSmoothing = clamp(d.pencilSmoothing, 0, 100);
   d.pencilMode = oneOf(d.pencilMode, ['smooth', 'ink', 'straighten'], 'smooth');
+  d.pencilWidth = clamp(d.pencilWidth, 0.1, 500);
   d.brushSize = clamp(d.brushSize, 1, 500);
   d.brushSmoothing = clamp(d.brushSmoothing, 0, 100);
   d.brushMode = oneOf(d.brushMode, ['normal', 'behind'], 'normal');
