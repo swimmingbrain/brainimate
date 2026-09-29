@@ -124,10 +124,21 @@ export function swapColors() {
   );
 }
 
-// black stroke and white fill, like the other drawing apps
+// black stroke and white fill, like the other drawing apps, the selected shapes too in one undo step
 export function resetColors() {
-  setPaint('fill', solid('#ffffff'));
-  setPaint('stroke', solid('#000000'));
+  fillPaint.set(solid('#ffffff'));
+  strokePaint.set(solid('#000000'));
+  const ids = styledIds();
+  if (ids.length === 0) return;
+  editor.updateItems(
+    ids,
+    (item) => {
+      if (item.type !== 'path' && item.type !== 'text') return;
+      item.style.fill = solid('#ffffff');
+      item.style.stroke = solid('#000000');
+    },
+    'Default colors'
+  );
 }
 
 // the active chip gets no color
