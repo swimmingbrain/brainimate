@@ -423,13 +423,21 @@ export function setPoseField(boneId: string, patch: Partial<BonePose>, key?: str
 
 // the rig layers that can be posed back at rest on this frame
 export function resetPose() {
-  const poses = new Map<string, Pose>();
-  for (const layer of rigLayers()) if (canEditRig(layer) && layer.bones.length > 0) poses.set(layer.id, {});
-  if (poses.size === 0) {
+  const layers = rigLayers().filter((l) => canEditRig(l) && l.bones.length > 0);
+  if (layers.length === 0) {
     addToast('There is no rig to reset');
     return;
   }
-  if (!commitPoses(poses, 'Reset pose')) addToast('The pose is at rest already');
+  // a pose keyframe at rest already would only get an empty pose again
+  const posed = layers.filter((l) => {
+    const key = l.keyframes.find((k) => k.frame === editor.frame);
+    return !key || Object.keys(key.pose).length > 0;
+  });
+  if (posed.length === 0) {
+    addToast('The pose is at rest already');
+    return;
+  }
+  commitPoses(new Map(posed.map((l) => [l.id, {}])), 'Reset pose');
 }
 
 // every keyframe of the rig layer back at rest
@@ -441,7 +449,7 @@ export function resetAllPoses() {
   }
   const done = editor.commit('Reset all poses', (draft) => {
     const l = editor.draftLayers(draft).find((x) => x.id === layer.id);
-    if (l) for (const k of l.keyframes) k.pose = {};
+    if (l) for (const k of l.keyframes) if (Object.keys(k.pose).length > 0) k.pose = {};
   });
   if (!done) addToast('Every pose is at rest already');
 }
