@@ -173,10 +173,10 @@ class Editor {
     this.changed();
   }
 
-  // recipe changes a draft of the document, the whole change is one undo step
-  commit(label: string, recipe: (draft: Doc) => void, key?: string) {
+  // recipe changes a draft of the document, the whole change is one undo step. false when nothing changed
+  commit(label: string, recipe: (draft: Doc) => void, key?: string): boolean {
     let [next, patches, inverse] = produceWithPatches(this.doc, recipe);
-    if (patches.length === 0) return;
+    if (patches.length === 0) return false;
     // skins left on bones that went or on anchors that changed are set right in the same step
     const repair = skinRepairs(this.doc, next);
     if (repair) {
@@ -189,6 +189,7 @@ class Editor {
     this.doc = next;
     this.changed();
     dirty.set(true);
+    return true;
   }
 
   undo(): string | null {
@@ -592,9 +593,9 @@ class Editor {
     if (ids.some((id) => sel.has(id))) selection.set(new Set([...sel].filter((id) => !ids.includes(id))));
   }
 
-  updateItems(ids: string[], fn: (item: Item) => void, label: string, key?: string) {
-    if (ids.length === 0) return;
-    this.commit(
+  updateItems(ids: string[], fn: (item: Item) => void, label: string, key?: string): boolean {
+    if (ids.length === 0) return false;
+    return this.commit(
       label,
       (draft) => {
         for (const id of ids) {
