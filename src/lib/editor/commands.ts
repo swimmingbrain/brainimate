@@ -380,7 +380,7 @@ const ARRANGE_LABELS: Record<Arrange, string> = {
 export function arrangeSelection(how: Arrange) {
   const ids = new Set(editor.selectedItems(false).map((it) => it.id));
   if (ids.size === 0) return;
-  editor.commit(ARRANGE_LABELS[how], (draft) => {
+  const done = editor.commit(ARRANGE_LABELS[how], (draft) => {
     const lists = new Set<Item[]>();
     for (const id of ids) {
       const found = editor.draftFind(draft, id);
@@ -388,6 +388,7 @@ export function arrangeSelection(how: Arrange) {
     }
     for (const list of lists) reorder(list, ids, how);
   });
+  if (!done) addToast(how === 'front' || how === 'forward' ? 'It is in front already' : 'It is at the back already');
 }
 
 // breaks groups into their children, an instance into what its symbol shows on this frame and a
