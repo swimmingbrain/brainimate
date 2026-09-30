@@ -236,7 +236,8 @@ export function rotateSelection(degrees: number) {
 // rotation, scale and skew go, the position stays
 export function removeTransform() {
   const ids = editor.selectedItems(false).map((it) => it.id);
-  editor.updateItems(
+  if (ids.length === 0) return;
+  const done = editor.updateItems(
     ids,
     (item) => {
       const d = decompose(item.transform);
@@ -244,6 +245,7 @@ export function removeTransform() {
     },
     'Remove transform'
   );
+  if (!done) addToast('There is no rotation, scale or skew to remove');
 }
 
 export function reverseSelectedPaths() {
@@ -257,13 +259,18 @@ export function reverseSelectedPaths() {
 }
 
 export function closeSelectedPaths() {
-  editor.updateItems(
-    selectedPathIds(),
+  const ids = selectedPathIds();
+  if (ids.length === 0) return;
+  const done = editor.updateItems(
+    ids,
     (item) => {
       if (item.type === 'path') closePath(item.path);
     },
     'Close path'
   );
+  if (done) return;
+  const short = editor.selectedItems(false).some((it) => it.type === 'path' && !it.path.closed);
+  addToast(short ? 'A path needs three anchors to close' : 'The paths are closed already');
 }
 
 export function showDocumentSettings() {
