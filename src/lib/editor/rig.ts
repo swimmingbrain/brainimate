@@ -372,7 +372,7 @@ function layersUsing(layers: Layer[], ids: Set<string>): string[] {
 // writes poses into their rig layers at the current frame as one step. with auto key a frame that is
 // not a keyframe gets one first, and the keyframe before tweens into it. the drawings bound to the
 // bones hold until that frame
-export function commitPoses(poses: Map<string, Pose>, label = 'Pose', key?: string) {
+export function commitPoses(poses: Map<string, Pose>, label = 'Pose', key?: string): boolean {
   const prefs = get(preferences);
   const frame = editor.frame;
   const layers = editor.currentLayers();
@@ -389,7 +389,7 @@ export function commitPoses(poses: Map<string, Pose>, label = 'Pose', key?: stri
     own.set(layerId, mine);
   }
   const extend = layersUsing(layers, ids).filter((id) => (layers.find((l) => l.id === id)?.length ?? 0) <= frame);
-  editor.commit(
+  return editor.commit(
     label,
     (draft) => {
       const list = editor.draftLayers(draft);
@@ -429,17 +429,21 @@ export function resetPose() {
     addToast('There is no rig to reset');
     return;
   }
-  commitPoses(poses, 'Reset pose');
+  if (!commitPoses(poses, 'Reset pose')) addToast('The pose is at rest already');
 }
 
 // every keyframe of the rig layer back at rest
 export function resetAllPoses() {
   const layer = activeRigLayer();
-  if (!layer || !canEditRig(layer)) return;
-  editor.commit('Reset all poses', (draft) => {
+  if (!layer || !canEditRig(layer)) {
+    addToast('There is no rig to reset');
+    return;
+  }
+  const done = editor.commit('Reset all poses', (draft) => {
     const l = editor.draftLayers(draft).find((x) => x.id === layer.id);
     if (l) for (const k of l.keyframes) k.pose = {};
   });
+  if (!done) addToast('Every pose is at rest already');
 }
 
 // a template fitted to the selection, or to the middle of the stage, bound right away. adding and
