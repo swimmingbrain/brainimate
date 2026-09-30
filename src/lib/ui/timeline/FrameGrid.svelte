@@ -3,22 +3,9 @@
   import type { Keyframe, Layer } from '$lib/core/types';
   import { hasFrames, type FrameRange, type LayerRow } from '$lib/anim/timeline';
   import { docVersion, editor } from '$lib/editor/editor';
-  import {
-    clearKeyframes,
-    copySelectedFrames,
-    createTween,
-    insertBlankKeyframes,
-    insertFrames,
-    insertKeyframeAt,
-    insertKeyframes,
-    moveSelectedKeyframes,
-    pasteSelectedFrames,
-    removeFrames,
-    removeTween,
-    reverseSelectedFrames,
-    selectAllFrames,
-    setFramesLabel
-  } from '$lib/editor/commands';
+  import { insertKeyframeAt, moveSelectedKeyframes, setFramesLabel } from '$lib/editor/commands';
+  import { commandItem } from '$lib/editor/menus';
+  import { preferences } from '$lib/stores/preferences';
   import { pause } from '$lib/anim/playback';
   import { activeLayer, contextMenu, frame, frameClipboard, frameSelection, type MenuItem } from '$lib/stores/app';
   import { ROW_H, prepareCanvas, timelineColors, type TimelineColors } from './metrics';
@@ -395,23 +382,24 @@
     }
     const sel = $frameSelection;
     const single = !sel || sel.from === sel.to;
+    const c = (id: string, extra: Partial<MenuItem> = {}) => commandItem(id, $preferences.shortcuts, extra);
     const items: MenuItem[] = [
-      { label: 'Insert frame', shortcut: 'F5', action: insertFrames },
-      { label: 'Remove frame', shortcut: 'Shift+F5', action: removeFrames },
+      c('timeline.insert-frame'),
+      c('timeline.remove-frame'),
       { label: '', separator: true },
-      { label: 'Insert keyframe', shortcut: 'F6', action: insertKeyframes },
-      { label: 'Insert blank keyframe', shortcut: 'F7', action: insertBlankKeyframes },
-      { label: 'Clear keyframe', shortcut: 'Shift+F6', action: clearKeyframes },
+      c('timeline.keyframe'),
+      c('timeline.blank-keyframe'),
+      c('timeline.clear-keyframe'),
       { label: '', separator: true },
-      { label: 'Create tween', action: createTween },
-      { label: 'Remove tween', action: removeTween },
+      c('timeline.create-tween'),
+      c('timeline.remove-tween'),
       { label: '', separator: true },
-      { label: 'Copy frames', shortcut: 'Ctrl+Alt+C', action: copySelectedFrames },
-      { label: 'Paste frames', shortcut: 'Ctrl+Alt+V', disabled: !$frameClipboard, action: pasteSelectedFrames },
-      { label: 'Reverse frames', disabled: single, action: reverseSelectedFrames },
+      c('timeline.copy-frames'),
+      c('timeline.paste-frames', { disabled: !$frameClipboard }),
+      c('timeline.reverse-frames', { disabled: single }),
       { label: '', separator: true },
       { label: 'Set label...', action: () => startLabel(cell) },
-      { label: 'Select all frames', action: selectAllFrames }
+      c('timeline.select-frames')
     ];
     contextMenu.set({ x: e.clientX, y: e.clientY, items });
   }
