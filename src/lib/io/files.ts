@@ -249,7 +249,8 @@ export async function startup() {
 // the page asks before it closes on changes that are not saved
 export function installUnloadGuard(): () => void {
   const onbeforeunload = (e: BeforeUnloadEvent) => {
-    if (!get(dirty)) return;
+    // without a click or a key first the browser refuses to ask and logs an error instead
+    if (!get(dirty) || navigator.userActivation?.hasBeenActive === false) return;
     e.preventDefault();
     e.returnValue = '';
   };
