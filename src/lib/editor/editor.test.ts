@@ -27,6 +27,14 @@ describe('editor', () => {
     expect(layers[0].length).toBe(1);
   });
 
+  it('says whether a commit changed the document', () => {
+    const layer = editor.activeLayer()!;
+    expect(editor.commit('Rename', (d) => void (d.layers[0].name = 'Ink'))).toBe(true);
+    expect(editor.commit('Rename', (d) => void (d.layers[0].name = 'Ink'))).toBe(false);
+    expect(editor.undo()).toBe('Rename');
+    expect(editor.layerById(layer.id)!.name).toBe('Layer 1');
+  });
+
   it('inserts an item, selects it and undoes it', () => {
     const layer = editor.activeLayer()!;
     const item = rect();
