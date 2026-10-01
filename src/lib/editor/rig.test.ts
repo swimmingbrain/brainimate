@@ -99,6 +99,10 @@ describe('rig commands', () => {
     commitPose(rigLayer().id, { [a]: { rotation: 1, x: 0, y: 0, scale: 1 } });
     resetPose();
     expect(editor.rig()!.pose[a]).toBeUndefined();
+    // a second reset has nothing to do and leaves no undo step, one undo brings the pose back
+    resetPose();
+    editor.undo();
+    expect(editor.rig()!.pose[a]?.rotation).toBe(1);
   });
 
   it('pins a joint and deletes a bone, its child stays where it was', () => {
