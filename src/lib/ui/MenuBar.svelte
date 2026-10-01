@@ -28,7 +28,8 @@
     open = index;
   }
 
-  // the menu closes itself on a click outside, a click on its own title must not open it again
+  // the menu closes itself on a click outside, a click on its own title must not open it again. the
+  // title never takes the focus from a click, the open menu keeps it so escape and the arrows reach it
   function onpointerdown(e: PointerEvent, index: number) {
     if (e.button !== 0) return;
     e.stopPropagation();
@@ -59,6 +60,7 @@
       aria-haspopup="menu"
       aria-expanded={open === i}
       onpointerdown={(e) => onpointerdown(e, i)}
+      onmousedown={(e) => e.preventDefault()}
       onpointerenter={() => onpointerenter(i)}
       onkeydown={(e) => {
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
