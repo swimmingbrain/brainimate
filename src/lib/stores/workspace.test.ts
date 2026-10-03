@@ -74,6 +74,16 @@ describe('workspaces', () => {
     expect(get(preferences).workspace).toBe('rig');
   });
 
+  it('shows the rig under the properties', () => {
+    preferences.set(defaultPreferences());
+    setWorkspace('rig');
+    const p = get(preferences).panels;
+    expect([p.topTab, p.bottomTab]).toEqual(['properties', 'rig']);
+    togglePanel('rig');
+    togglePanel('rig');
+    expect(get(preferences).panels.bottomTab).toBe('rig');
+  });
+
   it('shows the library in front or hides it', () => {
     preferences.set(defaultPreferences());
     toggleLibrary();
