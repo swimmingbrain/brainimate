@@ -5,10 +5,16 @@
   import { version } from '$lib/version';
   import { recentFiles, removeRecent } from '$lib/io/recent';
   import { autosaveOffer } from '$lib/io/autosave';
-  import { confirmDiscard, createDocument, openDocument, openRecent, restoreAutosave } from '$lib/io/files';
+  import { confirmDiscard, createDocument, openDocument, openExample, openRecent, restoreAutosave } from '$lib/io/files';
   import { preferences, setGroup } from '$lib/stores/preferences';
 
   let { onclose }: { onclose: () => void } = $props();
+
+  const EXAMPLES = [
+    { file: 'wave.brainimate', thumb: 'wave.png', name: 'Wave', note: 'A rigged character' },
+    { file: 'bounce.brainimate', thumb: 'bounce.png', name: 'Bounce', note: 'Squash and stretch' },
+    { file: 'logo.brainimate', thumb: 'logo.png', name: 'Logo', note: 'Gradient text' }
+  ];
 
   function create(width: number, height: number, fps: number, bg: string) {
     confirmDiscard(() => createDocument(width, height, fps, bg), 'Start a new document');
@@ -80,6 +86,18 @@
           {/each}
         </ul>
       {/if}
+      <div class="examples">
+        <h3 class="section">Examples</h3>
+        <div class="example-row">
+          {#each EXAMPLES as ex (ex.file)}
+            <button class="example" onclick={() => openExample(ex.file)} title="Open the {ex.name} example">
+              <img class="example-thumb" src="/examples/{ex.thumb}" alt="" width="160" height="90" />
+              <span class="example-name">{ex.name}</span>
+              <span class="example-note">{ex.note}</span>
+            </button>
+          {/each}
+        </div>
+      </div>
     </section>
   </div>
   {#snippet footer()}
@@ -202,7 +220,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    max-height: 330px;
+    max-height: 200px;
     overflow-y: auto;
   }
 
@@ -277,6 +295,59 @@
     color: var(--text-muted);
   }
 
+  /* at the bottom of the column, level with the create button */
+  .examples {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 12px;
+  }
+
+  .example-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .example {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 5px;
+    text-align: left;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+
+  .example:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-color: var(--text-muted);
+  }
+
+  .example-thumb {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    margin-bottom: 4px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+  }
+
+  .example-name {
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+
+  .example-note {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .foot {
     flex: 1;
     display: flex;
@@ -314,6 +385,10 @@
   @media (max-width: 640px) {
     .columns {
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    .example-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
   }
 </style>
