@@ -18,7 +18,9 @@ const FONT_CACHE = 'brainimate-fonts-v1';
 const PRECACHE = [
   ...build,
   ...prerendered,
-  ...files.filter((f) => /^\/(favicon\.svg|manifest\.json|robots\.txt|brainimate-logo-readme\.svg)$/.test(f))
+  ...files.filter((f) => /^\/(favicon\.svg|manifest\.json|robots\.txt|brainimate-logo-readme\.svg)$/.test(f)),
+  // the welcome dialog offers these, they are small
+  ...files.filter((f) => f.startsWith('/examples/'))
 ];
 
 // caches can be missing (private windows in some browsers)
