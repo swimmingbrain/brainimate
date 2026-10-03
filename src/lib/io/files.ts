@@ -194,6 +194,26 @@ export function closeDocument() {
   }, 'Close');
 }
 
+// a bundled example opens clean and belongs to no file, the first save asks where it goes
+async function loadExample(file: string) {
+  let parsed;
+  try {
+    const res = await fetch(`/examples/${file}`);
+    if (!res.ok) throw new Error(`the server answered ${res.status}`);
+    parsed = await parse(await res.blob());
+  } catch (e) {
+    addToast(`Could not open the example: ${message(e, 'it could not be loaded')}`, 'error', 6000);
+    return;
+  }
+  takeOver(parsed.doc, null);
+  if (get(dialog)?.kind === 'welcome') dialog.set(null);
+  addToast(`Opened the ${parsed.doc.name} example`, 'success', 2000);
+}
+
+export function openExample(file: string) {
+  confirmDiscard(() => void loadExample(file), 'Open the example');
+}
+
 // the copy from the autosave takes over, it still has to be saved
 export async function restoreAutosave(snap: Snapshot): Promise<boolean> {
   let parsed;
