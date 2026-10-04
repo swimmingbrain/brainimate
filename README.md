@@ -19,7 +19,7 @@
 
 brainIMATE is an open source app for drawing and animating, like Adobe Animate and Illustrator, but in a browser tab. It is made for illustrators and for people who never animated before. There is no account and no server, everything stays in your browser.
 
-It is young. The drawing tools, the timeline, symbols, text, pictures, the rig, saving, export and the preferences work, a last round of testing comes next.
+The welcome screen opens three examples to look into: a rigged character that waves, a bouncing ball with squash and stretch, and a logo with a gradient.
 
 ## Features
 
@@ -62,6 +62,9 @@ Draw an arm on a layer, press `M`, click the shoulder, the elbow and the wrist, 
 | `K` `S` `I` `G` | Paint bucket, ink bottle, eyedropper, gradient |
 | `M` `Shift+M` | Bone (`Esc` ends the chain), bind |
 | `Z` `H` `Space` | Zoom, hand, hand while held |
+| `Ctrl+=` `Ctrl+-` `Ctrl+1` `Ctrl+0` | Zoom in, zoom out, 100 percent, fit |
+| `Ctrl+D` `Ctrl+A` `Delete` | Duplicate, select all, delete |
+| Arrows | Nudge 1 px, 10 px with `Shift` |
 | `Ctrl+G` `Ctrl+Shift+G` `Ctrl+B` `Ctrl+J` | Group, ungroup, break apart, join paths |
 | `Ctrl+Up` `Ctrl+Down` | Bring forward, send backward, with `Shift` to the front or back |
 | `Enter` `Esc` `Backspace` | End the pen path, or take back its last anchor |
@@ -115,6 +118,7 @@ Open `http://localhost:5173`. `pnpm test` runs the tests, `pnpm check` the type 
 | Export | gifenc, mediabunny, fflate |
 | SVG import | svg-pathdata |
 | Storage | idb-keyval, browser-fs-access |
+| Shortcuts | tinykeys |
 | Language | TypeScript |
 
 ## License
