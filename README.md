@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <img src="docs/screenshot.png" alt="brainIMATE with a rigged character waving, the timeline, the bone properties and the rig panel" width="800" />
+</p>
+
+<p align="center">
   <a href="https://anima.swimmingbrain.dev"><strong>Try it now &rarr; anima.swimmingbrain.dev</strong></a>
 </p>
 
