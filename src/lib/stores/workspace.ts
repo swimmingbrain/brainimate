@@ -48,8 +48,8 @@ export const BUILTIN_WORKSPACES: WorkspacePreset[] = [
     name: 'Rig',
     hidden: ['align', 'swatches'],
     timeline: true,
-    topTab: 'rig',
-    bottomTab: 'library',
+    topTab: 'properties',
+    bottomTab: 'rig',
     dockWidth: 280,
     timelineHeight: 240,
     toolbarSide: 'left',
@@ -141,9 +141,10 @@ export function deleteWorkspace(id: string) {
   }));
 }
 
-// the dock holds two panel groups, one above the other
-export const DOCK_TOP: DockTab[] = ['properties', 'transform', 'align', 'rig'];
-export const DOCK_BOTTOM: DockTab[] = ['color', 'swatches', 'library'];
+// the dock holds two panel groups, one above the other. the rig sits below so its bones and the
+// properties of the picked one show together
+export const DOCK_TOP: DockTab[] = ['properties', 'transform', 'align'];
+export const DOCK_BOTTOM: DockTab[] = ['color', 'swatches', 'library', 'rig'];
 
 export const PANEL_LABELS: Record<DockTab, string> = {
   properties: 'Properties',
