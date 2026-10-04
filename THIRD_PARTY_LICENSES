@@ -59,19 +59,6 @@ svg-pathdata 9.0.0: reads the path data of imported svg files and turns arcs and
 MIT
 https://github.com/nfroidure/svg-pathdata
 
-Two more are build tools rather than runtime dependencies, but what they produce ends up in
-the site, so they belong here too:
-
-svelte 5 and @sveltejs/kit 2: the framework, and the runtime it compiles into every
-component. Both float on a caret range, so the installed version is whatever the lockfile
-last resolved
-MIT
-https://github.com/sveltejs/svelte
-
-tailwindcss 4: the reset the theme is built on, compiled into app.css
-MIT
-https://github.com/tailwindlabs/tailwindcss
-
 The fonts of the interface are loaded at runtime from Google Fonts and are not redistributed here:
 Instrument Serif, JetBrains Mono and Inter, all under the SIL Open Font License 1.1.
 
