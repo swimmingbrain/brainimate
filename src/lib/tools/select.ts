@@ -60,6 +60,7 @@ type Action =
   | { kind: 'marquee'; add: boolean }
   | { kind: 'move' }
   | { kind: 'scale'; handle: number; frame: SelectionFrame }
+  | { kind: 'skew'; handle: number; frame: SelectionFrame }
   | { kind: 'rotate'; pivot: Vec }
   // item is the path as it shows, bent when it is bound to bones, rest the one in the document
   | { kind: 'bend'; item: PathItem; rest: PathItem; world: Mat; sub: number; index: number; t: number }
@@ -168,7 +169,31 @@ function scaleMatrix(f: SelectionFrame, handle: number, start: Vec, e: ToolEvent
   return multiply(f.m, multiply(s, inv));
 }
 
-// the select tool and free transform share this, free transform will add skew later
+// slants the frame along the dragged edge, anchored on the opposite edge or the middle with alt
+function skewMatrix(f: SelectionFrame, handle: number, start: Vec, e: ToolEvent): Mat {
+  const hu = HANDLE_UNITS[handle];
+  const inv = invert(f.m);
+  const now = applyPoint(inv, e);
+  const then = applyPoint(inv, start);
+  let s: Mat;
+  if (hu.y !== 0.5) {
+    const ay = e.alt ? f.h / 2 : (1 - hu.y) * f.h;
+    const k = (now.x - then.x) / (hu.y * f.h - ay || 1);
+    s = [1, 0, k, 1, -k * ay, 0];
+  } else {
+    const ax = e.alt ? f.w / 2 : (1 - hu.x) * f.w;
+    const k = (now.y - then.y) / (hu.x * f.w - ax || 1);
+    s = [1, k, 0, 1, 0, -k * ax];
+  }
+  return multiply(f.m, multiply(s, inv));
+}
+
+// the middle handles of the four edges
+function isEdge(handle: number): boolean {
+  return handle % 2 === 1;
+}
+
+// the select tool and free transform share this, free transform also skews with ctrl on an edge
 export function createSelectTool(id: ToolId): Tool {
   let action: Action | null = null;
   let start: ToolEvent | null = null;
@@ -217,7 +242,8 @@ export function createSelectTool(id: ToolId): Tool {
       const h = handleAt(f, e, factor);
       if (h >= 0) {
         hover.set(null);
-        setCursor(handleCursor(f, h));
+        if (id === 'transform' && e.ctrl && isEdge(h)) setCursor(HANDLE_UNITS[h].y !== 0.5 ? 'ew-resize' : 'ns-resize');
+        else setCursor(handleCursor(f, h));
         return;
       }
       if (inRotateZone(f, e, factor)) {
@@ -272,7 +298,8 @@ export function createSelectTool(id: ToolId): Tool {
     if (f) {
       const h = handleAt(f, e, factor);
       if (h >= 0) {
-        action = { kind: 'scale', handle: h, frame: f };
+        const skew = id === 'transform' && e.ctrl && isEdge(h);
+        action = { kind: skew ? 'skew' : 'scale', handle: h, frame: f };
         base = selectionSnapshot();
         return;
       }
@@ -426,6 +453,9 @@ export function createSelectTool(id: ToolId): Tool {
         editor.preview = transformedSelection(scaleMatrix(action.frame, action.handle, start, to), base);
         break;
       }
+      case 'skew':
+        editor.preview = transformedSelection(skewMatrix(action.frame, action.handle, start, e), base);
+        break;
       case 'rotate': {
         const p = action.pivot;
         let a = Math.atan2(e.y - p.y, e.x - p.x) - Math.atan2(start.y - p.y, start.x - p.x);
@@ -491,6 +521,9 @@ export function createSelectTool(id: ToolId): Tool {
         break;
       case 'scale':
         editor.commitPreview('Scale');
+        break;
+      case 'skew':
+        editor.commitPreview('Skew');
         break;
       case 'rotate':
         editor.commitPreview('Rotate');
