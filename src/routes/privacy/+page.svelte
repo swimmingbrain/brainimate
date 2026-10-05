@@ -51,8 +51,8 @@
       toolbar, grid, snapping, drawing and timeline defaults, the panel sizes and the workspace.
     </p>
     <p>
-      <strong>IndexedDB</strong> holds the autosaved copy of the open document, so it can be restored after a
-      crash, and the list of recent files.
+      <strong>IndexedDB</strong> holds the last five autosaved copies of the open document, so it can be restored
+      after a crash, and the list of recent files.
     </p>
     <p>
       <strong>Cache Storage</strong> holds the app itself, so it works offline: the files of the build you

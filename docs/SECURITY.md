@@ -9,7 +9,7 @@ SVG files, pictures and fonts are read in the tab, and a `.brainimate` file is p
 Everything the app keeps is in your browser's storage for this origin, and clearing the site's data removes all of it:
 
 - **localStorage**: one key of settings, `brainimate-preferences`.
-- **IndexedDB**: the autosaved copy of the open document and the list of recent files.
+- **IndexedDB**: the last five autosaved copies of the open document and the list of recent files.
 - **Cache Storage**: the app's own files so it works offline, and the fonts once they have been loaded.
 
 A file you open is read once. Where the browser supports it, the app keeps the file handle so that save writes back to the same file.
