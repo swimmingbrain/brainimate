@@ -21,7 +21,6 @@
     fitView,
     isAutoFit,
     setAutoFit,
-    setRedraw,
     setStageElement,
     setViewport,
     zoomAround,
@@ -529,7 +528,6 @@
       anchorSelection.subscribe(() => editor.markOverlay()),
       textEditing.subscribe(markDirty)
     ];
-    setRedraw(markDirty);
     setImageLoaded(markDirty);
     setStageElement(host);
     // a font that arrives lays its texts out again, the kept pictures of the layers are stale
@@ -557,7 +555,6 @@
       observer.disconnect();
       canvas.removeEventListener('wheel', onwheel);
       for (const off of unsubscribe) off();
-      setRedraw(null);
       setImageLoaded(null);
       setStageElement(null);
       setFontLoaded(null);

@@ -11,8 +11,6 @@ const ZOOM_STEPS = [0.02, 0.05, 0.1, 0.125, 0.25, 1 / 3, 0.5, 2 / 3, 1, 1.5, 2, 
 // css size of the stage area, the stage reports it on every resize
 const viewport = { width: 0, height: 0 };
 
-let redraw: (() => void) | null = null;
-
 // the stage element, for points dropped onto it from elsewhere
 let stageElement: HTMLElement | null = null;
 
@@ -44,25 +42,12 @@ export function isAutoFit(): boolean {
   return autoFit;
 }
 
-export function setRedraw(fn: (() => void) | null) {
-  redraw = fn;
-}
-
-// for anything that draws on the stage and changed outside the stores it watches
-export function requestRedraw() {
-  redraw?.();
-}
-
 export function clampZoom(zoom: number): number {
   return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom));
 }
 
 export function screenToWorld(v: View, sx: number, sy: number): { x: number; y: number } {
   return { x: (sx - v.panX) / v.zoom, y: (sy - v.panY) / v.zoom };
-}
-
-export function worldToScreen(v: View, x: number, y: number): { x: number; y: number } {
-  return { x: x * v.zoom + v.panX, y: y * v.zoom + v.panY };
 }
 
 // the world point under (sx, sy) stays where it is
