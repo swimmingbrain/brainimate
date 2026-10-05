@@ -23,7 +23,7 @@ export interface HistoryState {
 // a number field drag sends many commits, they should undo as one
 export const COALESCE_MS = 400;
 
-// undo as immer patches rather than snapshots, like braincut
+// undo as immer patches rather than snapshots
 export class History<T extends object> {
   private entries: HistoryEntry[] = [];
   // number of entries that are applied, the ones after it are redo
