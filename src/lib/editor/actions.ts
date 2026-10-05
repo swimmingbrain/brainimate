@@ -396,10 +396,6 @@ export function commandById(id: string): Command | null {
   return byId.get(id) ?? null;
 }
 
-export function runCommand(id: string) {
-  byId.get(id)?.run();
-}
-
 // the keys a command answers to: its own override, an empty one for none, or its defaults
 export function keysOf(id: string, overrides: Record<string, string>): string[] {
   const cmd = byId.get(id);

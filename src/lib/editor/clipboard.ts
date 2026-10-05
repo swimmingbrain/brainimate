@@ -217,7 +217,3 @@ export function duplicate() {
   const items = selectedCopies();
   if (items.length > 0) pastePayload({ brainimate: 1, items, symbols: {}, assets: {} }, OFFSET, 'Duplicate');
 }
-
-export function clipboardSize(): number {
-  return get(hasClipboard) && clip ? clip.items.length : 0;
-}

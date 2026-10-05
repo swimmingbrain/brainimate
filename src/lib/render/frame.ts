@@ -148,10 +148,6 @@ export function currentLibrary(): Record<string, Symbol> {
   return library;
 }
 
-export function symbolById(id: string): Symbol | null {
-  return library[id] ?? null;
-}
-
 // the frame of its symbol an instance shows, offset frames after the keyframe that holds it
 export function instanceFrame(item: Pick<InstanceItem, 'mode' | 'first'>, offset: number, length: number): number {
   const len = Math.max(1, Math.round(length));
