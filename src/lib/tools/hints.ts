@@ -4,7 +4,7 @@ import type { ToolId } from './tool';
 export const TOOL_HINTS: Record<ToolId, string> = {
   select: 'Click to select, drag to move, drag an edge to bend it. Shift adds, Alt drags a copy',
   direct: 'Click an anchor to pick it, drag it or its handles. Double click toggles a corner',
-  transform: 'Drag the handles to scale or turn. Shift keeps the proportions, Alt works from the center',
+  transform: 'Drag the handles to scale or turn, Ctrl on an edge skews. Shift keeps the proportions, Alt works from the center',
   pen: 'Click to add a corner, drag for a curve. Click the first anchor to close, Enter ends the path',
   curvature: 'Click to place points, the curve runs through them. Double click toggles a corner',
   pencil: 'Drag to draw a line. Shift draws it straight, Alt closes it',
