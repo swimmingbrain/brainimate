@@ -220,7 +220,7 @@ function isImage(file: File): boolean {
   return IMAGE_TYPES.includes(file.type) || IMAGE_FILE.test(file.name);
 }
 
-// pictures, svg files and fonts from the import menu or dropped on the stage, at is in the space being edited.
+// pictures, svg files and fonts from the import menu or dropped on the stage, at is in the space being edited
 // a project file among them opens instead
 export async function importFiles(files: File[], at?: Vec) {
   const project = files.find(isProjectFile);

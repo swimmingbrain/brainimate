@@ -224,7 +224,7 @@ export function weightOf(style: string): number {
 
 const ORDER: FontSource[] = ['bundled', 'user', 'system'];
 
-// the families of one source are replaced, a name another source has already stays with that one.
+// the families of one source are replaced, a name another source has already stays with that one
 // bundled first, then the document's own, then the system's
 function setFamilies(source: FontSource, list: FamilyInfo[]) {
   fontFamilies.update((all) => {

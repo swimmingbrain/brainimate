@@ -166,7 +166,7 @@ export interface LayerSlice {
 
 const slices = new WeakMap<Layer[], Map<number, LayerSlice[]>>();
 
-// the layers that draw at frame, bottom first, nested instances count their offset from these.
+// the layers that draw at frame, bottom first, nested instances count their offset from these
 // exports leave guide layers out, the stage shows them
 export function layerSlices(layers: Layer[], frame: number, noGuides = false): LayerSlice[] {
   // one cache for both, the key tells them apart

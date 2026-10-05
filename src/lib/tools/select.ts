@@ -531,7 +531,7 @@ export function createSelectTool(id: ToolId): Tool {
       editor.markAll();
     },
 
-    // a double click enters a group one level, the item inside it under the pointer gets selected.
+    // a double click enters a group one level, the item inside it under the pointer gets selected
     // on an instance it opens the symbol in place, on the empty stage it goes back out of one
     dblclick(e) {
       // a double click on a joint pins it or lets it go

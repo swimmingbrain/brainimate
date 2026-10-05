@@ -79,7 +79,7 @@ function currentPose(): Pose {
   return editor.rig()?.pose ?? {};
 }
 
-// a bone from one world point to another, the first one makes the rig layer in the same step.
+// a bone from one world point to another, the first one makes the rig layer in the same step
 // a branch goes into the rig layer of the bone it grows from
 export function addRigBone(parentId: string | null, from: Vec, to: Vec): { layerId: string; boneId: string } | null {
   const layers = editor.currentLayers();

@@ -3,7 +3,7 @@ import { frame, frameSelection, playing } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 import { editor, hover } from '$lib/editor/editor';
 
-// whole frames that fit into the time that passed, what is left over carries to the next tick.
+// whole frames that fit into the time that passed, what is left over carries to the next tick
 // after a hidden tab or a long stall it plays on from where it was instead of racing to catch up
 export function takeFrames(acc: number, dt: number, fps: number): { steps: number; acc: number } {
   const step = 1000 / Math.max(1, fps);
