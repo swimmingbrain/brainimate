@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { toasts } from '$lib/stores/app';
+  import { dismissToast as dismiss, toasts } from '$lib/stores/app';
 
   const typeColors: Record<string, string> = {
     info: 'var(--accent)',
@@ -7,10 +7,6 @@
     warning: 'var(--warning)',
     error: 'var(--error)'
   };
-
-  function dismiss(id: string) {
-    toasts.update((t) => t.filter((x) => x.id !== id));
-  }
 </script>
 
 {#if $toasts.length > 0}
