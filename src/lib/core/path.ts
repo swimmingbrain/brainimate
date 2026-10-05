@@ -152,10 +152,6 @@ export function closePath(path: PathData) {
   if (path.anchors.length > 2) path.closed = true;
 }
 
-export function openPath(path: PathData) {
-  path.closed = false;
-}
-
 // b is appended after a, ends that touch become one anchor
 export function joinPaths(a: PathData, b: PathData, eps = 0.5): PathData {
   const out = copyPath(a);
@@ -171,12 +167,6 @@ export function joinPaths(a: PathData, b: PathData, eps = 0.5): PathData {
   out.anchors.push(...rest);
   out.closed = false;
   return out;
-}
-
-export function moveAnchor(path: PathData, index: number, dx: number, dy: number) {
-  const a = path.anchors[index];
-  a.x += dx;
-  a.y += dy;
 }
 
 // how the pull is shared between the two controls, the curve then passes through the cursor
