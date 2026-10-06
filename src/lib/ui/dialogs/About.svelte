@@ -13,6 +13,8 @@
     { name: 'fit-curve', what: 'smooth pencil lines', url: 'https://github.com/soswow/fit-curve' },
     { name: 'perfect-freehand', what: 'brush strokes', url: 'https://github.com/steveruizok/perfect-freehand' },
     { name: 'bezier-easing', what: 'tween curves', url: 'https://github.com/gre/bezier-easing' },
+    { name: 'paper', what: 'unite, subtract and the other shape booleans', url: 'http://paperjs.org' },
+    { name: 'svg-pathdata', what: 'svg import', url: 'https://github.com/nfroidure/svg-pathdata' },
     { name: 'opentype.js', what: 'glyph outlines for text', url: 'https://github.com/opentypejs/opentype.js' },
     { name: 'Fontsource', what: 'the bundled fonts, under the OFL', url: 'https://fontsource.org' },
     { name: 'gifenc', what: 'GIF export', url: 'https://github.com/mattdesl/gifenc' },
