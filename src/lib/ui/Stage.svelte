@@ -623,12 +623,14 @@
   }
 
   /* each canvas on its own layer, so a redraw does not paint the rest of the page again */
+  /* both canvases match the screen pixel for pixel, without filtering the page lays them down twice as fast */
   canvas {
     position: absolute;
     left: 0;
     top: 0;
     display: block;
     will-change: transform;
+    image-rendering: pixelated;
   }
 
   .overlay {
