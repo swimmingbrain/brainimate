@@ -8,6 +8,10 @@ export default defineConfig({
   worker: {
     format: 'es'
   },
+  build: {
+    // the editor is one chunk of about 600 kB, paper, opentype.js and mediabunny load when first used
+    chunkSizeWarningLimit: 650
+  },
   // paper only loads on the first boolean and opentype.js with the first text, found that late
   // vite would reload the page in dev
   optimizeDeps: {
