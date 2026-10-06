@@ -123,8 +123,6 @@ export function poseAt(layer: Layer, frame: number): Record<string, BonePose> {
   return spot ? tweenPose(spot.key.pose, spot.next.pose, spot.t) : key.pose;
 }
 
-// symbols
-
 // a symbol holding an instance of itself would never end, drawing stops this deep
 export const MAX_NESTING = 12;
 

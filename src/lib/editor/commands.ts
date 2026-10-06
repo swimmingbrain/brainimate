@@ -141,7 +141,6 @@ export function resetColors() {
   );
 }
 
-// the active chip gets no color
 export function clearColor() {
   setPaint(get(colorTarget), null);
 }
@@ -150,7 +149,6 @@ export function toggleColorTarget() {
   colorTarget.update((t) => (t === 'fill' ? 'stroke' : 'fill'));
 }
 
-// the selected items that have a fill and a stroke
 export function styledItems(): (PathItem | TextItem)[] {
   return editor
     .selectedItems(false)
@@ -628,8 +626,6 @@ export async function booleanSelection(op: BooleanOp | 'divide') {
   selection.set(new Set(added.map((it) => it.id)));
   if (added.length === 0) addToast('Nothing is left of the shapes');
 }
-
-// frames
 
 // what a frame command works on: the picked frames, or the playhead on the active layer
 export function targetFrames(): FrameRange | null {
