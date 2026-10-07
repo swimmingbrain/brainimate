@@ -1,5 +1,5 @@
 import { get, writable } from 'svelte/store';
-import { produceWithPatches } from 'immer';
+import { produceWithPatches, type Patch } from 'immer';
 import type { Bone, Doc, GroupItem, Item, Layer, Mat } from '$lib/core/types';
 import { History, type HistoryState } from './history';
 import { newId } from '$lib/core/ids';
@@ -176,7 +176,8 @@ class Editor {
   // recipe changes a draft of the document, the whole change is one undo step. false when nothing changed
   commit(label: string, recipe: (draft: Doc) => void, key?: string): boolean {
     let [next, patches, inverse] = produceWithPatches(this.doc, recipe);
-    if (patches.length === 0) return false;
+    // values set again to what they were make no undo step
+    if (patches.every((p) => sameAsBefore(this.doc, p))) return false;
     // skins left on bones that went or on anchors that changed are set right in the same step
     const repair = skinRepairs(this.doc, next);
     if (repair) {
@@ -629,6 +630,17 @@ class Editor {
     });
     this.clearPreview();
   }
+}
+
+// a replace that puts back an equal value, like a new array with the same numbers
+function sameAsBefore(doc: Doc, patch: Patch): boolean {
+  if (patch.op !== 'replace') return false;
+  let at: unknown = doc;
+  for (const key of patch.path) {
+    if (at === null || typeof at !== 'object') return false;
+    at = (at as Record<string | number, unknown>)[key];
+  }
+  return JSON.stringify(at) === JSON.stringify(patch.value);
 }
 
 export const editor = new Editor();
