@@ -31,6 +31,9 @@ describe('editor', () => {
     const layer = editor.activeLayer()!;
     expect(editor.commit('Rename', (d) => void (d.layers[0].name = 'Ink'))).toBe(true);
     expect(editor.commit('Rename', (d) => void (d.layers[0].name = 'Ink'))).toBe(false);
+    // an equal value in a new object is no change either
+    const keys = editor.doc.layers[0].keyframes;
+    expect(editor.commit('Same', (d) => void (d.layers[0].keyframes = JSON.parse(JSON.stringify(keys))))).toBe(false);
     expect(editor.undo()).toBe('Rename');
     expect(editor.layerById(layer.id)!.name).toBe('Layer 1');
   });
