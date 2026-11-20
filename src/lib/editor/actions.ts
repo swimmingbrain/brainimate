@@ -23,6 +23,7 @@ import { TOOL_IDS, TOOL_INFO } from '$lib/tools/tool';
 import { selectTool } from '$lib/tools';
 import {
   addFolder,
+  addComicSceneLayers,
   addLayer,
   addRigLayer,
   arrangeSelection,
@@ -64,6 +65,7 @@ import {
   toggleOnion,
   toggleOutline,
   togglePasteboard,
+  toggleSafeZones,
   togglePlay,
   toggleRulers,
   toggleSmartGuides,
@@ -228,6 +230,7 @@ function build(): Command[] {
     { id: 'view.outline', label: 'Outline mode', group: 'View', keys: [], run: toggleOutline },
     { id: 'view.onion', label: 'Onion skin', group: 'View', keys: ['Alt+Shift+O'], run: toggleOnion },
     { id: 'view.pasteboard', label: 'Pasteboard', group: 'View', keys: [], run: togglePasteboard },
+    { id: 'view.safe-zones', label: 'Video safe zones', group: 'View', keys: [], run: toggleSafeZones },
 
     ...toolCommands(),
     { id: 'tool.ink', label: 'Ink bottle', group: 'Tools', keys: ['S'], run: () => bucketMode('stroke') },
@@ -263,6 +266,13 @@ function build(): Command[] {
 
     { id: 'insert.layer', label: 'New layer', group: 'Insert', keys: [], run: addLayer },
     { id: 'insert.folder', label: 'New layer folder', group: 'Insert', keys: [], run: addFolder },
+    {
+      id: 'insert.comic-layers',
+      label: 'Comic scene layers',
+      group: 'Insert',
+      keys: [],
+      run: addComicSceneLayers
+    },
     { id: 'insert.rig-layer', label: 'New rig layer', group: 'Insert', keys: [], run: addRigLayer },
     { id: 'insert.symbol', label: 'New symbol', group: 'Insert', keys: [], run: newSymbol },
     {

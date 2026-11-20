@@ -38,7 +38,10 @@ const BUNDLED: [string, string, string[]][] = [
   ['JetBrains Mono', 'jetbrains-mono', ['400-normal', '700-normal', '400-italic', '700-italic']],
   ['Lora', 'lora', ['400-normal', '700-normal', '400-italic', '700-italic']],
   ['Poppins', 'poppins', ['400-normal', '700-normal', '400-italic', '700-italic']],
-  ['Bebas Neue', 'bebas-neue', ['400-normal']]
+  ['Bebas Neue', 'bebas-neue', ['400-normal']],
+  ['Comic Neue', 'comic-neue', ['300-normal', '400-normal', '700-normal', '400-italic', '700-italic']],
+  ['Bangers', 'bangers', ['400-normal']],
+  ['Patrick Hand', 'patrick-hand', ['400-normal']]
 ];
 
 function bundled(): FamilyInfo[] {

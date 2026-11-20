@@ -55,6 +55,21 @@ export const BUILTIN_WORKSPACES: WorkspacePreset[] = [
     toolbarSide: 'left',
     rulers: false,
     showBones: true
+  },
+  // a vertical comic story: the stage gets the room, the swatches with the comic palette sit under
+  // the properties, the library holds the characters
+  {
+    id: 'comic',
+    name: 'Comic',
+    hidden: ['align'],
+    timeline: true,
+    topTab: 'properties',
+    bottomTab: 'swatches',
+    dockWidth: 260,
+    timelineHeight: 200,
+    toolbarSide: 'left',
+    rulers: false,
+    showBones: true
   }
 ];
 

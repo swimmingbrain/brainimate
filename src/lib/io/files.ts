@@ -4,7 +4,8 @@ import type { Doc } from '$lib/core/types';
 import { editor, makeDoc } from '$lib/editor/editor';
 import { zoomForOpen } from '$lib/editor/view';
 import { textEditing } from '$lib/editor/text';
-import { addToast, dialog, dirty } from '$lib/stores/app';
+import { activeLayer, addToast, dialog, dirty } from '$lib/stores/app';
+import { comicSceneLayers } from '$lib/editor/layers';
 import { preferences } from '$lib/stores/preferences';
 import { nameFromFile, parse, PROJECT_EXT, PROJECT_MIME, projectFileName, serialize } from './project';
 import { addRecent, loadRecent, removeRecent, type RecentFile } from './recent';
@@ -174,11 +175,14 @@ export function openRecent(entry: RecentFile) {
   confirmDiscard(() => void reopen(entry), `Open ${entry.name}`);
 }
 
-// a fresh document, the file it came from is forgotten
-export function createDocument(width: number, height: number, fps: number, bg = '#ffffff') {
+// a fresh document, the file it came from is forgotten. a comic story starts with the layers of a
+// comic scene and the characters layer active
+export function createDocument(width: number, height: number, fps: number, bg = '#ffffff', comic = false) {
   const doc = makeDoc(width, height, fps);
   doc.bg = bg;
+  if (comic) doc.layers = comicSceneLayers();
   takeOver(doc, null);
+  if (comic) activeLayer.set(doc.layers.find((l) => l.name === 'Characters')?.id ?? null);
   dialog.set(null);
 }
 

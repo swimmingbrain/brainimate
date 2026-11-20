@@ -101,6 +101,11 @@ export function togglePasteboard() {
   setGroup('stage', { pasteboard: !get(preferences).stage.pasteboard });
 }
 
+// the shaded margins of a vertical video, the stage only shows them at 9 by 16
+export function toggleSafeZones() {
+  setGroup('stage', { safeZones: !get(preferences).stage.safeZones });
+}
+
 export function toggleOutline() {
   outlineMode.update((on) => !on);
 }
@@ -831,6 +836,7 @@ export function insertKeyframeAt(layerId: string, at: number) {
 
 // the layer and playback commands live next to their state, the menus and buttons reach them from here
 export {
+  addComicSceneLayers,
   addFolder,
   addLayer,
   addRigLayer,

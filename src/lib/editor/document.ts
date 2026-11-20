@@ -1,5 +1,6 @@
 import type { Doc, Mat } from '$lib/core/types';
 import { applyPoint, multiply, scale } from '$lib/core/mat';
+import { TIKTOK_HEIGHT, TIKTOK_WIDTH } from '$lib/core/comic';
 import { editor } from './editor';
 
 export interface DocPreset {
@@ -7,10 +8,14 @@ export interface DocPreset {
   width: number;
   height: number;
   fps: number;
+  // a vertical comic story, it starts with the layers of a comic scene
+  comic?: boolean;
 }
 
-// the sizes a new document starts from, custom fields cover the rest
+// the sizes a new document starts from, custom fields cover the rest. the vertical video comes first
 export const DOC_PRESETS: DocPreset[] = [
+  { label: 'TikTok 9:16', width: TIKTOK_WIDTH, height: TIKTOK_HEIGHT, fps: 24, comic: true },
+  { label: 'TikTok 9:16, 30 fps', width: TIKTOK_WIDTH, height: TIKTOK_HEIGHT, fps: 30, comic: true },
   { label: 'Full HD video', width: 1920, height: 1080, fps: 24 },
   { label: 'Square post', width: 1080, height: 1080, fps: 30 },
   { label: 'HD video', width: 1280, height: 720, fps: 24 },

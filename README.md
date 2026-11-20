@@ -41,6 +41,17 @@ The welcome screen opens three examples to look into: a rigged character that wa
 - A command palette (`Ctrl+Shift+P`) that finds every command by a few letters, with the ones you ran last on top
 - Offline use once loaded
 
+### Comic stories for vertical video
+
+- A TikTok 9:16 preset at exactly 1080 by 1920 pixels, 24 or 30 fps, first in the new document form
+- Safe zones on a 9:16 stage that shade where the app puts its buttons and captions, View > Video safe zones, they never show in an export
+- Comic scene layers: background, midground, characters, foreground and speech bubbles, from the new document form or Insert > Comic scene layers
+- A Comic workspace with the stage, the timeline and the swatches up front
+- Ink brushes for a hand drawn graphic novel look: Comic ink, Bold contour, Face detail and Cel shade (paints behind the lines), the pencil adds Comic line and Rough ink
+- A muted comic palette on top of the swatches, on from the start, the plus copies it into the document
+- Comic lettering fonts with the german umlauts: Comic Neue, Bangers and Patrick Hand
+- Export and share: on an iPad the finished video goes straight to the photos or to an app through the share sheet
+
 ### Customization
 
 Preferences (`Ctrl+K`) has a tab for each part. Tools: show, hide and drag the tools of the toolbar into your own order, on the left or the right, small or normal. Pens: brush and pencil presets you save from the stage bar, the eraser size and how the pen draws its anchors and rubber band. Canvas: grid size, subdivisions, color and opacity, guide and smart guide colors, the pasteboard, the wheel and a tablet mode with bigger hit areas. Shortcuts: record any key for any command, a clash shows in red until you keep or undo it. Workspaces: Essentials, Illustrate, Animate and Rig set the panels, sizes, toolbar side, rulers and bones, and you can save your own next to them.
@@ -114,7 +125,7 @@ Open `http://localhost:5173`. `pnpm test` runs the tests, `pnpm check` the type 
 | Undo | immer |
 | Easing | bezier-easing |
 | Text | opentype.js |
-| Fonts | Inter, Instrument Serif, JetBrains Mono, Lora, Poppins, Bebas Neue from Fontsource (OFL) |
+| Fonts | Inter, Instrument Serif, JetBrains Mono, Lora, Poppins, Bebas Neue, Comic Neue, Bangers, Patrick Hand from Fontsource (OFL) |
 | Export | gifenc, mediabunny, fflate |
 | SVG import | svg-pathdata |
 | Storage | idb-keyval, browser-fs-access |
