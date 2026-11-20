@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { TOOL_IDS, isToolId, type ToolId } from '$lib/tools/tool';
 
-export type DockTab = 'properties' | 'color' | 'swatches' | 'library' | 'align' | 'transform' | 'rig' | 'camera';
+export type DockTab = 'properties' | 'color' | 'swatches' | 'library' | 'align' | 'transform' | 'rig' | 'camera' | 'character';
 
 export type PencilMode = 'smooth' | 'ink' | 'straighten';
 export type BrushMode = 'normal' | 'behind';
@@ -14,7 +14,7 @@ export type BindMode = 'auto' | 'smooth' | 'rigid';
 // the three greys of the theme the pasteboard can take
 export type PasteboardShade = 'deep' | 'surface' | 'elevated';
 
-export const DOCK_TABS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig', 'camera'];
+export const DOCK_TABS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig', 'camera', 'character'];
 export const SHADES: PasteboardShade[] = ['deep', 'surface', 'elevated'];
 
 // a saved brush or pencil: size is the brush size or the pencil stroke width, mode is the tool's own

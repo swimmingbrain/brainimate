@@ -8,6 +8,7 @@ import { loadFont, readFontFile, registerAssetFonts } from '$lib/core/fonts';
 import { walkItems } from '$lib/core/library';
 import { activeLayer, addToast, selection } from '$lib/stores/app';
 import { isProjectFile, openDropped } from '$lib/io/files';
+import { importAudio, isAudioFile } from '$lib/io/audio';
 import { editor } from './editor';
 
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
@@ -18,7 +19,7 @@ const SVG_FILE = /\.svg$/i;
 export const IMAGE_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif';
 export const FONT_ACCEPT = '.ttf,.otf,.woff';
 export const SVG_ACCEPT = '.svg,image/svg+xml';
-export const IMPORT_ACCEPT = `${IMAGE_ACCEPT},${FONT_ACCEPT},.svg`;
+export const IMPORT_ACCEPT = `${IMAGE_ACCEPT},${FONT_ACCEPT},.svg,.mp3,.m4a,.aac,.wav,.ogg,audio/*`;
 
 // the hidden file input the app keeps, the menus and the image properties open it
 let input: HTMLInputElement | null = null;
@@ -270,7 +271,8 @@ export async function importFiles(files: File[], at?: Vec) {
     if (file.type === 'image/svg+xml' || SVG_FILE.test(file.name)) await importSvg(file, file.name, at);
     else if (isImage(file)) await importImage(file, file.name, at);
     else if (FONT_FILE.test(file.name)) await importFont(file);
-    else addToast(`${file.name} is not a picture or a font`, 'warning');
+    else if (isAudioFile(file)) await importAudio(file);
+    else addToast(`${file.name} is not a picture, a font or a sound`, 'warning');
   }
 }
 

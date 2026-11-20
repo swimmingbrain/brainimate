@@ -19,6 +19,7 @@
   import { installTooltips } from './tooltips';
   import { installAutosave } from '$lib/io/autosave';
   import { installTouch, touchUi } from '$lib/editor/touch';
+  import { installAudio } from '$lib/io/audio';
   import TouchBar from './TouchBar.svelte';
   import TouchKeys from './TouchKeys.svelte';
   import Icon from '$lib/icons/Icon.svelte';
@@ -74,12 +75,14 @@
     const offSettings = installSettings();
     const offTips = installTooltips();
     const offTouch = installTouch();
+    const offAudio = installAudio();
     void startup();
     return () => {
       off();
       offSettings();
       offTips();
       offTouch();
+      offAudio();
       offAutosave();
       offGuard();
       setImportInput(null);

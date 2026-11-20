@@ -151,7 +151,7 @@ export function reportProblem() {
   window.open(`${REPO}/issues/new`, '_blank', 'noopener');
 }
 
-const PANELS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig', 'camera'];
+const PANELS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig', 'camera', 'character'];
 
 function toolCommands(): Command[] {
   return TOOL_IDS.map((id) => {
