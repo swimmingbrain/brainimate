@@ -27,10 +27,16 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install
+      # reads the address pages serves the site at, /brainimate-tiktok for a project site, empty with
+      # a domain of its own. pages has to be turned on first: settings, pages, source github actions
+      - id: pages
+        uses: actions/configure-pages@v5
+      - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build

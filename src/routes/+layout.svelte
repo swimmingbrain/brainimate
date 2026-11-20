@@ -3,6 +3,7 @@
   import Toast from '$lib/ui/Toast.svelte';
   import { onMount } from 'svelte';
   import { browser, dev } from '$app/environment';
+  import { base } from '$app/paths';
   import { beforeNavigate } from '$app/navigation';
   import { updated } from '$app/state';
   import type { Snippet } from 'svelte';
@@ -19,7 +20,8 @@
   // the dev server rebuilds the worker on every change, it only runs in a real build
   onMount(() => {
     if (!browser || dev || !('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    // under a base path the worker only looks after this app, other sites of the same host keep theirs
+    navigator.serviceWorker.register(`${base}/service-worker.js`, { scope: `${base}/` }).catch(() => {});
     // a hard reload skips the worker, it is asked to take the page back
     navigator.serviceWorker.ready
       .then((reg) => {

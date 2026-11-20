@@ -50,7 +50,7 @@
   import { editor } from '$lib/editor/editor';
   import { docLength } from '$lib/anim/timeline';
   import { addToast } from '$lib/stores/app';
-  import { exportRange, frameCanvas, isAbort, prepareExport, scaledSize } from '$lib/io/render';
+  import { exportRange, frameCanvas, isAbort, maxExportScale, prepareExport, scaledSize } from '$lib/io/render';
   import { canShareFiles, downloadBlob, exportName, KINDS, saveBlob, shareBlob, type FileKind } from '$lib/io/save';
   import { exportPng } from '$lib/io/png';
   import { exportSvg } from '$lib/io/svgout';
@@ -66,7 +66,9 @@
   // the frame of the main timeline, also while a symbol is open
   const current = editor.editStack[0]?.frame ?? editor.frame;
 
-  let s = $state({ ...last });
+  // a bigger canvas stays blank on an ipad, a scale kept from a smaller document comes down to fit
+  const maxScale = maxExportScale(doc);
+  let s = $state({ ...last, scale: Math.min(last.scale, maxScale) });
   let from = $state(1);
   let to = $state(length);
   let videoOk = $state({ webm: false, mp4: false });
@@ -325,7 +327,7 @@
           <NumberField
             value={s.scale}
             min={0.25}
-            max={4}
+            max={maxScale}
             step={0.25}
             precision={2}
             unit="x"

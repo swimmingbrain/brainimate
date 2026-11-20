@@ -1,4 +1,5 @@
 import { get } from 'svelte/store';
+import { assets } from '$app/paths';
 import { fileOpen, fileSave } from 'browser-fs-access';
 import type { Doc } from '$lib/core/types';
 import { editor, makeDoc } from '$lib/editor/editor';
@@ -202,7 +203,7 @@ export function closeDocument() {
 async function loadExample(file: string) {
   let parsed;
   try {
-    const res = await fetch(`/examples/${file}`);
+    const res = await fetch(`${assets}/examples/${file}`);
     if (!res.ok) throw new Error(`the server answered ${res.status}`);
     parsed = await parse(await res.blob());
   } catch (e) {

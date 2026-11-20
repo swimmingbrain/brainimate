@@ -1,4 +1,5 @@
 import { get, writable } from 'svelte/store';
+import { assets } from '$app/paths';
 import type { Font, Glyph } from 'opentype.js';
 import type { Asset, TextItem } from './types';
 import { cachedLayout, type FontLike, type TextLayout } from './text';
@@ -50,7 +51,7 @@ function bundled(): FamilyInfo[] {
     source: 'bundled',
     faces: faces.map((f) => {
       const [weight, style] = f.split('-');
-      return { weight: Number(weight), italic: style === 'italic', url: `/fonts/${file}-${f}.woff` };
+      return { weight: Number(weight), italic: style === 'italic', url: `${assets}/fonts/${file}-${f}.woff` };
     })
   }));
 }

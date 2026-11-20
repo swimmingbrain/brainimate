@@ -30,6 +30,15 @@ export function exportFrames(range: ExportRange, docFps: number, fps: number): n
   return out;
 }
 
+// safari on iphones and ipads draws nothing on a canvas of more pixels than this
+export const MAX_CANVAS_PIXELS = 16_777_216;
+
+// the largest export scale in quarter steps whose canvas every browser still draws, at most 4
+export function maxExportScale(doc: Pick<Doc, 'width' | 'height'>): number {
+  const fit = Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, doc.width * doc.height));
+  return Math.max(0.25, Math.min(4, Math.floor(fit * 4) / 4));
+}
+
 // the pixel size of the document at scale, video encoders want even sides
 export function scaledSize(doc: Pick<Doc, 'width' | 'height'>, scale: number, even = false) {
   let width = Math.max(1, Math.round(doc.width * scale));
