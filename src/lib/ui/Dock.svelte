@@ -9,6 +9,7 @@
   import Align from './panels/Align.svelte';
   import Transform from './panels/Transform.svelte';
   import Rig from './panels/Rig.svelte';
+  import Camera from './panels/Camera.svelte';
   import { DOCK_BOTTOM, DOCK_TOP, PANEL_LABELS, togglePanel } from '$lib/stores/workspace';
   import { preferences, setGroup, type DockTab } from '$lib/stores/preferences';
 
@@ -19,7 +20,8 @@
     library: Library,
     align: Align,
     transform: Transform,
-    rig: Rig
+    rig: Rig,
+    camera: Camera
   };
 
   let height = $state(0);

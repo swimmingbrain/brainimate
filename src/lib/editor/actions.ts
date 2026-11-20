@@ -1,3 +1,4 @@
+import { addCamera, focusSelection, keyCamera, sceneDepth, toggleCameraView } from './camera';
 import { get } from 'svelte/store';
 import {
   anchorSelection,
@@ -147,7 +148,7 @@ export function reportProblem() {
   window.open(`${REPO}/issues/new`, '_blank', 'noopener');
 }
 
-const PANELS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig'];
+const PANELS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig', 'camera'];
 
 function toolCommands(): Command[] {
   return TOOL_IDS.map((id) => {
@@ -265,6 +266,11 @@ function build(): Command[] {
     { id: 'timeline.fit', label: 'Fit the timeline', group: 'Timeline', keys: [], run: fitTimeline },
 
     { id: 'insert.layer', label: 'New layer', group: 'Insert', keys: [], run: addLayer },
+    { id: 'insert.camera', label: 'Camera', group: 'Insert', keys: [], run: () => void addCamera() },
+    { id: 'view.camera', label: 'Camera view', group: 'View', keys: ['Shift+C'], run: toggleCameraView },
+    { id: 'camera.key', label: 'Camera keyframe', group: 'Camera', keys: [], run: keyCamera },
+    { id: 'camera.focus', label: 'Camera on the selection', group: 'Camera', keys: [], run: focusSelection },
+    { id: 'camera.depth', label: 'Scene depth for the comic layers', group: 'Camera', keys: [], run: sceneDepth },
     { id: 'insert.folder', label: 'New layer folder', group: 'Insert', keys: [], run: addFolder },
     {
       id: 'insert.comic-layers',

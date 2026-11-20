@@ -30,6 +30,8 @@ export const ICONS: Record<string, string> = {
   minus: '<path d="M3.5 8h9"/>',
   trash: '<path d="M2.5 4h11M6 4V2.8h4V4M4 4v9.2h8V4M6.5 6.5v4.5M9.5 6.5v4.5"/>',
   folder: '<path d="M1.8 12.8v-9.6h4.2l1.5 2h6.7v7.6z"/>',
+  camera: '<rect x="1.5" y="4.5" width="9" height="7" rx="1"/><path d="M10.5 7 14.5 5v6l-4-2"/><circle cx="4" cy="2.8" r="1.3"/><circle cx="7.6" cy="2.8" r="1.3"/>',
+  'camera-view': '<path d="M1.5 5V2.5H4M12 2.5h2.5V5M14.5 11v2.5H12M4 13.5H1.5V11"/><rect x="4" y="5.5" width="5.5" height="5" rx=".6"/><path d="M9.5 7.2 12 6v4l-2.5-1.2"/>',
   layer: '<path d="M8 2 14 5 8 8 2 5z"/><path d="M2 8l6 3 6-3"/><path d="M2 11l6 3 6-3"/>',
   symbol: '<circle cx="10.5" cy="5.5" r="3.5"/><path d="M8 9.2V14H2V8h4.8"/>',
   duplicate: '<rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1"/><path d="M10.5 3V2H2v8.5h1"/>',

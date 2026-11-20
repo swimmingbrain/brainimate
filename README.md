@@ -64,6 +64,16 @@ The welcome screen opens three examples to look into: a rigged character that wa
 - Pictures larger than the stage could show come in smaller, a 12 megapixel photo uses a third less memory
 - Preferences > Canvas > Touch and pencil sets when the touch bar shows and what one finger does
 
+### Camera, parallax and shots
+
+- A camera layer on the main timeline: position, zoom, turn, handheld shake and the bob of walking, keyed like any layer and moved with the usual eases. Insert > Camera, or the Camera panel
+- The camera view (`Shift+C`, the touch bar) shows the stage as the video does, playback switches to it by itself. On a tablet it draws at half the pixels while playing, the export always at full size
+- The camera tool (`C`): drag the camera frame to move it, a corner to zoom, the knob to turn it. In the camera view a finger drags the picture like a camera held in the hand
+- Parallax per layer or folder: 1 follows the camera, less is further back, more is in front, 0 stays on the screen. One tap sets the comic scene layers to background 0.3, midground 0.65, characters 1, foreground 1.4 and bubbles 0
+- Moves put down as keyframes from the playhead, with their length, strength and ease: first person walk, slow push in, cinematic zoom, pan left and right, look left and right, tracking shot, focus pull and handheld camera
+- A new shot on a camera keyframe: cut, fade through a color, crossfade, zoom, slide or a camera move, each as long as you like
+- The export, the thumbnails, the SVG export and the camera view draw through the same function, the video looks like the preview. See [docs/KAMERA.md](docs/KAMERA.md)
+
 ### Customization
 
 Preferences (`Ctrl+K`) has a tab for each part. Tools: show, hide and drag the tools of the toolbar into your own order, on the left or the right, small or normal. Pens: brush and pencil presets you save from the stage bar, the eraser size and how the pen draws its anchors and rubber band. Canvas: grid size, subdivisions, color and opacity, guide and smart guide colors, the pasteboard, the wheel and a tablet mode with bigger hit areas. Shortcuts: record any key for any command, a clash shows in red until you keep or undo it. Workspaces: Essentials, Illustrate, Animate and Rig set the panels, sizes, toolbar side, rulers and bones, and you can save your own next to them.
