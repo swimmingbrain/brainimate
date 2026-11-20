@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeDoc } from '$lib/editor/editor';
 import { docLength, insertFrame } from '$lib/anim/timeline';
-import { exportFrames, exportRange, scaledSize } from './render';
+import { exportFrames, exportRange, MAX_CANVAS_PIXELS, maxExportScale, scaledSize } from './render';
 
 describe('export frames', () => {
   it('counts the document length from its longest layer', () => {
@@ -36,3 +36,16 @@ describe('export frames', () => {
     expect(scaledSize({ width: 3, height: 3 }, 0.1, true)).toEqual({ width: 2, height: 2 });
   });
 });
+
+describe('the largest export scale', () => {
+  it('keeps the canvas inside what safari on an ipad draws', () => {
+    // 1080 by 1920 goes up to 2.75 times, the tiktok size itself always fits
+    expect(maxExportScale({ width: 1080, height: 1920 })).toBe(2.75);
+    const big = scaledSize({ width: 1080, height: 1920 }, maxExportScale({ width: 1080, height: 1920 }), true);
+    expect(big.width * big.height).toBeLessThanOrEqual(MAX_CANVAS_PIXELS);
+    // small documents keep the old limit of 4, huge ones still get a quarter
+    expect(maxExportScale({ width: 400, height: 300 })).toBe(4);
+    expect(maxExportScale({ width: 16000, height: 16000 })).toBe(0.25);
+  });
+});
+

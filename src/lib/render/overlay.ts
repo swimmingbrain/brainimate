@@ -12,6 +12,7 @@ import { preferences } from '$lib/stores/preferences';
 import { activeTool, anchorSelection, boneSelection, playing, selection, type View } from '$lib/stores/app';
 import { isLayerShown } from '$lib/anim/timeline';
 import { drawBones, weightColor } from './bones';
+import { safeZoneFor } from '$lib/core/comic';
 
 export const HANDLE_SIZE = 7;
 // screen pixels of the anchor glyphs and the handle dots, the preferences set them
@@ -208,6 +209,38 @@ function drawRig(ctx: CanvasRenderingContext2D, v: View, tool: string) {
   });
 }
 
+// on a 9 by 16 stage the margins the video app covers with its buttons and captions are shaded, the
+// line around the rest shows where text and faces stay readable. exports never show it
+function drawSafeZones(ctx: CanvasRenderingContext2D, v: View) {
+  if (!get(preferences).stage.safeZones) return;
+  const doc = editor.doc;
+  const z = safeZoneFor(doc.width, doc.height);
+  if (!z) return;
+  const x0 = v.panX;
+  const y0 = v.panY;
+  const w = doc.width * v.zoom;
+  const h = doc.height * v.zoom;
+  const left = z.left * v.zoom;
+  const right = z.right * v.zoom;
+  const top = z.top * v.zoom;
+  const bottom = z.bottom * v.zoom;
+  ctx.fillStyle = 'rgba(20, 18, 24, 0.16)';
+  ctx.fillRect(x0, y0, w, top);
+  ctx.fillRect(x0, y0 + h - bottom, w, bottom);
+  ctx.fillRect(x0, y0 + top, left, h - top - bottom);
+  ctx.fillRect(x0 + w - right, y0 + top, right, h - top - bottom);
+  ctx.strokeStyle = 'rgba(255, 64, 129, 0.75)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(Math.round(x0 + left) + 0.5, Math.round(y0 + top) + 0.5, w - left - right, h - top - bottom);
+  ctx.setLineDash([]);
+  if (h < 160) return;
+  ctx.font = '10px "JetBrains Mono", monospace';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(255, 64, 129, 0.9)';
+  ctx.fillText('safe zone', x0 + left + 4, y0 + top + 4);
+}
+
 // guides run across the whole view, the one being dragged follows the pointer
 function drawGuides(ctx: CanvasRenderingContext2D, v: View, width: number, height: number) {
   const prefs = get(preferences);
@@ -295,6 +328,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
   const busy = get(playing);
   // the path tools show anchors too, so you can see where to add, remove or go on
   const anchors = !busy && (direct || ((tool === 'pen' || tool === 'curvature') && marks.showAnchors));
+  drawSafeZones(ctx, v);
   drawGuides(ctx, v, ctx.canvas.width / dpr, ctx.canvas.height / dpr);
 
   // outlines and anchors follow what shows, a bound item bent by the rig

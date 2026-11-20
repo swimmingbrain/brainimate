@@ -16,8 +16,8 @@ import {
 describe('pen presets', () => {
   it('match the settings the tool has now', () => {
     const p = defaultPreferences();
-    expect(matchingPreset(p, 'brush')?.id).toBe('brush-round');
-    expect(matchingPreset(p, 'pencil')?.id).toBe('pencil-clean');
+    expect(matchingPreset(p, 'brush')?.id).toBe('brush-comic-ink');
+    expect(matchingPreset(p, 'pencil')?.id).toBe('pencil-comic-line');
     expect(matchingPreset({ ...p, drawing: { ...p.drawing, pencilWidth: 3 } }, 'pencil')).toBeNull();
     const changed = { ...p, drawing: { ...p.drawing, brushSize: 9 } };
     expect(matchingPreset(changed, 'brush')).toBeNull();
@@ -48,7 +48,7 @@ describe('pen presets', () => {
     const id = addPresetFromCurrent('brush');
     let pens = get(preferences).pens;
     const added = pens.brush.find((q) => q.id === id)!;
-    expect(added.name).toBe('Brush 5');
+    expect(added.name).toBe('Brush 9');
     expect(added.size).toBe(13);
     expect(added.mode).toBe('behind');
     renamePreset('brush', id, '  Thick  ');
@@ -59,6 +59,19 @@ describe('pen presets', () => {
     deletePreset('brush', id);
     pens = get(preferences).pens;
     expect(pens.brush.some((q) => q.id === id)).toBe(false);
-    expect(pens.brushDefault).toBe('brush-fine');
+    expect(pens.brushDefault).toBe('brush-comic-ink');
+  });
+
+  it('start with the comic ink presets for the graphic novel look', () => {
+    const p = defaultPreferences();
+    expect(p.pens.brushDefault).toBe('brush-comic-ink');
+    expect(p.pens.pencilDefault).toBe('pencil-comic-line');
+    const ink = p.pens.brush.find((q) => q.id === 'brush-comic-ink')!;
+    // pressure thins the line ends, a low smoothing keeps the hand in the line
+    expect(ink.pressure).toBe(true);
+    expect(ink.smoothing).toBeLessThanOrEqual(40);
+    // the cel shade paints behind the line art
+    expect(p.pens.brush.find((q) => q.id === 'brush-comic-cel')!.mode).toBe('behind');
+    expect(p.pens.pencil.find((q) => q.id === 'pencil-comic-rough')!.mode).toBe('ink');
   });
 });

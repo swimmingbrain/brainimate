@@ -8,7 +8,11 @@ const FONTS = [
   ['jetbrains-mono', 'jetbrains-mono', ['400-normal', '700-normal', '400-italic', '700-italic']],
   ['lora', 'lora', ['400-normal', '700-normal', '400-italic', '700-italic']],
   ['poppins', 'poppins', ['400-normal', '700-normal', '400-italic', '700-italic']],
-  ['bebas-neue', 'bebas-neue', ['400-normal']]
+  ['bebas-neue', 'bebas-neue', ['400-normal']],
+  // comic lettering, the latin files hold the german umlauts, the sharp s and the low quotes
+  ['comic-neue', 'comic-neue', ['300-normal', '400-normal', '700-normal', '400-italic', '700-italic']],
+  ['bangers', 'bangers', ['400-normal']],
+  ['patrick-hand', 'patrick-hand', ['400-normal']]
 ];
 
 mkdirSync('static/fonts', { recursive: true });

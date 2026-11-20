@@ -5,7 +5,7 @@
 
 // keeps the app offline, a page always gets chunks of its own build
 
-import { build, files, prerendered, version } from '$service-worker';
+import { base, build, files, prerendered, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -18,9 +18,13 @@ const FONT_CACHE = 'brainimate-fonts-v1';
 const PRECACHE = [
   ...build,
   ...prerendered,
-  ...files.filter((f) => /^\/(favicon\.svg|manifest\.json|robots\.txt|brainimate-logo-readme\.svg)$/.test(f)),
+  ...files.filter((f) =>
+    /^\/(favicon\.svg|manifest\.json|robots\.txt|brainimate-logo-readme\.svg|apple-touch-icon\.png|icon-(192|512)\.png)$/.test(
+      f.slice(base.length)
+    )
+  ),
   // the welcome dialog offers these, they are small
-  ...files.filter((f) => f.startsWith('/examples/'))
+  ...files.filter((f) => f.startsWith(`${base}/examples/`))
 ];
 
 // caches can be missing (private windows in some browsers)
@@ -112,7 +116,8 @@ async function handleDefault(request: Request, url: URL): Promise<Response> {
     // a page comes from this build, the kept older build must not win
     if (request.mode === 'navigate') {
       const app = await openCache(APP_CACHE);
-      const page = (await app?.match(url.pathname).catch(() => undefined)) || (await app?.match('/').catch(() => undefined));
+      const page =
+        (await app?.match(url.pathname).catch(() => undefined)) || (await app?.match(`${base}/`).catch(() => undefined));
       if (page) return page;
     }
     const cached = await caches.match(request).catch(() => undefined);
@@ -133,7 +138,7 @@ sw.addEventListener('fetch', (event) => {
   }
   if (url.origin !== sw.location.origin) return;
 
-  if (url.pathname.startsWith('/_app/immutable/')) {
+  if (url.pathname.startsWith(`${base}/_app/immutable/`)) {
     event.respondWith(handleImmutable(request).catch(() => fetch(request)));
     return;
   }

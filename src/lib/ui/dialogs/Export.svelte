@@ -50,8 +50,8 @@
   import { editor } from '$lib/editor/editor';
   import { docLength } from '$lib/anim/timeline';
   import { addToast } from '$lib/stores/app';
-  import { exportRange, frameCanvas, isAbort, prepareExport, scaledSize } from '$lib/io/render';
-  import { downloadBlob, exportName, KINDS, saveBlob, type FileKind } from '$lib/io/save';
+  import { exportRange, frameCanvas, isAbort, maxExportScale, prepareExport, scaledSize } from '$lib/io/render';
+  import { canShareFiles, downloadBlob, exportName, KINDS, saveBlob, shareBlob, type FileKind } from '$lib/io/save';
   import { exportPng } from '$lib/io/png';
   import { exportSvg } from '$lib/io/svgout';
   import { exportSequence } from '$lib/io/sequence';
@@ -66,7 +66,9 @@
   // the frame of the main timeline, also while a symbol is open
   const current = editor.editStack[0]?.frame ?? editor.frame;
 
-  let s = $state({ ...last });
+  // a bigger canvas stays blank on an ipad, a scale kept from a smaller document comes down to fit
+  const maxScale = maxExportScale(doc);
+  let s = $state({ ...last, scale: Math.min(last.scale, maxScale) });
   let from = $state(1);
   let to = $state(length);
   let videoOk = $state({ webm: false, mp4: false });
@@ -74,6 +76,8 @@
   let progress = $state(0);
   let controller: AbortController | null = null;
   let preview = $state<HTMLCanvasElement | null>(null);
+  // a finished export waiting for a tap on share, safari only opens the share sheet right after a tap
+  let ready = $state<{ blob: Blob; name: string; kind: FileKind } | null>(null);
 
   const ANIMATED: ExportFormat[] = ['sequence', 'gif', 'webm', 'mp4', 'sprite'];
   const formats = $derived(
@@ -93,6 +97,9 @@
   const frames = $derived(range.to - range.from + 1);
   const size = $derived(scaledSize(doc, s.scale, video));
   const canClear = $derived(s.format !== 'svg' && s.format !== 'mp4');
+  // the share sheet takes one file, the sprite sheet as two downloads cannot go there
+  const shareKind = $derived(KINDS[s.format === 'sequence' || s.format === 'sprite' ? 'zip' : s.format]);
+  const canShare = $derived(!(s.format === 'sprite' && !s.zip) && canShareFiles(shareKind));
   const clear = $derived(canClear && s.transparent);
   const gifFps = $derived(s.gifFps || doc.fps);
   const base = exportName(doc.name);
@@ -135,6 +142,12 @@
 
   $effect(() => {
     void drawPreview(animated ? range.from : current, clear);
+  });
+
+  // a file made with other settings is not the one to share any more
+  $effect(() => {
+    void [s.format, s.scale, s.quality, s.transparent, s.allFrames, from, to];
+    ready = null;
   });
 
   // mediabunny is large, it only loads with this dialog
@@ -231,6 +244,47 @@
     }
   }
 
+  // the export goes to the share sheet, on an ipad straight into the photos or the video app
+  async function runShare() {
+    if (busy) return;
+    remember(s);
+    controller = new AbortController();
+    const signal = controller.signal;
+    busy = true;
+    progress = 0;
+    ready = null;
+    try {
+      const work = job(signal);
+      const blob = await work.blob;
+      await share({ blob, name: work.name, kind: work.kind });
+    } catch (e) {
+      const why = e instanceof Error ? e.message : 'something went wrong';
+      if (!isAbort(e)) addToast(`Export failed: ${why}`, 'error', 6000);
+    } finally {
+      busy = false;
+      controller = null;
+    }
+  }
+
+  async function share(file: { blob: Blob; name: string; kind: FileKind }) {
+    try {
+      const result = await shareBlob(file.blob, file.name, file.kind);
+      if (result === 'needs-tap') {
+        ready = file;
+        return;
+      }
+      ready = null;
+      if (result === 'shared') {
+        addToast(`Shared ${file.name}`, 'success');
+        onclose();
+      }
+    } catch (e) {
+      ready = null;
+      const why = e instanceof Error ? e.message : 'something went wrong';
+      addToast(`Sharing failed: ${why}`, 'error', 6000);
+    }
+  }
+
   function close() {
     controller?.abort();
     remember(s);
@@ -273,7 +327,7 @@
           <NumberField
             value={s.scale}
             min={0.25}
-            max={4}
+            max={maxScale}
             step={0.25}
             precision={2}
             unit="x"
@@ -363,6 +417,9 @@
       <p class="note file" title={fileName}>{fileName}</p>
     </div>
   </div>
+  {#if ready}
+    <p class="ready">{ready.name} is ready, tap Share to send it.</p>
+  {/if}
   {#if busy}
     <div
       class="progress"
@@ -378,6 +435,11 @@
       <button class="dialog-btn" onclick={() => controller?.abort()}>Cancel export</button>
     {:else}
       <button class="dialog-btn" onclick={close}>Close</button>
+    {/if}
+    {#if ready}
+      <button class="dialog-btn primary" onclick={() => ready && share(ready)}>Share</button>
+    {:else if canShare}
+      <button class="dialog-btn" onclick={runShare} disabled={busy}>Export and share</button>
     {/if}
     <button class="dialog-btn primary" onclick={run} disabled={busy}>{busy ? 'Exporting...' : 'Export'}</button>
   {/snippet}
@@ -448,6 +510,12 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .ready {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
   }
 
   .progress {

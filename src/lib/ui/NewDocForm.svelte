@@ -3,6 +3,7 @@
   import NumberField from './NumberField.svelte';
   import ColorField from './ColorField.svelte';
   import ColorPopover from './ColorPopover.svelte';
+  import ToggleField from './ToggleField.svelte';
   import { DOC_PRESETS, MAX_SIDE } from '$lib/editor/document';
   import { paintColor, solid } from '$lib/core/style';
 
@@ -11,7 +12,8 @@
     oncreate,
     action = 'Create'
   }: {
-    oncreate: (width: number, height: number, fps: number, bg: string) => void;
+    // comic: start with the layers of a comic scene
+    oncreate: (width: number, height: number, fps: number, bg: string, comic: boolean) => void;
     action?: string;
   } = $props();
 
@@ -20,6 +22,8 @@
   let height = $state(DOC_PRESETS[0].height);
   let fps = $state(DOC_PRESETS[0].fps);
   let bg = $state('#ffffff');
+  // the comic presets start with the scene layers, any other size can have them too
+  let comic = $state(DOC_PRESETS[0].comic === true);
   let picker = $state<{ x: number; y: number } | null>(null);
 
   function pick(i: number) {
@@ -27,6 +31,7 @@
     width = DOC_PRESETS[i].width;
     height = DOC_PRESETS[i].height;
     fps = DOC_PRESETS[i].fps;
+    comic = DOC_PRESETS[i].comic === true;
   }
 
   function custom(set: () => void) {
@@ -104,8 +109,11 @@
     <Field label="Background">
       <ColorField value={bg} label="Background color" onclick={openPicker} />
     </Field>
+    <Field label="Comic layers" hint="Background, midground, characters, foreground and speech bubbles">
+      <ToggleField value={comic} label="Comic scene layers" onchange={(v) => (comic = v)} />
+    </Field>
   </div>
-  <button class="create" onclick={() => oncreate(width, height, fps, bg)}>{action}</button>
+  <button class="create" onclick={() => oncreate(width, height, fps, bg, comic)}>{action}</button>
   {#if picker}
     <ColorPopover
       paint={solid(bg)}

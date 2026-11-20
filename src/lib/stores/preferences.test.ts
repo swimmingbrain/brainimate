@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultPreferences, mergePreferences, visibleTools } from './preferences';
+import { defaultPreferences, mergePreferences, offerComicPresets, visibleTools } from './preferences';
 import { TOOL_IDS } from '$lib/tools/tool';
 
 describe('mergePreferences', () => {
@@ -108,5 +108,45 @@ describe('mergePreferences', () => {
     expect(w.bottomTab).toBe('color');
     expect(w.dockWidth).toBe(520);
     expect(w.toolbarSide).toBe('left');
+  });
+});
+
+describe('comic defaults', () => {
+  it('turn on the comic palette and the safe zones', () => {
+    const p = defaultPreferences();
+    expect(p.swatches.comic).toBe(true);
+    expect(p.stage.safeZones).toBe(true);
+    // a choice made before stays
+    const off = mergePreferences({ swatches: { comic: false }, stage: { safeZones: false } });
+    expect(off.swatches.comic).toBe(false);
+    expect(off.stage.safeZones).toBe(false);
+    // preferences saved before the comic palette existed get it
+    expect(mergePreferences({ grid: { show: true } }).swatches.comic).toBe(true);
+  });
+
+  it('give saved pen presets the comic ones once, after their own and with their default', () => {
+    const stored = {
+      pens: {
+        brush: [{ id: 'mine', name: 'Mine', size: 5, smoothing: 10, pressure: true, mode: 'normal' }],
+        brushDefault: 'mine'
+      }
+    };
+    const p = offerComicPresets(mergePreferences(stored), stored);
+    expect(p.pens.brush.map((q) => q.id)).toEqual([
+      'mine',
+      'brush-comic-ink',
+      'brush-comic-bold',
+      'brush-comic-detail',
+      'brush-comic-cel'
+    ]);
+    expect(p.pens.pencil.filter((q) => q.id.startsWith('pencil-comic'))).toHaveLength(2);
+    expect(p.pens.brushDefault).toBe('mine');
+    expect(p.pens.comic).toBe(true);
+    // once offered, a deleted comic preset stays deleted
+    const later = { pens: { ...p.pens, brush: p.pens.brush.filter((q) => q.id !== 'brush-comic-bold') } };
+    const again = offerComicPresets(mergePreferences(later), later);
+    expect(again.pens.brush.some((q) => q.id === 'brush-comic-bold')).toBe(false);
+    // nothing saved, nothing to add: the defaults hold them already
+    expect(offerComicPresets(defaultPreferences(), null)).toEqual(defaultPreferences());
   });
 });

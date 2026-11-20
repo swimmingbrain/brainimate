@@ -12,8 +12,10 @@ const config = {
       precompress: false,
       strict: true
     }),
+    // github pages serves a project site under /<repository>, the deploy workflow hands that in.
+    // empty for a site of its own domain and for dev, tests and previews
     paths: {
-      base: ''
+      base: process.env.BASE_PATH ?? ''
     },
     // the layout registers the worker itself
     serviceWorker: {

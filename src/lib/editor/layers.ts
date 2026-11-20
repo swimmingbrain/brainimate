@@ -4,6 +4,7 @@ import { newId } from '$lib/core/ids';
 import { descendantIds, moveLayer } from '$lib/anim/timeline';
 import { activeLayer, addToast, collapsedFolders, dialog, frameSelection, selection } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
+import { COMIC_SCENE_LAYERS } from '$lib/core/comic';
 import { LAYER_COLORS, editor, makeLayer } from './editor';
 
 // the next free number for names like 'Layer 3' or 'Folder 2'
@@ -39,6 +40,30 @@ export function addLayer() {
 
 export function addFolder() {
   addAboveActive(makeLayer(nextName(editor.currentLayers(), 'Folder'), nextColor(), 'folder'), 'New folder');
+}
+
+// background, midground, characters, foreground and speech bubbles, bottom first, each with its own color
+export function comicSceneLayers(): Layer[] {
+  return COMIC_SCENE_LAYERS.map((name, i) => makeLayer(name, LAYER_COLORS[i % LAYER_COLORS.length]));
+}
+
+// one empty layer with nothing on any frame, what a new document starts with
+export function isUntouched(layers: Layer[]): boolean {
+  if (layers.length !== 1) return false;
+  const only = layers[0];
+  return only.type === 'normal' && only.length <= 1 && only.keyframes.every((k) => k.items.length === 0);
+}
+
+// the layers of a comic scene on top of the timeline, an untouched timeline is replaced by them.
+// the characters layer is the one to draw on next
+export function addComicSceneLayers() {
+  const added = comicSceneLayers();
+  editor.commit('Comic scene layers', (draft) => {
+    const layers = editor.draftLayers(draft);
+    if (isUntouched(layers)) layers.splice(0, layers.length);
+    layers.push(...added);
+  });
+  activeLayer.set(added[COMIC_SCENE_LAYERS.indexOf('Characters')].id);
 }
 
 // a rig layer holds bones and their poses, the bone tool fills it

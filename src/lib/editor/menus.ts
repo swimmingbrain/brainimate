@@ -173,7 +173,8 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
         SEP,
         tick('view.outline', outline),
         tick('view.onion', p.timeline.onion),
-        tick('view.pasteboard', p.stage.pasteboard)
+        tick('view.pasteboard', p.stage.pasteboard),
+        tick('view.safe-zones', p.stage.safeZones)
       ]
     },
     {
@@ -182,6 +183,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
         c('insert.layer', { label: 'Layer' }),
         c('insert.folder', { label: 'Layer folder' }),
         c('insert.rig-layer', { label: 'Rig layer' }),
+        c('insert.comic-layers', { label: 'Comic scene layers' }),
         SEP,
         c('timeline.insert-frame', { label: 'Frame' }),
         c('timeline.keyframe', { label: 'Keyframe' }),
