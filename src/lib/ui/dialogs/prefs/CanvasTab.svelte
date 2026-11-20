@@ -22,6 +22,17 @@
     { value: 'zoom', label: 'Zooms, Ctrl scrolls' }
   ];
 
+  const TOUCH_UI = [
+    { value: 'auto', label: 'On a touch screen' },
+    { value: 'on', label: 'Always' },
+    { value: 'off', label: 'Never' }
+  ];
+  const FINGERS = [
+    { value: 'auto', label: 'Draw until the pencil is used' },
+    { value: 'draw', label: 'Always draw' },
+    { value: 'navigate', label: 'Only move and zoom' }
+  ];
+
   const p = $derived($preferences);
 </script>
 
@@ -143,5 +154,25 @@
   </Field>
   <Field label="Tablet mode">
     <ToggleField value={p.stage.tablet} label="Tablet mode" onchange={(v) => setGroup('stage', { tablet: v })} />
+  </Field>
+</Section>
+
+<Section title="Touch and pencil">
+  <Field label="Touch bar" hint="The touch bar under the stage and the keys on its edge">
+    <SelectField
+      value={p.touch.ui}
+      options={TOUCH_UI}
+      label="When the touch bar shows"
+      onchange={(v) => setGroup('touch', { ui: v === 'on' || v === 'off' ? v : 'auto' })} />
+  </Field>
+  <Field label="One finger" hint="Two fingers always zoom and move the stage">
+    <SelectField
+      value={p.touch.fingers}
+      options={FINGERS}
+      label="What one finger does on the stage"
+      onchange={(v) => setGroup('touch', { fingers: v === 'draw' || v === 'navigate' ? v : 'auto' })} />
+  </Field>
+  <Field label="Finger taps" hint="Two fingers tapped undo, three redo">
+    <ToggleField value={p.touch.fingerTaps} label="Finger taps undo and redo" onchange={(v) => setGroup('touch', { fingerTaps: v })} />
   </Field>
 </Section>

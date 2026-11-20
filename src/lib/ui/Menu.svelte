@@ -316,6 +316,13 @@
     text-align: left;
   }
 
+  /* a finger needs taller rows */
+  :global(:root[data-touch]) .menu-item {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 13.5px;
+  }
+
   .menu-item:hover:not(:disabled),
   .menu-item.active:not(:disabled) {
     background: var(--bg-hover);

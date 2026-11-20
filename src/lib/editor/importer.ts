@@ -84,11 +84,49 @@ export interface Picture {
   height: number;
 }
 
-// a picture file as a data url and its size
+// a photo from a camera has 12 million pixels and more, decoded that is 50 MB in memory, kept in
+// every undo step and every autosave. more than twice the stage, and more than a 4k picture, never
+// shows in an export, so a bigger picture comes in at that size. a tablet with 3 GB thanks for it
+export const MAX_PICTURE_PIXELS = 3840 * 2160;
+
+export function pictureSize(width: number, height: number, docWidth: number, docHeight: number) {
+  const side = Math.max(2048, 2 * Math.max(docWidth, docHeight));
+  const k = Math.min(1, side / Math.max(width, height), Math.sqrt(MAX_PICTURE_PIXELS / Math.max(1, width * height)));
+  if (k >= 1) return { width, height, scaled: false };
+  return { width: Math.max(1, Math.floor(width * k)), height: Math.max(1, Math.floor(height * k)), scaled: true };
+}
+
+// drawn again at the smaller size, a jpeg stays a jpeg, anything that may be see through a png
+function shrink(img: HTMLImageElement, width: number, height: number, type: string): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, width, height);
+  const jpeg = type === 'image/jpeg';
+  const data = jpeg ? canvas.toDataURL('image/jpeg', 0.92) : canvas.toDataURL('image/png');
+  // the canvas goes right away, safari counts its memory until then
+  canvas.width = 0;
+  canvas.height = 0;
+  return data;
+}
+
+// a picture file as a data url and its size, a huge one made smaller
 export async function readPicture(file: Blob): Promise<Picture> {
   let data = await readDataUrl(file);
   const img = await decode(data);
   if (file.type === 'image/gif') data = firstFrame(img);
+  const d = editor.doc;
+  const size = pictureSize(img.naturalWidth, img.naturalHeight, d.width, d.height);
+  if (size.scaled) {
+    const smaller = shrink(img, size.width, size.height, file.type);
+    if (smaller) {
+      addToast(`The picture came in at ${size.width} by ${size.height} pixels to save memory`, 'info', 3000);
+      return { data: smaller, width: size.width, height: size.height };
+    }
+  }
   return { data, width: img.naturalWidth, height: img.naturalHeight };
 }
 

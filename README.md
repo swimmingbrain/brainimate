@@ -52,6 +52,18 @@ The welcome screen opens three examples to look into: a rigged character that wa
 - Comic lettering fonts with the german umlauts: Comic Neue, Bangers and Patrick Hand
 - Export and share: on an iPad the finished video goes straight to the photos or to an app through the share sheet
 
+### iPad, fingers and the Apple Pencil
+
+- Two fingers pinch to zoom and move the stage, two fingers tapped undo, three redo
+- The pencil draws with its pressure, a hand resting on the screen is ignored. Fingers draw until the pencil is used, from then on they move the view and tap to select
+- A finger that lands while another one draws turns the stroke into a pinch, nothing is left behind
+- The touch bar under the stage: undo, redo, selection, brush, eraser, text, shapes, fill color with the comic palette, size, zoom, fit, layers, panels, save and more
+- The keys on the edge of the stage: Shift, Alt and Ctrl stay on until tapped again, Done stands in for Enter, Cancel for Escape, the bin takes the last anchor or the selection
+- A long press opens the menu of an object, a layer, a frame or a symbol
+- In portrait the panels open as a drawer over the stage, in landscape they can be put away, the page never scrolls
+- Pictures larger than the stage could show come in smaller, a 12 megapixel photo uses a third less memory
+- Preferences > Canvas > Touch and pencil sets when the touch bar shows and what one finger does
+
 ### Customization
 
 Preferences (`Ctrl+K`) has a tab for each part. Tools: show, hide and drag the tools of the toolbar into your own order, on the left or the right, small or normal. Pens: brush and pencil presets you save from the stage bar, the eraser size and how the pen draws its anchors and rubber band. Canvas: grid size, subdivisions, color and opacity, guide and smart guide colors, the pasteboard, the wheel and a tablet mode with bigger hit areas. Shortcuts: record any key for any command, a clash shows in red until you keep or undo it. Workspaces: Essentials, Illustrate, Animate and Rig set the panels, sizes, toolbar side, rulers and bones, and you can save your own next to them.
