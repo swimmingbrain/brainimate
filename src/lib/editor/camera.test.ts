@@ -137,18 +137,17 @@ describe('the camera in the editor', () => {
     const chars = editor.doc.layers.find((l) => l.name === 'Characters')!;
     const box = rect(100, 800);
     editor.insertItem(chars.id, box);
-    // it moves to the right over two seconds
-    frame.set(48);
-    editor.updateItem(box.id, (it) => {
-      it.transform = translate(700, 800);
-    }, 'Move');
-    editor.commit('Tween', (d) => {
-      d.layers.find((l) => l.name === 'Characters')!.keyframes[0].tween = { ease: 'linear' };
+    // it moves to the right over two seconds: a keyframe at 48 with the box further right, tweened
+    editor.commit('Move', (d) => {
+      const layer = d.layers.find((l) => l.name === 'Characters')!;
+      const k = insertKeyframe(layer, 48);
+      k.items[0].transform = translate(700, 800);
+      layer.keyframes[0].tween = { ease: 'linear' };
     });
     frame.set(0);
     selection.set(new Set([box.id]));
     expect(applyPreset({ kind: 'track', seconds: 2, strength: 1, ease: '' })).toBe(true);
-    const keys = cameraLayer()!.keyframes.filter((k) => k.frame > 0);
+    const keys = cameraLayer()!.keyframes;
     expect(keys.length).toBeGreaterThan(4);
     const xs = keys.map((k) => k.camera!.x);
     expect(xs[0]).toBeCloseTo(150);

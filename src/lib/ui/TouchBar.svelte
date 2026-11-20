@@ -206,9 +206,9 @@
   .touch-bar {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     height: 52px;
-    padding: 0 6px;
+    padding: 0 4px;
     background: var(--bg-surface);
     border-top: 1px solid var(--border);
     overflow-x: auto;
@@ -223,8 +223,8 @@
 
   .group {
     display: flex;
-    gap: 2px;
-    padding-right: 6px;
+    gap: 1px;
+    padding-right: 4px;
     border-right: 1px solid var(--border);
   }
 
@@ -235,7 +235,7 @@
 
   .btn {
     position: relative;
-    width: 42px;
+    width: 40px;
     height: 42px;
     flex-shrink: 0;
     display: flex;
