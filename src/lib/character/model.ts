@@ -169,7 +169,7 @@ export function partColor(role: string, colors: CharacterColors): string | null 
 
 // the flat shadow of a color: darker, a little cooler and less saturated, like cel shading in print
 export function shadeOf(color: string): string {
-  return mixHex(color, '#3b3550', 0.32);
+  return mixHex(color, '#5a3f55', 0.27);
 }
 
 // the far side sits a little back in the shade
@@ -392,9 +392,9 @@ export function facePaths(frame: FaceFrame, emotion: Emotion, mouth: MouthShape,
     return ellipsePath(c.x, c.y, rx, Math.max(0.006 * r, rx * 1.12 * eyeH));
   };
   const brow = (inner: number, outer: number, end: [number, number], size: number) => {
-    const a = P(inner, -0.3 + end[0]);
-    const b = P((inner + outer) / 2, -0.33 + (end[0] + end[1]) / 2 - 0.03 * size);
-    const c = P(outer, -0.3 + end[1]);
+    const a = P(inner, -0.24 + end[0]);
+    const b = P((inner + outer) / 2, -0.27 + (end[0] + end[1]) / 2 - 0.03 * size);
+    const c = P(outer, -0.24 + end[1]);
     return {
       closed: false,
       anchors: [anchor(a.x, a.y), anchor(b.x, b.y, (a.x - c.x) * 0.25, (a.y - c.y) * 0.25, (c.x - a.x) * 0.25, (c.y - a.y) * 0.25), anchor(c.x, c.y)]
@@ -447,8 +447,9 @@ function hairItems(s: Skeleton, o: CharacterOptions, rnd: () => number): { back:
   const f = s.f;
   const color = o.colors.hair;
   if (o.hair === 'bald') return { back: null, front: null };
-  const bowl = ellipsePath(h.x - 0.08 * h.rx * f, h.y - h.ry * 0.42, h.rx * 1.08, h.ry * 0.7);
-  const bowlShadow = ellipsePath(h.x - 0.32 * h.rx * f, h.y - h.ry * 0.5, h.rx * 0.62, h.ry * 0.46);
+  // a cap over the top of the head that ends above the brows, the face stays free
+  const bowl = ellipsePath(h.x - 0.1 * h.rx * f, h.y - h.ry * 0.76, h.rx * 1.06, h.ry * 0.42);
+  const bowlShadow = ellipsePath(h.x - 0.4 * h.rx * f, h.y - h.ry * 0.74, h.rx * 0.52, h.ry * 0.28);
   const front = part('hair', bowl, bowlShadow, color, o, rnd, false);
   let back: Item | null = null;
   if (o.hair === 'long') {
@@ -533,8 +534,9 @@ export function buildCharacter(o: CharacterOptions): BuiltCharacter {
   parts.push(limb('neck', j.neckBase, j.neckTop, 0.026 * u * w, 0.025 * u * w, c.skin, o, rnd, false, f));
   parts.push(part('head', ellipsePath(h.x, h.y, h.rx, h.ry), ellipsePath(h.x - 0.45 * h.rx * f, h.y + 0.1 * h.ry, h.rx * 0.45, h.ry * 0.75), c.skin, o, rnd, false));
   const face: FaceFrame = { x: h.x, y: h.y, r: h.rx, facing: o.facing };
-  parts.push(...faceItems(face, o));
   if (hair.front) parts.push(hair.front);
+  // the face on top of the hair, a brow is never hidden under a fringe
+  parts.push(...faceItems(face, o));
   parts.push(limb('upperArmR', j.shoulderR, j.elbowR, arm.ua, arm.ub, c.shirt, o, rnd, false, f));
   parts.push(limb('lowerArmR', j.elbowR, j.wristR, arm.la, arm.lb, c.skin, o, rnd, false, f));
   parts.push(part('handR', ellipsePath(j.handR.x, j.handR.y, arm.hand, arm.hand * 1.1), null, c.skin, o, rnd, false));
