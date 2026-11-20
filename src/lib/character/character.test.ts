@@ -8,6 +8,7 @@ import { defaultStyle } from '$lib/core/style';
 import { translate } from '$lib/core/mat';
 import { rigFor, worldMatrices, tipOf } from '$lib/rig/bones';
 import { posed } from '$lib/rig/skin';
+import { ikChain } from '$lib/rig/ik';
 import { poseAt } from '$lib/render/frame';
 import {
   BONES,
@@ -132,6 +133,15 @@ describe('the skeleton', () => {
     const fore = items.find((i) => i.role === 'lowerArmR')!;
     const shown = posed(fore, [1, 0, 0, 1, 0, 0], r);
     expect(shown.transform).not.toEqual(fore.transform);
+  });
+
+  it('bends an arm or a leg dragged by its end at the elbow or the knee only', () => {
+    const rig = buildCharacter(opts()).layers[1];
+    const id = (n: string) => rig.bones.find((b) => b.name === n)!.id;
+    expect(ikChain(rig.bones, id('Lower arm R'), 4).map((b) => b.name)).toEqual(['Lower arm R', 'Upper arm R']);
+    expect(ikChain(rig.bones, id('Lower leg L'), 4).map((b) => b.name)).toEqual(['Lower leg L', 'Upper leg L']);
+    // the head still leans the body along
+    expect(ikChain(rig.bones, id('Head'), 4).map((b) => b.name)).toEqual(['Head', 'Neck', 'Chest', 'Spine']);
   });
 
   it('turns around on the hip: the whole character mirrors', () => {
@@ -326,6 +336,16 @@ describe('characters in the editor', () => {
     expect(poseAt(rig(), Math.max(...frames))[hip.id].x).toBeCloseTo(600);
     // every layer reaches the end, the scene stays
     expect(editor.doc.layers.every((l) => l.type === 'folder' || l.length > Math.max(...frames))).toBe(true);
+    // a move keeps what it does not touch: the arm pointing stays up through a turn
+    frame.set(70);
+    applyAnimation(id, { kind: 'point', repeat: 0, speed: 1, mirror: false, distance: 0, back: false });
+    const arm = rig().bones.find((b) => b.name === 'Upper arm R')!;
+    const raised = poseAt(rig(), 90)[arm.id].rotation;
+    expect(Math.abs(raised)).toBeGreaterThan(1);
+    frame.set(90);
+    applyAnimation(id, { kind: 'turn', repeat: 0, speed: 1, mirror: false, distance: 0, back: false });
+    expect(poseAt(rig(), 110)[arm.id].rotation).toBeCloseTo(raised);
+    expect(poseAt(rig(), 110)[hip.id].sx).toBe(-1);
     frame.set(30);
     cutAnimation(id);
     expect(Math.max(...rig().keyframes.map((k) => k.frame))).toBe(30);

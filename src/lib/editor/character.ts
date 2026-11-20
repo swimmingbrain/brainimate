@@ -237,11 +237,14 @@ export function applyAnimation(folderId: string, choice: AnimChoice, target?: Ve
     const first = insertKeyframe(rig, at);
     first.tween = { ease: cycle ? 'inout' : (keys[0].ease ?? 'inout') };
     rig.keyframes = rig.keyframes.filter((k) => k.frame <= at || k.frame > end);
+    // the bones a move leaves alone keep the pose they had at the playhead: a turn keeps the arm that
+    // holds a phone, pointing while sitting keeps the legs bent
+    const kept = JSON.parse(JSON.stringify(body.start)) as Pose;
     for (const k of keys) {
       // the first key of a single move is the pose the character has, the move starts from it
       if (k.frame === at) continue;
       const key = insertKeyframe(rig, k.frame);
-      key.pose = toPose(k.pose, body.id);
+      key.pose = { ...kept, ...toPose(k.pose, body.id) };
       key.tween = k.ease ? { ease: k.ease } : null;
     }
     reach(draft, end);

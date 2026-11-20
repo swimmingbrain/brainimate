@@ -508,6 +508,9 @@ export function buildCharacter(o: CharacterOptions): BuiltCharacter {
     add(`Lower leg ${side}`, `Upper leg ${side}`, j[`knee${side}`], j[`ankle${side}`]);
     add(`Foot ${side}`, `Lower leg ${side}`, j[`ankle${side}`], j[`toe${side}`]);
   }
+  // an arm or a leg dragged by its hand or foot bends at the elbow or the knee and nowhere else: the
+  // chain stops at the pinned upper bone, so the body does not fold over when a hand is pulled far
+  for (const b of bones) if (b.name.startsWith('Upper arm') || b.name.startsWith('Upper leg')) b.pinned = true;
   const boneId = (name: BoneName) => bones.find((b) => b.name === name)!.id;
 
   const arm = { ua: 0.037 * u * w, ub: 0.031 * u * w, la: 0.029 * u * w, lb: 0.025 * u * w, hand: 0.034 * u * w };
