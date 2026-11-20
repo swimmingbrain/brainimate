@@ -113,6 +113,14 @@ export interface Preferences {
   pens: { brush: PenPreset[]; pencil: PenPreset[]; brushDefault: string; pencilDefault: string; comic: boolean };
   // comic shows the muted comic palette on top of the swatches panel
   swatches: { comic: boolean };
+  // a tablet: ui auto shows the touch bar on a touch screen, fingers auto draws until the pencil is used,
+  // fingerTaps undoes with two fingers and redoes with three, dock shows the panels next to the stage
+  touch: {
+    ui: 'auto' | 'on' | 'off';
+    fingers: 'auto' | 'draw' | 'navigate';
+    fingerTaps: boolean;
+    dock: boolean;
+  };
   timeline: {
     fps: number;
     frameWidth: number;
@@ -257,6 +265,7 @@ export function defaultPreferences(): Preferences {
     pen: { rubberBand: true, showAnchors: true, anchorSize: 7, handleSize: 6, hitTolerance: 6 },
     pens: defaultPenPresets(),
     swatches: { comic: true },
+    touch: { ui: 'auto', fingers: 'auto', fingerTaps: true, dock: true },
     timeline: {
       fps: 24,
       frameWidth: 10,
@@ -444,6 +453,9 @@ export function mergePreferences(stored: unknown): Preferences {
   const pens = isObject(raw.pens) ? raw.pens : {};
   p.pens.brush = penList(pens.brush, ['normal', 'behind'], defaults.pens.brush);
   p.pens.pencil = penList(pens.pencil, ['smooth', 'ink', 'straighten'], defaults.pens.pencil);
+
+  p.touch.ui = oneOf(p.touch.ui, ['auto', 'on', 'off'], 'auto');
+  p.touch.fingers = oneOf(p.touch.fingers, ['auto', 'draw', 'navigate'], 'auto');
 
   const t = p.timeline;
   t.fps = clamp(Math.round(t.fps), 1, 120);
