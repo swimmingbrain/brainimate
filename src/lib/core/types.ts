@@ -237,6 +237,21 @@ export interface CharacterInfo {
   colors: CharacterColors;
   // where the face sits at rest, the middle of the head, its radius and where it looks
   face: { x: number; y: number; r: number; facing: 1 | -1 };
+  // how the face is drawn and the hair, characters made before these existed have neither
+  style?: CharacterFaceStyle;
+  look?: CharacterLook;
+}
+
+// see FaceStyle in character/model, kept loose here so the core types know nothing of the drawing
+export type CharacterFaceStyle = Record<string, string | number | boolean>;
+
+export interface CharacterLook {
+  hair: string;
+  outline: number;
+  wobble: number;
+  seed: number;
+  // the head at rest, its middle and radii, for redrawing the hair
+  head: { x: number; y: number; rx: number; ry: number };
 }
 
 // a sound on the timeline, from start on, the asset holds the file

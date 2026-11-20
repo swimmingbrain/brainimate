@@ -14,9 +14,18 @@ import {
   characterFolders,
   characterLayers,
   recolorItems,
+  browWidth,
+  faceStyleOf,
+  handPoseValues,
+  type HandPose,
+  hairParts,
+  lookOf,
+  seeded,
   type BoneName,
   type CharacterOptions,
   type Emotion,
+  type FaceStyle,
+  type HairStyle,
   type MouthShape
 } from '$lib/character/model';
 import {
@@ -139,6 +148,81 @@ export function recolorCharacter(folderId: string, colors: Partial<CharacterColo
     },
     key
   );
+}
+
+// a closed eye is a flat one, a keyframe of a blink keeps it closed when the face is redrawn
+function blinking(items: Item[]): boolean {
+  const eye = items.find((i) => i.role === 'eyeR');
+  if (!eye || eye.type !== 'path') return false;
+  const ys = eye.path.anchors.map((a) => a.y);
+  const xs = eye.path.anchors.map((a) => a.x);
+  const w = Math.max(...xs) - Math.min(...xs);
+  return w > 0 && (Math.max(...ys) - Math.min(...ys)) / w < 0.2;
+}
+
+export function faceStyle(folderId: string): FaceStyle | null {
+  const folder = characterLayers(editor.doc.layers, folderId)?.folder;
+  return folder ? faceStyleOf(folder.character) : null;
+}
+
+// the face of a character drawn in a new style in every keyframe, the moods and mouths it had stay
+export function applyFaceStyle(folderId: string, change: Partial<FaceStyle>, key?: string) {
+  editor.commit(
+    'Face style',
+    (draft) => {
+      const parts = draftParts(draft, folderId);
+      if (!parts?.body) return;
+      const info = parts.folder.character!;
+      const style = { ...faceStyleOf(info), ...change };
+      parts.folder.character = { ...info, style: { ...style } };
+      const look = lookOf(info);
+      for (const k of parts.body.keyframes) {
+        const shapes = faceShapes(info.face, faceAt(parts.body, k.frame), blinking(k.items), style);
+        for (const item of k.items) {
+          const role = item.role ?? '';
+          if (!FACE_ROLES.includes(role) || item.type !== 'path') continue;
+          if (shapes[role]) item.path = shapes[role];
+          if (role === 'nose') item.visible = style.nose;
+          if (role === 'browL' || role === 'browR') {
+            item.visible = style.brows !== 'none';
+            item.style = { ...item.style, width: browWidth(style, look.outline) };
+          }
+        }
+      }
+    },
+    key
+  );
+}
+
+export function hairOf(folderId: string): HairStyle {
+  const folder = characterLayers(editor.doc.layers, folderId)?.folder;
+  return (folder?.character ? lookOf(folder.character).hair : 'short') as HairStyle;
+}
+
+// new hair for a character in every keyframe: the front over the head, the back behind everything
+export function setHair(folderId: string, hair: HairStyle) {
+  editor.commit('Hair', (draft) => {
+    const parts = draftParts(draft, folderId);
+    if (!parts?.body || !parts.rig) return;
+    const info = parts.folder.character!;
+    const look = { ...lookOf(info), hair };
+    parts.folder.character = { ...info, look };
+    const head = parts.rig.bones.find((b) => b.name === 'Head');
+    const made = hairParts(look.head, info.face.facing, { hair, colors: info.colors, outline: look.outline, wobble: look.wobble }, seeded(look.seed + 101));
+    for (const item of [made.front, made.back]) if (item && head) item.skin = { weights: [], rigid: head.id };
+    for (const k of parts.body.keyframes) {
+      // hair shown before stays shown, hidden stays hidden
+      const old = k.items.find((i) => i.role === 'hair');
+      const shown = old ? old.visible : true;
+      const items = k.items.filter((i) => i.role !== 'hair' && i.role !== 'hairBack');
+      if (made.back) items.unshift({ ...structuredClone(made.back), visible: shown });
+      if (made.front) {
+        const at = items.findIndex((i) => i.role === 'head');
+        items.splice(at + 1, 0, { ...structuredClone(made.front), visible: shown });
+      }
+      k.items = items;
+    }
+  });
 }
 
 // a part shown or hidden in every keyframe, a character without hair or with the far arm out of view
@@ -286,8 +370,8 @@ export function restPose(folderId: string) {
 }
 
 // the face parts of a keyframe set to a state, every face part keeps its id, style and binding
-function setFace(layer: Layer, key: Keyframe, frame: Parameters<typeof faceShapes>[0], state: FaceState, blink: boolean) {
-  const shapes = faceShapes(frame, state, blink);
+function setFace(layer: Layer, key: Keyframe, frame: Parameters<typeof faceShapes>[0], state: FaceState, blink: boolean, style?: FaceStyle) {
+  const shapes = faceShapes(frame, state, blink, style);
   key.items = key.items.map((item) => {
     const role = item.role ?? '';
     if (!FACE_ROLES.includes(role) || item.type !== 'path' || !shapes[role]) return item;
@@ -302,6 +386,7 @@ function faceKeys(folderId: string, label: string, changes: { frame: number; sta
   const parts = characterLayers(editor.doc.layers, folderId);
   if (!parts?.body) return;
   const frame = parts.folder.character!.face;
+  const style = faceStyleOf(parts.folder.character);
   const bodyId = parts.body.id;
   const last = Math.max(...changes.map((c) => c.frame));
   editor.commit(label, (draft) => {
@@ -316,7 +401,7 @@ function faceKeys(folderId: string, label: string, changes: { frame: number; sta
         before.tween = { ease: 'inout' };
       }
       const key = insertKeyframe(body, c.frame);
-      setFace(body, key, frame, state, !!c.blink);
+      setFace(body, key, frame, state, !!c.blink, style);
       key.tween = null;
     }
     reach(draft, last);
@@ -411,6 +496,44 @@ function shownTransform(doc: Doc, item: Item, at: number): Mat {
 
 // the picked object goes into a hand at the playhead and moves with it from there, before the playhead
 // it stays where it was. snap puts its middle into the hand
+// the fingers of a hand in a pose from the playhead on, closing over a few frames before it
+export function hasFingers(folderId: string): boolean {
+  return !!characterLayers(editor.doc.layers, folderId)?.rig?.bones.some((b) => b.name.startsWith('Index '));
+}
+
+export function setHandPose(folderId: string, side: 'L' | 'R', pose: HandPose, blend = 3, at = editor.frame, label = 'Hand pose'): boolean {
+  if (!mainOnly()) return false;
+  const parts = characterLayers(editor.doc.layers, folderId);
+  if (!parts?.rig) return false;
+  if (!hasFingers(folderId)) {
+    addToast('This character was made without fingers, make it again to pose its hands', 'info');
+    return false;
+  }
+  const rigId = parts.rig.id;
+  const facing = parts.folder.character!.face.facing;
+  editor.commit(label, (draft) => {
+    const rig = draft.layers.find((l) => l.id === rigId);
+    if (!rig) return;
+    handKeys(rig, side, pose, facing, at, blend);
+    reach(draft, at);
+  });
+  return true;
+}
+
+// the keys of a hand pose on a rig in a draft
+function handKeys(rig: Layer, side: 'L' | 'R', pose: HandPose, facing: number, at: number, blend: number) {
+  const values = handPoseValues(pose, facing);
+  if (blend > 0 && at - blend > 0) {
+    const before = insertKeyframe(rig, at - blend);
+    before.tween = { ease: 'inout' };
+  }
+  const key = insertKeyframe(rig, at);
+  for (const [name, rotation] of Object.entries(values)) {
+    const bone = rig.bones.find((b) => b.name === `${name} ${side}`);
+    if (bone) key.pose[bone.id] = { ...(key.pose[bone.id] ?? { x: 0, y: 0, scale: 1 }), rotation };
+  }
+}
+
 export function pickUp(folderId: string, side: 'L' | 'R', snap = true): boolean {
   if (!mainOnly()) return false;
   const doc = editor.doc;
@@ -447,6 +570,9 @@ export function pickUp(folderId: string, side: 'L' | 'R', snap = true): boolean 
     const key = insertKeyframe(layer, at);
     key.tween = null;
     key.items = key.items.map((i) => (i.id === id ? { ...i, transform, skin: { weights: [], rigid: hand.bone }, role: 'prop' } : i));
+    // the fingers close round it
+    const rig = characterLayers(draft.layers, folderId)?.rig;
+    if (rig?.bones.some((b) => b.name === `Index ${side}`)) handKeys(rig, side, 'hold', draft.layers.find((l) => l.id === folderId)!.character!.face.facing, at, 2);
   });
   return true;
 }
@@ -472,6 +598,15 @@ export function putDown(): boolean {
     const key = insertKeyframe(layer, at);
     key.tween = null;
     key.items = key.items.map((i) => (i.id === id ? { ...i, transform, skin: null } : i));
+    // the hand that let go relaxes
+    const bone = found.item.skin!.rigid!;
+    for (const folder of characterFolders(draft.layers)) {
+      const rig = characterLayers(draft.layers, folder.id)?.rig;
+      const hand = rig?.bones.find((b) => b.id === bone);
+      if (!rig || !hand || !hand.name.startsWith('Hand ')) continue;
+      const side = hand.name.endsWith('L') ? 'L' : 'R';
+      if (rig.bones.some((b) => b.name === `Index ${side}`)) handKeys(rig, side, 'relaxed', folder.character!.face.facing, at, 2);
+    }
   });
   return true;
 }

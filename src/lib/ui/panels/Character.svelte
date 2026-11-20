@@ -13,9 +13,18 @@
   import { frame, selection, addToast } from '$lib/stores/app';
   import {
     DEFAULT_COLORS,
+    BROW_STYLES,
     EMOTIONS,
+    EYE_SHAPES,
+    HAIR_STYLES,
     MOUTHS,
+    HAND_POSES,
+    NOSE_SHAPES,
     PART_LABELS,
+    type BrowStyle,
+    type EyeShape,
+    type FaceStyle,
+    type NoseShape,
     defaultCharacter,
     type Build,
     type HairStyle
@@ -23,6 +32,12 @@
   import { ANIMATIONS, type AnimKind } from '$lib/character/anim';
   import {
     applyAnimation,
+    applyFaceStyle,
+    faceStyle,
+    hairOf,
+    hasFingers,
+    setHandPose,
+    setHair,
     autoBlink,
     blink,
     characterRoles,
@@ -74,12 +89,10 @@
     { value: 'regular', label: 'Regular' },
     { value: 'broad', label: 'Broad' }
   ];
-  const HAIR = [
-    { value: 'short', label: 'Short' },
-    { value: 'long', label: 'Long' },
-    { value: 'bun', label: 'Bun' },
-    { value: 'bald', label: 'None' }
-  ];
+  const HAIR = HAIR_STYLES.map((h) => ({ value: h.id, label: h.label }));
+  const EYES = EYE_SHAPES.map((e) => ({ value: e.id, label: e.label }));
+  const BROWS = BROW_STYLES.map((b) => ({ value: b.id, label: b.label }));
+  const NOSES = NOSE_SHAPES.map((n) => ({ value: n.id, label: n.label }));
   const FACING = [
     { value: '1', label: 'Looks right' },
     { value: '-1', label: 'Looks left' }
@@ -114,6 +127,14 @@
     void $frame;
     return picked ? faceHere(picked.id) : null;
   });
+  const look = $derived.by(() => {
+    void $docVersion;
+    return picked ? { style: faceStyle(picked.id), hair: hairOf(picked.id) } : null;
+  });
+  // a slider dragged is one undo step
+  function restyle(change: Partial<FaceStyle>, key?: string) {
+    if (picked) applyFaceStyle(picked.id, change, key ? `face-${picked.id}-${key}` : undefined);
+  }
   const clips = $derived.by(() => {
     void $docVersion;
     return editor.doc.audio ?? [];
@@ -395,6 +416,53 @@
       <button class="btn" onclick={() => talk(picked!.id, talkSeconds)}>Talk</button>
     </div>
 
+    {#if look?.style}
+      {@const st = look.style}
+      <h3 class="section">Look</h3>
+      <Field label="Hair">
+        <SelectField value={look.hair} options={HAIR} label="Hairstyle" onchange={(v) => setHair(picked!.id, v as HairStyle)} />
+      </Field>
+      <Field label="Eyes">
+        <SelectField value={st.eyes} options={EYES} label="Eye shape" onchange={(v) => restyle({ eyes: v as EyeShape })} />
+      </Field>
+      <Field label="Eye size">
+        <Slider value={st.eyeSize} min={0.6} max={1.6} step={0.05} precision={2} unit="×" label="Eye size" onchange={(v) => restyle({ eyeSize: v }, 'eyeSize')} />
+      </Field>
+      <Field label="Eye height">
+        <Slider value={-st.eyeY} min={-0.2} max={0.2} step={0.01} precision={2} label="Eye height" onchange={(v) => restyle({ eyeY: -v }, 'eyeY')} />
+      </Field>
+      <Field label="Eye spacing">
+        <Slider value={st.eyeSpacing} min={0.6} max={1.4} step={0.05} precision={2} unit="×" label="Eye spacing" onchange={(v) => restyle({ eyeSpacing: v }, 'eyeSpacing')} />
+      </Field>
+      <Field label="Brows">
+        <SelectField value={st.brows} options={BROWS} label="Brow style" onchange={(v) => restyle({ brows: v as BrowStyle })} />
+      </Field>
+      <Field label="Nose" hint="Off keeps the face minimal">
+        <ToggleField value={st.nose} label="Show nose" onchange={(v) => restyle({ nose: v })} />
+      </Field>
+      {#if st.nose}
+        <Field label="Nose shape">
+          <SelectField value={st.noseShape} options={NOSES} label="Nose shape" onchange={(v) => restyle({ noseShape: v as NoseShape })} />
+        </Field>
+        <Field label="Nose size">
+          <Slider value={st.noseSize} min={0.5} max={1.8} step={0.05} precision={2} unit="×" label="Nose size" onchange={(v) => restyle({ noseSize: v }, 'noseSize')} />
+        </Field>
+        <Field label="Nose forward">
+          <Slider value={st.noseX} min={-0.25} max={0.15} step={0.01} precision={2} label="Nose forward" onchange={(v) => restyle({ noseX: v }, 'noseX')} />
+        </Field>
+        <Field label="Nose height">
+          <Slider value={-st.noseY} min={-0.2} max={0.2} step={0.01} precision={2} label="Nose height" onchange={(v) => restyle({ noseY: -v }, 'noseY')} />
+        </Field>
+      {/if}
+      <Field label="Mouth width">
+        <Slider value={st.mouthWidth} min={0.5} max={1.6} step={0.05} precision={2} unit="×" label="Mouth width" onchange={(v) => restyle({ mouthWidth: v }, 'mouthWidth')} />
+      </Field>
+      <Field label="Mouth height">
+        <Slider value={-st.mouthY} min={-0.15} max={0.15} step={0.01} precision={2} label="Mouth height" onchange={(v) => restyle({ mouthY: -v }, 'mouthY')} />
+      </Field>
+      <p class="note">The look changes the character in every keyframe, its moods and mouth moves stay.</p>
+    {/if}
+
     <h3 class="section">Voice and lip sync</h3>
     {#each clips as clip (clip.id)}
       <div class="clip">
@@ -417,6 +485,18 @@
     <p class="note">The mouth follows how loud the voice is. The sound plays with the timeline and goes into the video.</p>
 
     <h3 class="section">Hands</h3>
+    {#if hasFingers(picked.id)}
+      {#each [{ side: 'R', label: 'Near hand' }, { side: 'L', label: 'Far hand' }] as h (h.side)}
+        <p class="note">{h.label}</p>
+        <div class="grid">
+          {#each HAND_POSES as hp (hp.id)}
+            <button class="pill" onclick={() => setHandPose(picked!.id, h.side as 'L' | 'R', hp.id)}>{hp.label}</button>
+          {/each}
+        </div>
+      {/each}
+    {:else}
+      <p class="note">This character was made before hands had fingers. Make it again for hand poses.</p>
+    {/if}
     <p class="note">Pick an object on the stage, then it goes into a hand at the playhead and moves with it.</p>
     <div class="buttons">
       <button class="btn" disabled={$selection.size !== 1} onclick={() => pickUp(picked!.id, 'R')}>Near hand takes it</button>

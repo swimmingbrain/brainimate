@@ -2,7 +2,7 @@ import type { Bone, BonePose, Keyframe, Layer, PathData, Vec } from '$lib/core/t
 import { solveChain } from '$lib/rig/ik';
 import { poseOf, type Pose } from '$lib/rig/bones';
 import type { BoneName, Emotion, FaceFrame, MouthShape } from './model';
-import { facePaths, seeded } from './model';
+import { facePaths, seeded, type FaceStyle } from './model';
 
 // the moves of a character as pose keyframes on its rig layer. a cycle is worked out from smooth waves
 // at eight keyframes a cycle with straight tweens between them, so it plays smooth and stays light.
@@ -360,8 +360,8 @@ export function faceAt(layer: Layer | null, frame: number): FaceState {
 }
 
 // the anchors of a face part set to the shape of a mood, the item keeps its id, style and binding
-export function faceShapes(frame: FaceFrame, state: FaceState, blink = false): Record<string, PathData> {
-  return facePaths(frame, state.emotion, state.mouth, blink);
+export function faceShapes(frame: FaceFrame, state: FaceState, blink = false, style?: FaceStyle): Record<string, PathData> {
+  return facePaths(frame, state.emotion, state.mouth, blink, style);
 }
 
 // mouth shapes for talking without a sound, a little different every time but the same for a seed
