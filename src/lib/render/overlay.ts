@@ -13,6 +13,9 @@ import { activeTool, anchorSelection, boneSelection, playing, selection, type Vi
 import { isLayerShown } from '$lib/anim/timeline';
 import { drawBones, weightColor } from './bones';
 import { safeZoneFor } from '$lib/core/comic';
+import { cameraMatrix, cameraStateAt } from '$lib/anim/camera';
+import { activeCamera } from './camera';
+import { showingCamera } from '$lib/editor/camera';
 
 export const HANDLE_SIZE = 7;
 // screen pixels of the anchor glyphs and the handle dots, the preferences set them
@@ -209,37 +212,130 @@ function drawRig(ctx: CanvasRenderingContext2D, v: View, tool: string) {
   });
 }
 
+// a polygon of world points on the screen, the stage of the main timeline
+function worldPolygon(ctx: CanvasRenderingContext2D, v: View, pts: Vec[]) {
+  ctx.beginPath();
+  pts.forEach((p, i) => {
+    const x = p.x * v.zoom + v.panX;
+    const y = p.y * v.zoom + v.panY;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+}
+
+// a rect of the video frame through frame, which takes video points to the stage
+function frameRect(frame: Mat, x0: number, y0: number, x1: number, y1: number): Vec[] {
+  return [
+    { x: x0, y: y0 },
+    { x: x1, y: y0 },
+    { x: x1, y: y1 },
+    { x: x0, y: y1 }
+  ].map((p) => applyPoint(frame, p));
+}
+
 // on a 9 by 16 stage the margins the video app covers with its buttons and captions are shaded, the
-// line around the rest shows where text and faces stay readable. exports never show it
-function drawSafeZones(ctx: CanvasRenderingContext2D, v: View) {
+// line around the rest shows where text and faces stay readable. with a camera they sit in what it
+// films. exports never show them
+function drawSafeZones(ctx: CanvasRenderingContext2D, v: View, frame: Mat) {
   if (!get(preferences).stage.safeZones) return;
   const doc = editor.doc;
   const z = safeZoneFor(doc.width, doc.height);
   if (!z) return;
-  const x0 = v.panX;
-  const y0 = v.panY;
-  const w = doc.width * v.zoom;
-  const h = doc.height * v.zoom;
-  const left = z.left * v.zoom;
-  const right = z.right * v.zoom;
-  const top = z.top * v.zoom;
-  const bottom = z.bottom * v.zoom;
+  const W = doc.width;
+  const H = doc.height;
   ctx.fillStyle = 'rgba(20, 18, 24, 0.16)';
-  ctx.fillRect(x0, y0, w, top);
-  ctx.fillRect(x0, y0 + h - bottom, w, bottom);
-  ctx.fillRect(x0, y0 + top, left, h - top - bottom);
-  ctx.fillRect(x0 + w - right, y0 + top, right, h - top - bottom);
+  const bands: [number, number, number, number][] = [
+    [0, 0, W, z.top],
+    [0, H - z.bottom, W, H],
+    [0, z.top, z.left, H - z.bottom],
+    [W - z.right, z.top, W, H - z.bottom]
+  ];
+  for (const b of bands) {
+    worldPolygon(ctx, v, frameRect(frame, ...b));
+    ctx.fill();
+  }
   ctx.strokeStyle = 'rgba(255, 64, 129, 0.75)';
   ctx.lineWidth = 1;
   ctx.setLineDash([6, 4]);
-  ctx.strokeRect(Math.round(x0 + left) + 0.5, Math.round(y0 + top) + 0.5, w - left - right, h - top - bottom);
+  worldPolygon(ctx, v, frameRect(frame, z.left, z.top, W - z.right, H - z.bottom));
+  ctx.stroke();
   ctx.setLineDash([]);
-  if (h < 160) return;
+  if (H * v.zoom < 160) return;
+  const at = applyPoint(frame, { x: z.left, y: z.top });
   ctx.font = '10px "JetBrains Mono", monospace';
   ctx.textBaseline = 'top';
   ctx.fillStyle = 'rgba(255, 64, 129, 0.9)';
-  ctx.fillText('safe zone', x0 + left + 4, y0 + top + 4);
+  ctx.fillText('safe zone', at.x * v.zoom + v.panX + 4, at.y * v.zoom + v.panY + 4);
 }
+
+// where the camera looks at the playhead, video points to the stage, null without a camera
+function cameraFrame(): Mat | null {
+  if (editor.editStack.length > 0) return null;
+  const doc = editor.doc;
+  const cam = activeCamera(doc);
+  if (!cam) return null;
+  const state = cameraStateAt(cam, editor.frame, doc.fps, doc.width, doc.height);
+  return invert(cameraMatrix(state, doc.width, doc.height));
+}
+
+// the frame the camera films, with its middle and the handles the camera tool turns and zooms with
+export const CAMERA_FRAME_COLOR = '#e0b341';
+
+function drawCameraFrame(ctx: CanvasRenderingContext2D, v: View, frame: Mat, handles: boolean) {
+  const doc = editor.doc;
+  const W = doc.width;
+  const H = doc.height;
+  const corners = frameRect(frame, 0, 0, W, H);
+  ctx.strokeStyle = CAMERA_FRAME_COLOR;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([10, 6]);
+  worldPolygon(ctx, v, corners);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const mid = applyPoint(frame, { x: W / 2, y: H / 2 });
+  const mx = mid.x * v.zoom + v.panX;
+  const my = mid.y * v.zoom + v.panY;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(mx - 8, my);
+  ctx.lineTo(mx + 8, my);
+  ctx.moveTo(mx, my - 8);
+  ctx.lineTo(mx, my + 8);
+  ctx.stroke();
+  const tl = corners[0];
+  ctx.font = '11px "Inter", sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillStyle = CAMERA_FRAME_COLOR;
+  ctx.fillText('Camera', tl.x * v.zoom + v.panX + 2, tl.y * v.zoom + v.panY - 4);
+  if (!handles) return;
+  ctx.fillStyle = CAMERA_FRAME_COLOR;
+  for (const c of corners) {
+    ctx.fillRect(c.x * v.zoom + v.panX - 7, c.y * v.zoom + v.panY - 7, 14, 14);
+  }
+  const top = applyPoint(frame, { x: W / 2, y: 0 });
+  const knob = cameraKnob(frame, v);
+  ctx.beginPath();
+  ctx.moveTo(top.x * v.zoom + v.panX, top.y * v.zoom + v.panY);
+  ctx.lineTo(knob.x, knob.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(knob.x, knob.y, 8, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// the knob above the camera frame that turns it, in screen pixels
+export function cameraKnob(frame: Mat, v: View): Vec {
+  const doc = editor.doc;
+  const top = applyPoint(frame, { x: doc.width / 2, y: 0 });
+  const mid = applyPoint(frame, { x: doc.width / 2, y: doc.height / 2 });
+  const dx = top.x - mid.x;
+  const dy = top.y - mid.y;
+  const d = Math.hypot(dx, dy) || 1;
+  return { x: top.x * v.zoom + v.panX + (dx / d) * 36, y: top.y * v.zoom + v.panY + (dy / d) * 36 };
+}
+
+export { cameraFrame };
 
 // guides run across the whole view, the one being dragged follows the pointer
 function drawGuides(ctx: CanvasRenderingContext2D, v: View, width: number, height: number) {
@@ -328,7 +424,15 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, v: View, dpr: number,
   const busy = get(playing);
   // the path tools show anchors too, so you can see where to add, remove or go on
   const anchors = !busy && (direct || ((tool === 'pen' || tool === 'curvature') && marks.showAnchors));
-  drawSafeZones(ctx, v);
+  // the camera view shows the video: the safe zones on it and nothing of the editing
+  if (get(showingCamera)) {
+    drawSafeZones(ctx, v, identity());
+    ctx.restore();
+    return;
+  }
+  const camFrame = cameraFrame();
+  drawSafeZones(ctx, v, camFrame ?? identity());
+  if (camFrame && !busy) drawCameraFrame(ctx, v, camFrame, tool === 'camera');
   drawGuides(ctx, v, ctx.canvas.width / dpr, ctx.canvas.height / dpr);
 
   // outlines and anchors follow what shows, a bound item bent by the rig

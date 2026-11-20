@@ -46,7 +46,10 @@
   import { importFiles } from '$lib/editor/importer';
   import type { Mat, Vec } from '$lib/core/types';
   import { GestureTracker, pinchView, type GestureAction, type GesturePoint } from '$lib/editor/gestures';
-  import { gestureOptions, penSeen, withModifiers } from '$lib/editor/touch';
+  import { gestureOptions, penSeen, touchUi, withModifiers } from '$lib/editor/touch';
+  import { previewScaleFor, showingCamera } from '$lib/editor/camera';
+  import { renderCameraFrame } from '$lib/render/camera';
+  import { context as surfaceContext, sized as sizedSurface, type Surface } from '$lib/render/surface';
 
   const RULER = 20;
   // the tools that can grab a guide on the stage
@@ -178,7 +181,49 @@
     return { base: editor.base(), dim };
   }
 
+  // the camera view: the stage shows what the video shows, drawn by the same function as the export.
+  // while playing on a tablet it draws at half the pixels and is scaled up, the export never is
+  let previewSurface: Surface | null = null;
+
+  function drawCameraView(ctx: CanvasRenderingContext2D) {
+    const v = get(view);
+    const prefs = get(preferences);
+    const doc = editor.doc;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = shades[prefs.stage.shade];
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const base: Mat = [dpr * v.zoom, 0, 0, dpr * v.zoom, dpr * v.panX, dpr * v.panY];
+    const w = doc.width * base[0];
+    const h = doc.height * base[3];
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(base[4], base[5], w, h);
+    ctx.clip();
+    const k = previewScaleFor(prefs.stage.preview, get(touchUi), get(playing));
+    if (k >= 1) {
+      renderCameraFrame(ctx, doc, { frame: editor.frame, base, transparent: false });
+    } else {
+      const sw = Math.max(1, Math.ceil(w * k));
+      const sh = Math.max(1, Math.ceil(h * k));
+      previewSurface = sizedSurface(previewSurface, sw, sh);
+      const p = surfaceContext(previewSurface);
+      p.setTransform(1, 0, 0, 1, 0, 0);
+      p.clearRect(0, 0, sw, sh);
+      renderCameraFrame(p, doc, { frame: editor.frame, base: [base[0] * k, 0, 0, base[3] * k, 0, 0], transparent: false });
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(previewSurface, base[4], base[5], w, h);
+    }
+    ctx.restore();
+  }
+
   function drawContent(ctx: CanvasRenderingContext2D) {
+    if (get(showingCamera)) {
+      drawCameraView(ctx);
+      return;
+    }
     const v = get(view);
     const prefs = get(preferences);
     renderStage(
@@ -355,7 +400,21 @@
 
   // what a press does with the active tool, for the mouse at once and for fingers and the pencil when
   // the gesture tracker says it is no pinch
+  // in the camera view the stage shows the video, only moving around and the camera tool work there
+  const CAMERA_VIEW_TOOLS = ['hand', 'zoom', 'camera'];
+  let blocked = false;
+  let blockedNoteAt = 0;
+
   function startTool(e: PointerEvent) {
+    blocked = false;
+    if (get(showingCamera) && !get(playing) && !CAMERA_VIEW_TOOLS.includes(get(activeTool)) && e.button === 0 && !spaceHeld) {
+      blocked = true;
+      if (performance.now() - blockedNoteAt > 4000) {
+        blockedNoteAt = performance.now();
+        addToast('The camera view shows the video. Turn it off to draw, or move the camera with the camera tool', 'info', 3500);
+      }
+      return;
+    }
     // working on the stage stops playback and lets go of the frames picked in the timeline
     pause();
     if (e.button === 0) frameSelection.set(null);
@@ -396,6 +455,7 @@
   }
 
   function moveTool(e: PointerEvent) {
+    if (blocked && e.buttons !== 0) return;
     if (panStart) {
       const start = panStart;
       view.update((v) => ({ ...v, panX: start.panX + e.clientX - start.x, panY: start.panY + e.clientY - start.y }));
@@ -442,6 +502,10 @@
   }
 
   function endTool(e: PointerEvent) {
+    if (blocked) {
+      blocked = false;
+      return;
+    }
     if (panStart) {
       panStart = null;
       panning = false;
@@ -703,7 +767,8 @@
       playing.subscribe(markDirty),
       activeTool.subscribe(() => editor.markOverlay()),
       anchorSelection.subscribe(() => editor.markOverlay()),
-      textEditing.subscribe(markDirty)
+      textEditing.subscribe(markDirty),
+      showingCamera.subscribe(markDirty)
     ];
     setImageLoaded(markDirty);
     setStageElement(host);

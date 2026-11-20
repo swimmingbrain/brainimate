@@ -22,6 +22,8 @@ export interface MenuContext {
   hasSelection: boolean;
   alignToStage: boolean;
   recent: RecentFile[];
+  // the stage shows what the camera films
+  cameraView?: boolean;
 }
 
 // a menu entry for a command with the key it answers to now, the label can read a little different
@@ -174,7 +176,8 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
         tick('view.outline', outline),
         tick('view.onion', p.timeline.onion),
         tick('view.pasteboard', p.stage.pasteboard),
-        tick('view.safe-zones', p.stage.safeZones)
+        tick('view.safe-zones', p.stage.safeZones),
+        tick('view.camera', ctx.cameraView ?? false)
       ]
     },
     {
@@ -184,6 +187,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
         c('insert.folder', { label: 'Layer folder' }),
         c('insert.rig-layer', { label: 'Rig layer' }),
         c('insert.comic-layers', { label: 'Comic scene layers' }),
+        c('insert.camera', { label: 'Camera' }),
         SEP,
         c('timeline.insert-frame', { label: 'Frame' }),
         c('timeline.keyframe', { label: 'Keyframe' }),
@@ -278,6 +282,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
         tick('window.align', !p.panels.hidden.includes('align'), 'Align'),
         tick('window.transform', !p.panels.hidden.includes('transform'), 'Transform'),
         tick('window.rig', !p.panels.hidden.includes('rig'), 'Rig'),
+        tick('window.camera', !p.panels.hidden.includes('camera'), 'Camera'),
         tick('window.timeline', p.panels.timeline),
         SEP,
         ...allWorkspaces(p).map((ws) => ({

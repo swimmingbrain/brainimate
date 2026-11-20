@@ -40,6 +40,9 @@ export interface RenderOptions {
   pose?: PoseOverride | null;
   // exports leave guide layers out
   noGuides?: boolean;
+  // the camera: what each layer goes through after base, its parallax included. without it the
+  // layers draw straight through base like on the stage while editing
+  layerMatrix?: (layer: Layer) => Mat;
 }
 
 export interface StageOptions extends RenderOptions {
@@ -403,18 +406,21 @@ export function renderLayers(
   forgetLine(ctx);
   for (let i = Math.max(0, from); i <= Math.min(to, layers.length - 1); i++) {
     const layer = layers[i];
-    if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
+    if (layer.type === 'folder' || layer.type === 'rig' || layer.type === 'camera' || !isLayerShown(layers, layer)) continue;
     if (opts.noGuides && layer.type === 'guide') continue;
     const outline = opts.outline || layer.outline ? layer.color : null;
     const offset = opts.frame - (keyframeAt(layer, opts.frame)?.frame ?? 0);
+    // a camera zoom makes strokes thicker like everything else, the view scale follows it
+    const m = opts.layerMatrix ? multiply(base, opts.layerMatrix(layer)) : base;
+    s.viewScale = opts.layerMatrix ? scaleFactor(m) : s.viewScale;
     for (const item of itemsAt(layer, opts.frame)) {
       const src = opts.preview?.get(item.id) ?? item;
       const shown = rig ? posed(src, IDENTITY, rig, opts.preview) : src;
-      drawItem(ctx, shown, base, 1, 'normal', outline, s, offset, 0);
+      drawItem(ctx, shown, m, 1, 'normal', outline, s, offset, 0);
     }
     if (opts.added) {
       for (const added of opts.added) {
-        if (added.layerId === layer.id) drawItem(ctx, added.item, base, 1, 'normal', outline, s, offset, 0);
+        if (added.layerId === layer.id) drawItem(ctx, added.item, m, 1, 'normal', outline, s, offset, 0);
       }
     }
   }

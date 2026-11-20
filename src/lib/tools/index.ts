@@ -20,6 +20,7 @@ import { eyedropperTool } from './eyedropper';
 import { textTool } from './text';
 import { boneTool } from './bone';
 import { bindTool } from './bind';
+import { cameraTool } from './camera';
 
 export { TOOL_INFO, type ToolInfo } from './tool';
 
@@ -42,6 +43,7 @@ const TOOLS = [
   gradientTool,
   boneTool,
   bindTool,
+  cameraTool,
   zoomTool,
   handTool
 ];

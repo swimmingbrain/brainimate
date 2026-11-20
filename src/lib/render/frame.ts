@@ -175,7 +175,7 @@ export function layerSlices(layers: Layer[], frame: number, noGuides = false): L
   // a symbol's own rig bends its items at the frame the instance maps to
   const rig = rigFor(layers, frame);
   for (const layer of layers) {
-    if (layer.type === 'folder' || layer.type === 'rig' || !isLayerShown(layers, layer)) continue;
+    if (layer.type === 'folder' || layer.type === 'rig' || layer.type === 'camera' || !isLayerShown(layers, layer)) continue;
     if (noGuides && layer.type === 'guide') continue;
     const items = posedList(itemsAt(layer, frame), rig);
     if (items.length === 0) continue;

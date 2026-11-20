@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { TOOL_IDS, isToolId, type ToolId } from '$lib/tools/tool';
 
-export type DockTab = 'properties' | 'color' | 'swatches' | 'library' | 'align' | 'transform' | 'rig';
+export type DockTab = 'properties' | 'color' | 'swatches' | 'library' | 'align' | 'transform' | 'rig' | 'camera';
 
 export type PencilMode = 'smooth' | 'ink' | 'straighten';
 export type BrushMode = 'normal' | 'behind';
@@ -14,7 +14,7 @@ export type BindMode = 'auto' | 'smooth' | 'rigid';
 // the three greys of the theme the pasteboard can take
 export type PasteboardShade = 'deep' | 'surface' | 'elevated';
 
-export const DOCK_TABS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig'];
+export const DOCK_TABS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig', 'camera'];
 export const SHADES: PasteboardShade[] = ['deep', 'surface', 'elevated'];
 
 // a saved brush or pencil: size is the brush size or the pencil stroke width, mode is the tool's own
@@ -83,6 +83,8 @@ export interface Preferences {
     tablet: boolean;
     // on a 9 by 16 stage, shades what the buttons and captions of the video app cover
     safeZones: boolean;
+    // how sharp the camera view draws: auto halves it while playing on a tablet
+    preview: 'auto' | 'full' | 'half';
   };
   drawing: {
     // 0 to 100, the pencil maps it to a fit tolerance
@@ -241,7 +243,7 @@ export function defaultPreferences(): Preferences {
     guides: { show: true, lock: false, color: '#4fc3f7', snap: true },
     rulers: { show: true },
     snapping: { enabled: true, points: true, objects: true, pixels: false, smartGuides: true, smartColor: '#e06cd0' },
-    stage: { pasteboard: true, shade: 'deep', shadow: true, zoomOnOpen: 'fit', wheel: 'scroll', tablet: false, safeZones: true },
+    stage: { pasteboard: true, shade: 'deep', shadow: true, zoomOnOpen: 'fit', wheel: 'scroll', tablet: false, safeZones: true, preview: 'auto' },
     drawing: {
       // the comic ink and comic line presets
       pencilSmoothing: 30,
@@ -428,6 +430,7 @@ export function mergePreferences(stored: unknown): Preferences {
   st.shade = oneOf(st.shade, SHADES, 'deep');
   st.zoomOnOpen = oneOf(st.zoomOnOpen, ['fit', 'actual'], 'fit');
   st.wheel = oneOf(st.wheel, ['scroll', 'zoom'], 'scroll');
+  st.preview = oneOf(st.preview, ['auto', 'full', 'half'], 'auto');
 
   const d = p.drawing;
   d.pencilSmoothing = clamp(d.pencilSmoothing, 0, 100);

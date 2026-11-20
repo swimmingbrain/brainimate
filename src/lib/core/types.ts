@@ -144,6 +144,38 @@ export interface BonePose {
   scale: number;
 }
 
+// how a new shot starts on a camera keyframe. cut jumps, fade goes through a color, crossfade lets
+// the last picture of the shot before dissolve, zoom flies through it, slide pushes it aside and
+// camera moves there instead of cutting
+export type TransitionKind = 'cut' | 'fade' | 'crossfade' | 'zoom' | 'slide' | 'camera';
+
+export interface Transition {
+  kind: TransitionKind;
+  // frames it takes
+  duration: number;
+  // the color a fade goes through
+  color: string;
+  // where the new shot comes from in a slide
+  direction: 'left' | 'right' | 'up' | 'down';
+}
+
+// what the camera sees on a keyframe of the camera layer
+export interface CameraKey {
+  // the point of the stage in the middle of the picture
+  x: number;
+  y: number;
+  // 1 shows the whole stage, 2 half as much of it twice as big
+  zoom: number;
+  // radians, the picture turns the other way
+  rotation: number;
+  // a handheld camera, how far it shakes in pixels of the video
+  shake: number;
+  // the bob of walking, in pixels of the video
+  bob: number;
+  // a new shot starts here, null for a plain keyframe
+  transition: Transition | null;
+}
+
 export interface Keyframe {
   frame: number;
   // snapshot for normal layers
@@ -153,12 +185,15 @@ export interface Keyframe {
   // ease is 'linear', 'in', 'out', 'inout' or 'cubic(x1,y1,x2,y2)'
   tween: null | { ease: string };
   label: string;
+  // camera layers only
+  camera?: CameraKey;
 }
 
 export interface Layer {
   id: string;
   name: string;
-  type: 'normal' | 'rig' | 'guide' | 'folder';
+  // a camera layer holds what the video shows, there is one on the main timeline at most
+  type: 'normal' | 'rig' | 'guide' | 'folder' | 'camera';
   visible: boolean;
   locked: boolean;
   outline: boolean;
@@ -171,6 +206,9 @@ export interface Layer {
   length: number;
   // rig layers only
   bones: Bone[];
+  // how far the layer follows the camera: 1 like the camera, less is further back and moves slower,
+  // more is in front and moves faster, 0 stays put on the screen. a folder hands it to its layers
+  parallax?: number;
 }
 
 export interface Symbol {

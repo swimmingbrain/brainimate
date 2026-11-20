@@ -22,6 +22,7 @@ export const TOOL_IDS = [
   'gradient',
   'bone',
   'bind',
+  'camera',
   'zoom',
   'hand'
 ] as const;
@@ -57,6 +58,7 @@ export const TOOL_INFO: Record<ToolId, ToolInfo> = {
   gradient: { id: 'gradient', name: 'Gradient', icon: 'gradient', shortcut: 'G', group: 4, cursor: 'crosshair' },
   bone: { id: 'bone', name: 'Bone', icon: 'bone', shortcut: 'M', group: 5, cursor: 'crosshair' },
   bind: { id: 'bind', name: 'Bind', icon: 'bind', shortcut: 'Shift+M', group: 5, cursor: 'pointer' },
+  camera: { id: 'camera', name: 'Camera', icon: 'camera', shortcut: 'C', group: 5, cursor: 'move' },
   zoom: { id: 'zoom', name: 'Zoom', icon: 'zoom', shortcut: 'Z', group: 6, cursor: 'zoom-in' },
   hand: { id: 'hand', name: 'Hand', icon: 'hand', shortcut: 'H', group: 6, cursor: 'grab' }
 };

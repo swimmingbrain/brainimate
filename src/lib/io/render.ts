@@ -1,6 +1,7 @@
 import type { Doc, Mat, TextItem } from '$lib/core/types';
 import { setLibrary } from '$lib/render/frame';
-import { loadImages, renderLayers } from '$lib/render/renderer';
+import { loadImages } from '$lib/render/renderer';
+import { renderCameraFrame } from '$lib/render/camera';
 import { context, surface, type Surface, type SurfaceCtx } from '$lib/render/surface';
 import { loadFont } from '$lib/core/fonts';
 import { eachItem } from '$lib/core/library';
@@ -55,7 +56,8 @@ export interface FrameCanvas {
   ctx: SurfaceCtx;
   width: number;
   height: number;
-  // draws frame of the main timeline, posed rigs included, guides and onion skins left out
+  // draws frame of the main timeline as the camera films it, posed rigs, parallax and transitions
+  // included, guides and onion skins left out
   draw(frame: number): void;
 }
 
@@ -80,7 +82,7 @@ export function frameCanvas(
       ctx.fillStyle = doc.bg;
       ctx.fillRect(0, 0, width, height);
     }
-    renderLayers(ctx, doc.layers, base, { frame, outline: false, assets: doc.assets, noGuides: true });
+    renderCameraFrame(ctx, doc, { frame, base, transparent });
   };
   return { canvas, ctx, width, height, draw };
 }
@@ -126,7 +128,7 @@ export async function thumbnail(doc: Doc, frame = 0, w = 160, h = 90): Promise<s
   ctx.beginPath();
   ctx.rect(x, y, doc.width * k, doc.height * k);
   ctx.clip();
-  renderLayers(ctx, doc.layers, [k, 0, 0, k, x, y], { frame, outline: false, assets: doc.assets, noGuides: true });
+  renderCameraFrame(ctx, doc, { frame, base: [k, 0, 0, k, x, y], transparent: true });
   ctx.restore();
   return canvas.toDataURL('image/png');
 }

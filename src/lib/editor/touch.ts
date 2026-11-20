@@ -83,8 +83,9 @@ export function fingerMode(pref: Preferences['touch']['fingers'], pen: boolean):
 export function gestureOptions(tool: ToolId, p: Preferences, pen: boolean): GestureOptions {
   const drawing = DRAWING_TOOLS.has(tool);
   return {
-    // the hand and the zoom tool are for navigating anyway, fingers do it themselves
-    fingers: tool === 'hand' ? 'navigate' : fingerMode(p.touch.fingers, pen),
+    // the hand and the zoom tool are for navigating anyway, fingers do it themselves. the camera tool
+    // is run by a finger like a camera, two fingers still zoom the view
+    fingers: tool === 'hand' ? 'navigate' : tool === 'camera' ? 'draw' : fingerMode(p.touch.fingers, pen),
     tapToTool: !drawing && tool !== 'hand',
     // the bucket fills on the press already, a menu after it would come too late
     longPress: !drawing && tool !== 'hand' && tool !== 'zoom' && tool !== 'bucket'

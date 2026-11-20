@@ -15,6 +15,7 @@
   import { preferences, setGroup } from '$lib/stores/preferences';
   import { toggleTimeline } from '$lib/stores/workspace';
   import { COMIC_PALETTE } from '$lib/core/comic';
+  import { cameraView, toggleCameraView } from '$lib/editor/camera';
 
   // the buttons a finger needs most, along the bottom of the stage: history, the main tools, color and
   // size, zoom, the panels and the rest behind more
@@ -113,6 +114,15 @@
       aria-pressed={dockOpen}
       onclick={ontoggledock}>
       <Icon name="settings" size={20} />
+    </button>
+    <button
+      class="btn"
+      class:on={$cameraView}
+      title="Camera view: the stage shows what the video shows"
+      aria-label="Camera view"
+      aria-pressed={$cameraView}
+      onclick={toggleCameraView}>
+      <Icon name="camera-view" size={20} />
     </button>
   </div>
   <div class="group">
