@@ -1,0 +1,414 @@
+import type { Bone, BonePose, Keyframe, Layer, PathData, Vec } from '$lib/core/types';
+import { solveChain } from '$lib/rig/ik';
+import { poseOf, type Pose } from '$lib/rig/bones';
+import type { BoneName, Emotion, FaceFrame, MouthShape } from './model';
+import { facePaths, seeded } from './model';
+
+// the moves of a character as pose keyframes on its rig layer. a cycle is worked out from smooth waves
+// at eight keyframes a cycle with straight tweens between them, so it plays smooth and stays light.
+// a single move goes pose to pose with eases. every value is a change from the rest pose like any
+// pose keyframe, the hip carries the move through the scene
+
+export type AnimKind = 'idle' | 'walk' | 'run' | 'jump' | 'wave' | 'point' | 'sit' | 'turn' | 'reach';
+
+export const ANIMATIONS: { kind: AnimKind; label: string; seconds: number; cycle: boolean }[] = [
+  { kind: 'idle', label: 'Idle, standing', seconds: 3, cycle: true },
+  { kind: 'walk', label: 'Walk', seconds: 1, cycle: true },
+  { kind: 'run', label: 'Run', seconds: 0.6, cycle: true },
+  { kind: 'jump', label: 'Jump', seconds: 1.1, cycle: false },
+  { kind: 'wave', label: 'Wave', seconds: 0.5, cycle: true },
+  { kind: 'point', label: 'Point', seconds: 1.5, cycle: false },
+  { kind: 'sit', label: 'Sit down', seconds: 1, cycle: false },
+  { kind: 'turn', label: 'Turn around', seconds: 0.4, cycle: false },
+  { kind: 'reach', label: 'Reach and grab', seconds: 0.8, cycle: false }
+];
+
+export interface AnimOptions {
+  // the first frame and the frame rate
+  at: number;
+  fps: number;
+  // how often a cycle plays, or how long a single move holds in seconds
+  repeat: number;
+  // 2 plays twice as fast
+  speed: number;
+  // the far arm and leg do what the near ones would
+  mirror: boolean;
+  // how far a walk or a run goes each cycle, in stage pixels, the sign is the direction on the screen
+  distance: number;
+  // a single move goes back to where it started at the end
+  back: boolean;
+  // where a reach goes, on the stage at rest
+  target?: Vec | null;
+}
+
+export type PoseValues = Partial<Record<BoneName, Partial<BonePose>>>;
+
+export interface PoseKey {
+  frame: number;
+  pose: PoseValues;
+  // the tween to the next keyframe, null holds
+  ease: string | null;
+}
+
+// what an animation needs to know of the character
+export interface Body {
+  // feet to head at rest, in stage pixels
+  height: number;
+  // where it looked when it was made, 1 right and -1 left
+  facing: 1 | -1;
+  bones: Bone[];
+  // the pose where the animation starts, the hip keeps its place from there
+  start: Pose;
+  id: (name: BoneName) => string | null;
+}
+
+const L_TO_R: Record<string, BoneName> = {
+  'Upper arm L': 'Upper arm R',
+  'Lower arm L': 'Lower arm R',
+  'Hand L': 'Hand R',
+  'Upper leg L': 'Upper leg R',
+  'Lower leg L': 'Lower leg R',
+  'Foot L': 'Foot R',
+  'Upper arm R': 'Upper arm L',
+  'Lower arm R': 'Lower arm L',
+  'Hand R': 'Hand L',
+  'Upper leg R': 'Upper leg L',
+  'Lower leg R': 'Lower leg L',
+  'Foot R': 'Foot L'
+};
+
+export function mirrorPose(p: PoseValues): PoseValues {
+  const out: PoseValues = {};
+  for (const [name, v] of Object.entries(p)) out[(L_TO_R[name] ?? name) as BoneName] = v;
+  return out;
+}
+
+function boneLength(body: Body, name: BoneName): number {
+  const id = body.id(name);
+  return body.bones.find((b) => b.id === id)?.length ?? body.height * 0.2;
+}
+
+// a walk or a run from waves: phase 0 has the near leg in front
+function stride(phase: number, run: boolean, f: number, u: number): PoseValues {
+  const c = Math.cos(phase);
+  const s = Math.sin(phase);
+  const legSwing = run ? 0.72 : 0.42;
+  const knee = run ? 1.25 : 0.62;
+  const armSwing = run ? 0.85 : 0.38;
+  const elbow = run ? 1.25 : 0.28;
+  const lean = run ? 0.18 : 0.04;
+  const bob = (run ? 0.03 : 0.012) * u;
+  // forward on the screen is a turn toward where it looks
+  const fwd = -f;
+  return {
+    Hip: { y: bob * Math.cos(2 * phase) - (run ? 0.02 * u : 0) },
+    Spine: { rotation: -fwd * lean },
+    Chest: { rotation: -fwd * lean * 0.3 },
+    Head: { rotation: fwd * lean * 0.8 },
+    'Upper leg R': { rotation: fwd * legSwing * c },
+    'Lower leg R': { rotation: -fwd * (knee * Math.max(0, -s) + 0.05) },
+    'Foot R': { rotation: fwd * 0.18 * c },
+    'Upper leg L': { rotation: -fwd * legSwing * c },
+    'Lower leg L': { rotation: -fwd * (knee * Math.max(0, s) + 0.05) },
+    'Foot L': { rotation: -fwd * 0.18 * c },
+    'Upper arm R': { rotation: -fwd * armSwing * c },
+    'Lower arm R': { rotation: fwd * (elbow + 0.08 * c) },
+    'Upper arm L': { rotation: fwd * armSwing * c },
+    'Lower arm L': { rotation: fwd * (elbow - 0.08 * c) }
+  };
+}
+
+function idlePose(phase: number, f: number, u: number): PoseValues {
+  const s = Math.sin(phase);
+  const fwd = -f;
+  return {
+    Hip: { y: 0.003 * u * s },
+    Chest: { rotation: -fwd * 0.012 * s },
+    Head: { rotation: fwd * 0.02 * Math.sin(phase + 0.8) },
+    'Upper arm R': { rotation: fwd * (0.04 + 0.025 * s) },
+    'Upper arm L': { rotation: -fwd * (0.03 + 0.025 * s) },
+    'Lower arm R': { rotation: fwd * 0.12 },
+    'Lower arm L': { rotation: fwd * 0.1 }
+  };
+}
+
+// the keyframes of an animation, the hip's place carried on from the start pose
+export function animationKeys(kind: AnimKind, body: Body, o: AnimOptions): PoseKey[] {
+  const fps = Math.max(1, o.fps);
+  const speed = Math.max(0.1, Math.min(4, o.speed));
+  const u = body.height;
+  const f = body.facing;
+  const fwd = -f;
+  const at = Math.max(0, Math.round(o.at));
+  const hipId = body.id('Hip');
+  const start = hipId ? poseOf(body.start, hipId) : { rotation: 0, x: 0, y: 0, scale: 1 };
+  const info = ANIMATIONS.find((a) => a.kind === kind)!;
+  const frames = (seconds: number) => Math.max(1, Math.round((seconds * fps) / speed));
+  const keys: PoseKey[] = [];
+  const put = (frame: number, pose: PoseValues, ease: string | null) => keys.push({ frame, pose: o.mirror ? mirrorPose(pose) : pose, ease });
+  // the hip keeps where it is, the move adds to it
+  const withHip = (p: PoseValues, dx = 0, dy = 0): PoseValues => ({
+    ...p,
+    Hip: { ...p.Hip, x: start.x + dx + (p.Hip?.x ?? 0), y: start.y + dy + (p.Hip?.y ?? 0), sx: start.sx ?? 1 }
+  });
+
+  if (info.cycle) {
+    const period = frames(info.seconds);
+    const cycles = Math.max(1, Math.round(o.repeat));
+    const steps = kind === 'wave' ? 4 : 8;
+    const total = period * cycles;
+    // a wave lifts the arm first and puts it down after
+    const lift = kind === 'wave' ? frames(0.3) : 0;
+    if (kind === 'wave') put(at, withHip({}), 'inout');
+    for (let i = 0; i <= cycles * steps; i++) {
+      const t = (i / steps) * period;
+      const frame = at + lift + Math.round(t);
+      const phase = (2 * Math.PI * i) / steps;
+      let pose: PoseValues;
+      let dx = 0;
+      if (kind === 'walk' || kind === 'run') {
+        pose = stride(phase, kind === 'run', f, u);
+        dx = (o.distance * t) / period;
+      } else if (kind === 'idle') {
+        pose = idlePose(phase, f, u);
+      } else {
+        pose = {
+          'Upper arm R': { rotation: fwd * 2.5 },
+          'Lower arm R': { rotation: fwd * (0.55 + 0.4 * Math.sin(phase)) },
+          'Hand R': { rotation: fwd * 0.2 * Math.sin(phase) },
+          Head: { rotation: fwd * 0.04 }
+        };
+      }
+      put(frame, withHip(pose, dx), i === cycles * steps && kind !== 'wave' ? null : 'linear');
+    }
+    if (kind === 'wave') put(at + lift + total + frames(0.3), withHip({}), null);
+    // the last key of a cycle holds and the moves after it start from there
+    return dedupe(keys);
+  }
+
+  const hold = Math.max(0, o.repeat);
+  switch (kind) {
+    case 'jump': {
+      const t = (s: number) => at + frames(s);
+      const crouch: PoseValues = {
+        Hip: { y: 0.08 * u },
+        Spine: { rotation: -fwd * 0.25 },
+        'Upper leg R': { rotation: fwd * 0.7 },
+        'Lower leg R': { rotation: -fwd * 1.2 },
+        'Foot R': { rotation: fwd * 0.45 },
+        'Upper leg L': { rotation: fwd * 0.6 },
+        'Lower leg L': { rotation: -fwd * 1.1 },
+        'Foot L': { rotation: fwd * 0.45 },
+        'Upper arm R': { rotation: -fwd * 0.7 },
+        'Upper arm L': { rotation: -fwd * 0.6 }
+      };
+      const up: PoseValues = {
+        Hip: { y: -0.05 * u },
+        Spine: { rotation: fwd * 0.05 },
+        'Foot R': { rotation: -fwd * 0.5 },
+        'Foot L': { rotation: -fwd * 0.5 },
+        'Upper arm R': { rotation: fwd * 2.6 },
+        'Upper arm L': { rotation: fwd * 2.4 }
+      };
+      const air: PoseValues = {
+        Hip: { y: -0.28 * u },
+        'Upper leg R': { rotation: fwd * 0.5 },
+        'Lower leg R': { rotation: -fwd * 0.9 },
+        'Upper leg L': { rotation: fwd * 0.3 },
+        'Lower leg L': { rotation: -fwd * 0.7 },
+        'Upper arm R': { rotation: fwd * 2.2 },
+        'Upper arm L': { rotation: fwd * 2.0 }
+      };
+      const d = o.distance;
+      put(at, withHip({}), 'inout');
+      put(t(0.25), withHip(crouch), 'out');
+      put(t(0.42), withHip(up, d * 0.2), 'out');
+      put(t(0.62), withHip(air, d * 0.6), 'in');
+      put(t(0.82), withHip(crouch, d), 'inout');
+      put(t(1.1), withHip({}, d), null);
+      return keys;
+    }
+    case 'point': {
+      const pose: PoseValues = {
+        'Upper arm R': { rotation: fwd * 1.45 },
+        'Lower arm R': { rotation: fwd * 0.08 },
+        'Hand R': { rotation: fwd * 0.12 },
+        Chest: { rotation: -fwd * 0.04 },
+        Head: { rotation: fwd * 0.03 }
+      };
+      put(at, withHip({}), 'inout');
+      put(at + frames(0.35), withHip(pose), null);
+      if (o.back) {
+        const end = at + frames(0.35) + Math.round(hold * fps);
+        keys[keys.length - 1].ease = 'inout';
+        put(end, withHip(pose), 'inout');
+        put(end + frames(0.35), withHip({}), null);
+      }
+      return keys;
+    }
+    case 'sit': {
+      // the thighs go level and the shins down, the hip drops by what the thighs lift
+      const thigh = boneLength(body, 'Upper leg R');
+      const pose: PoseValues = {
+        Hip: { y: thigh * 0.92 },
+        Spine: { rotation: fwd * 0.08 },
+        'Upper leg R': { rotation: fwd * 1.5 },
+        'Lower leg R': { rotation: -fwd * 1.5 },
+        'Upper leg L': { rotation: fwd * 1.45 },
+        'Lower leg L': { rotation: -fwd * 1.45 },
+        'Upper arm R': { rotation: fwd * 0.5 },
+        'Lower arm R': { rotation: fwd * 0.7 },
+        'Upper arm L': { rotation: fwd * 0.45 },
+        'Lower arm L': { rotation: fwd * 0.7 }
+      };
+      const lean: PoseValues = { ...pose, Hip: { y: thigh * 0.5 }, Spine: { rotation: -fwd * 0.3 } };
+      put(at, withHip({}), 'inout');
+      put(at + frames(0.55), withHip(lean, 0), 'out');
+      put(at + frames(1), withHip(pose), null);
+      if (o.back && hold > 0) {
+        const end = at + frames(1) + Math.round(hold * fps);
+        keys[keys.length - 1].ease = 'inout';
+        put(end, withHip(pose), 'inout');
+        put(end + frames(0.45), withHip(lean), 'out');
+        put(end + frames(1), withHip({}), null);
+      }
+      return keys;
+    }
+    case 'turn': {
+      const from = start.sx ?? 1;
+      const to = -from;
+      const mid = at + Math.round(frames(info.seconds) / 2);
+      keys.push({ frame: at, pose: { Hip: { x: start.x, y: start.y, sx: from } }, ease: 'in' });
+      keys.push({ frame: mid, pose: { Hip: { x: start.x, y: start.y - 0.01 * u, sx: from * 0.05 } }, ease: 'out' });
+      keys.push({ frame: at + frames(info.seconds), pose: { Hip: { x: start.x, y: start.y, sx: to } }, ease: null });
+      return keys;
+    }
+    case 'reach': {
+      // with a target the near arm solves to it, without one it reaches forward and down to a table
+      const pose = reachPose(body, o.target ?? null, fwd);
+      put(at, withHip({}), 'inout');
+      put(at + frames(info.seconds), withHip(pose), null);
+      if (o.back) {
+        const end = at + frames(info.seconds) + Math.round(hold * fps);
+        keys[keys.length - 1].ease = 'inout';
+        put(end, withHip(pose), 'inout');
+        put(end + frames(info.seconds), withHip({}), null);
+      }
+      return keys;
+    }
+    default:
+      return keys;
+  }
+}
+
+function reachPose(body: Body, target: Vec | null, fwd: number): PoseValues {
+  const lean: PoseValues = { Spine: { rotation: -fwd * 0.12 }, Chest: { rotation: -fwd * 0.05 }, Head: { rotation: fwd * 0.08 } };
+  const upper = body.id('Upper arm R');
+  const lower = body.id('Lower arm R');
+  if (!target || !upper || !lower) {
+    return { ...lean, 'Upper arm R': { rotation: fwd * 0.95 }, 'Lower arm R': { rotation: fwd * 0.25 }, 'Hand R': { rotation: fwd * 0.2 } };
+  }
+  // the arm solves on the leaning body, from the rest pose with the hip where it is
+  const base: Pose = {};
+  for (const [name, v] of Object.entries(lean)) {
+    const id = body.id(name as BoneName);
+    if (id) base[id] = { rotation: v.rotation ?? 0, x: 0, y: 0, scale: 1 };
+  }
+  const hipId = body.id('Hip');
+  if (hipId) base[hipId] = { ...poseOf(body.start, hipId) };
+  const lowerBone = body.bones.find((b) => b.id === lower)!;
+  const solved = solveChain(body.bones, base, lower, { x: lowerBone.length, y: 0 }, target, { limit: 2 });
+  return {
+    ...lean,
+    'Upper arm R': { rotation: solved[upper]?.rotation ?? 0 },
+    'Lower arm R': { rotation: solved[lower]?.rotation ?? 0 },
+    'Hand R': { rotation: fwd * 0.15 }
+  };
+}
+
+// two keyframes on one frame: the later one wins
+function dedupe(keys: PoseKey[]): PoseKey[] {
+  const out = new Map<number, PoseKey>();
+  for (const k of keys) out.set(k.frame, k);
+  return [...out.values()].sort((a, b) => a.frame - b.frame);
+}
+
+// the pose of a keyframe from the values by bone name, bones the character lacks are left out
+export function toPose(values: PoseValues, id: (name: BoneName) => string | null): Pose {
+  const out: Pose = {};
+  for (const [name, v] of Object.entries(values)) {
+    const bone = id(name as BoneName);
+    if (!bone) continue;
+    out[bone] = { rotation: v.rotation ?? 0, x: v.x ?? 0, y: v.y ?? 0, scale: v.scale ?? 1, ...(v.sx !== undefined && v.sx !== 1 ? { sx: v.sx } : {}) };
+  }
+  return out;
+}
+
+// the face a body layer shows at frame: the last keyframe at or before it that set one
+export interface FaceState {
+  emotion: Emotion;
+  mouth: MouthShape;
+}
+
+export function faceAt(layer: Layer | null, frame: number): FaceState {
+  const keys = layer?.keyframes ?? [];
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const k = keys[i] as Keyframe & { face?: FaceState };
+    if (k.frame <= frame && k.face) return { ...k.face };
+  }
+  return { emotion: 'neutral', mouth: 'closed' };
+}
+
+// the anchors of a face part set to the shape of a mood, the item keeps its id, style and binding
+export function faceShapes(frame: FaceFrame, state: FaceState, blink = false): Record<string, PathData> {
+  return facePaths(frame, state.emotion, state.mouth, blink);
+}
+
+// mouth shapes for talking without a sound, a little different every time but the same for a seed
+export function talkPattern(at: number, frames: number, seed: number): { frame: number; mouth: MouthShape }[] {
+  const rnd = seeded(seed);
+  const out: { frame: number; mouth: MouthShape }[] = [];
+  let f = at;
+  let last: MouthShape = 'closed';
+  while (f < at + frames) {
+    const r = rnd();
+    let mouth: MouthShape = r < 0.45 ? 'slight' : r < 0.8 ? 'wide' : 'closed';
+    if (mouth === last) mouth = last === 'wide' ? 'slight' : 'wide';
+    out.push({ frame: f, mouth });
+    last = mouth;
+    f += 2 + Math.floor(rnd() * 3);
+  }
+  out.push({ frame: at + frames, mouth: 'closed' });
+  return out;
+}
+
+// mouth shapes from how loud a voice is on each frame, 0 to 1: quiet is closed, loud is wide. a shape
+// holds at least two frames so the mouth does not flicker
+export function lipSync(levels: number[], at: number, quiet = 0.12, loud = 0.5): { frame: number; mouth: MouthShape }[] {
+  const out: { frame: number; mouth: MouthShape }[] = [];
+  let last: MouthShape | null = null;
+  let since = 0;
+  levels.forEach((v, i) => {
+    const mouth: MouthShape = v < quiet ? 'closed' : v < loud ? 'slight' : 'wide';
+    since++;
+    if (mouth !== last && (last === null || since >= 2)) {
+      out.push({ frame: at + i, mouth });
+      last = mouth;
+      since = 0;
+    }
+  });
+  if (last !== 'closed') out.push({ frame: at + levels.length, mouth: 'closed' });
+  return out;
+}
+
+// blinks every few seconds over a stretch, each three frames long, never in the same rhythm
+export function blinkFrames(at: number, frames: number, fps: number, seed: number): number[] {
+  const rnd = seeded(seed + 101);
+  const out: number[] = [];
+  let f = at + Math.round(fps * (0.6 + rnd()));
+  while (f + 3 < at + frames) {
+    out.push(f);
+    f += Math.round(fps * (2.2 + rnd() * 2.4));
+  }
+  return out;
+}

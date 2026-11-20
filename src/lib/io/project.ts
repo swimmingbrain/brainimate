@@ -22,7 +22,13 @@ const MIME: Record<string, string> = {
   ttf: 'font/ttf',
   otf: 'font/otf',
   woff: 'font/woff',
-  woff2: 'font/woff2'
+  woff2: 'font/woff2',
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  webm: 'audio/webm'
 };
 
 // browsers name font files in more than one way
@@ -31,7 +37,11 @@ const ALIASES: Record<string, string> = {
   'application/x-font-ttf': 'ttf',
   'application/x-font-otf': 'otf',
   'application/font-woff': 'woff',
-  'font/sfnt': 'ttf'
+  'font/sfnt': 'ttf',
+  'audio/mp3': 'mp3',
+  'audio/x-m4a': 'm4a',
+  'audio/x-wav': 'wav',
+  'audio/wave': 'wav'
 };
 
 function extOf(mime: string): string {

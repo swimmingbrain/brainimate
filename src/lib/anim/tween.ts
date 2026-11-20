@@ -253,6 +253,10 @@ export function tweenPose(
       y: lerp(p.y, q.y, t),
       scale: lerp(p.scale, q.scale, t)
     };
+    // a turn around squashes through 0 to the mirror image
+    const sa = p.sx ?? 1;
+    const sb = q.sx ?? 1;
+    if (sa !== 1 || sb !== 1) out[id].sx = lerp(sa, sb, t);
   }
   return out;
 }
