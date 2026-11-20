@@ -26,10 +26,19 @@ gifenc 1.0.3: GIF export
 MIT
 https://github.com/mattdesl/gifenc
 
-mediabunny 1.61.3: WebM and MP4 export, loaded with the export dialog
+mediabunny 1.66.2: WebM and MP4 export, loaded with the export dialog
 MPL-2.0
 https://github.com/Vanilagy/mediabunny
 It brings in @types/dom-webcodecs and @types/dom-mediacapture-transform, types only, MIT.
+
+@mediabunny/aac-encoder 1.66.2: the aac sound of a video export where the browser has no aac encoder,
+loaded only then
+MPL-2.0
+https://github.com/Vanilagy/mediabunny
+It holds the aac encoder of FFmpeg's libavcodec built to WebAssembly, LGPL-2.1-or-later,
+https://ffmpeg.org. The license texts come with the package in its licenses folder, the source
+of the build is in the mediabunny repository. The encoder is a file of its own the app loads, it
+can be swapped for another build of the same package.
 
 fflate 0.8.3: the zip of a project file, of an image sequence and of a sprite sheet
 MIT

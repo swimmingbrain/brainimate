@@ -189,7 +189,16 @@
       case 'mp4': {
         const format = s.format;
         const quality = s.quality / 100;
-        const opts: VideoOptions = { format, range, scale: s.scale, quality, transparent: s.transparent };
+        const opts: VideoOptions = {
+          format,
+          range,
+          scale: s.scale,
+          quality,
+          transparent: s.transparent,
+          onAudio: (state) => {
+            if (state === 'unsupported') addToast('This browser cannot encode sound, the video is silent', 'warning', 6000);
+          }
+        };
         const blob = videoModule().then(({ exportVideo }) => exportVideo(doc, opts, signal, setProgress));
         return { blob, name, kind: KINDS[format] };
       }

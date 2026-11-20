@@ -53,6 +53,12 @@ export function boneDepth(bones: Bone[], id: string): number {
 // translate(x + pose.x, y + pose.y) * rotate(rotation + pose.rotation) * scale(pose.scale)
 export function localMatrix(bone: Bone, p: BonePose = REST_POSE): Mat {
   const m = multiply(translate(bone.x + p.x, bone.y + p.y), rotate(bone.rotation + p.rotation));
+  // sx squashes across, in world x: a root bone with -1 mirrors the whole character to face the other way
+  const sx = p.sx ?? 1;
+  if (sx !== 1) {
+    const flipped = multiply(multiply(translate(bone.x + p.x, bone.y + p.y), scale(sx, 1)), rotate(bone.rotation + p.rotation));
+    return p.scale === 1 ? flipped : multiply(flipped, scale(p.scale));
+  }
   return p.scale === 1 ? m : multiply(m, scale(p.scale));
 }
 

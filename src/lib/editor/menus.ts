@@ -283,6 +283,7 @@ export function buildMenus(p: Preferences, outline: boolean, workspace: string, 
         tick('window.transform', !p.panels.hidden.includes('transform'), 'Transform'),
         tick('window.rig', !p.panels.hidden.includes('rig'), 'Rig'),
         tick('window.camera', !p.panels.hidden.includes('camera'), 'Camera'),
+        tick('window.character', !p.panels.hidden.includes('character'), 'Character'),
         tick('window.timeline', p.panels.timeline),
         SEP,
         ...allWorkspaces(p).map((ws) => ({

@@ -86,6 +86,21 @@
     height: 0;
   }
 
+  /* a tablet: the tabs wrap onto a second row instead of scrolling sideways, every one stays in reach */
+  :global(:root[data-touch]) .panel-header {
+    height: auto;
+    min-height: 32px;
+  }
+
+  :global(:root[data-touch]) .tabs {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  :global(:root[data-touch]) .panel-tab {
+    min-height: 34px;
+  }
+
   .tab {
     display: flex;
     align-items: center;

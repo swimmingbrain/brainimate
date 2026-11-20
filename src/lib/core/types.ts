@@ -52,6 +52,9 @@ export interface Skin {
 interface ItemBase {
   id: string;
   name: string;
+  // the part of a character it is, like 'head', 'upperArmL', 'mouth' or 'prop', what the character tools
+  // look for. a plain drawing has none
+  role?: string;
   transform: Mat;
   visible: boolean;
   locked: boolean;
@@ -142,6 +145,8 @@ export interface BonePose {
   x: number;
   y: number;
   scale: number;
+  // a squash across the bone, -1 mirrors it: a character turns around on its root bone. 1 when missing
+  sx?: number;
 }
 
 // how a new shot starts on a camera keyframe. cut jumps, fade goes through a color, crossfade lets
@@ -187,11 +192,15 @@ export interface Keyframe {
   label: string;
   // camera layers only
   camera?: CameraKey;
+  // the body layer of a character: the mood and the mouth its face shows from here on
+  face?: { emotion: string; mouth: string };
 }
 
 export interface Layer {
   id: string;
   name: string;
+  // a folder that holds a character: its rig layer and its body layer, see character/model.ts
+  character?: CharacterInfo;
   // a camera layer holds what the video shows, there is one on the main timeline at most
   type: 'normal' | 'rig' | 'guide' | 'folder' | 'camera';
   visible: boolean;
@@ -211,6 +220,36 @@ export interface Layer {
   parallax?: number;
 }
 
+// the colors of a generated character, a recolor goes over its parts by their roles
+export interface CharacterColors {
+  skin: string;
+  hair: string;
+  shirt: string;
+  pants: string;
+  shoes: string;
+  outline: string;
+}
+
+export interface CharacterInfo {
+  // the same in every copy saved to the library or put into another scene
+  id: string;
+  name: string;
+  colors: CharacterColors;
+  // where the face sits at rest, the middle of the head, its radius and where it looks
+  face: { x: number; y: number; r: number; facing: 1 | -1 };
+}
+
+// a sound on the timeline, from start on, the asset holds the file
+export interface AudioClip {
+  id: string;
+  asset: string;
+  name: string;
+  // the frame it starts on, 0 based
+  start: number;
+  // 0 to 1
+  volume: number;
+}
+
 export interface Symbol {
   id: string;
   name: string;
@@ -221,7 +260,7 @@ export interface Symbol {
 // data is a data url
 export interface Asset {
   id: string;
-  type: 'image' | 'font';
+  type: 'image' | 'font' | 'audio';
   name: string;
   data: string;
 }
@@ -240,6 +279,8 @@ export interface Doc {
   swatches: string[];
   // h holds the y of each horizontal guide, v the x of each vertical one
   guides: Guides;
+  // sounds played with the timeline and put into the video
+  audio?: AudioClip[];
 }
 
 export interface Guides {

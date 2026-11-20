@@ -74,6 +74,16 @@ The welcome screen opens three examples to look into: a rigged character that wa
 - A new shot on a camera keyframe: cut, fade through a color, crossfade, zoom, slide or a camera move, each as long as you like
 - The export, the thumbnails, the SVG export and the camera view draw through the same function, the video looks like the preview. See [docs/KAMERA.md](docs/KAMERA.md)
 
+### Characters, faces, voice and the library
+
+- A character creator for the graphic novel look: build, head, hair, colors, outline and how much the lines wobble, every part a flat fill with a cel shadow and a hand drawn outline
+- A skeleton of seventeen bones, parts bound rigidly and round at the joints, dragged by a finger with ik, the upper arms and legs pinned so a pulled hand bends the elbow only
+- Animations as pose keyframes: idle, walk, run, jump, wave, point, sit, turn around, reach and grab, with repeat, speed, distance, direction, mirror and going back, stopped at the playhead
+- Faces with seven moods, three mouth shapes, blinks and talking, every part morphs from one to the next
+- Sounds on the timeline, played with it and put into the video as aac, lip sync from how loud a voice is
+- Objects taken into a hand at the playhead and put down later
+- A character library in the browser: save, rename, copy, delete, insert into any project, a file to move characters between devices. See [docs/CHARAKTERE.md](docs/CHARAKTERE.md)
+
 ### Customization
 
 Preferences (`Ctrl+K`) has a tab for each part. Tools: show, hide and drag the tools of the toolbar into your own order, on the left or the right, small or normal. Pens: brush and pencil presets you save from the stage bar, the eraser size and how the pen draws its anchors and rubber band. Canvas: grid size, subdivisions, color and opacity, guide and smart guide colors, the pasteboard, the wheel and a tablet mode with bigger hit areas. Shortcuts: record any key for any command, a clash shows in red until you keep or undo it. Workspaces: Essentials, Illustrate, Animate and Rig set the panels, sizes, toolbar side, rulers and bones, and you can save your own next to them.
@@ -148,7 +158,7 @@ Open `http://localhost:5173`. `pnpm test` runs the tests, `pnpm check` the type 
 | Easing | bezier-easing |
 | Text | opentype.js |
 | Fonts | Inter, Instrument Serif, JetBrains Mono, Lora, Poppins, Bebas Neue, Comic Neue, Bangers, Patrick Hand from Fontsource (OFL) |
-| Export | gifenc, mediabunny, fflate |
+| Export | gifenc, mediabunny, @mediabunny/aac-encoder (FFmpeg aac in WebAssembly, LGPL), fflate |
 | SVG import | svg-pathdata |
 | Storage | idb-keyval, browser-fs-access |
 | Shortcuts | tinykeys |
