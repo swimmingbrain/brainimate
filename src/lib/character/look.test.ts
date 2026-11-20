@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Item, Layer, PathItem } from '$lib/core/types';
 import { worldMatrices } from '$lib/rig/bones';
+import { animationKeys, toPose } from './anim';
 import { applyPoint } from '$lib/core/mat';
 import {
   BONES,
@@ -188,5 +189,76 @@ describe('the look in the editor', () => {
     });
     expect(hasFingers(id)).toBe(false);
     expect(setHandPose(id, 'R', 'fist')).toBe(false);
+  });
+});
+
+describe('the gait', () => {
+  const W2 = 1080;
+  const bodyOf = (layers: Layer[]) => {
+    const rig = layers.find((l) => l.type === 'rig')!;
+    const byName = new Map(rig.bones.map((b) => [b.name, b.id]));
+    return { height: defaultCharacter(W2, 1920).height, facing: 1 as const, bones: rig.bones, start: {}, id: (n: string) => byName.get(n) ?? null };
+  };
+  // where the ankles are on the stage for every key of a walk
+  const ankles = (kind: 'walk' | 'run' | 'idle', facing: 1 | -1, distance: number, sx = 1) => {
+    const o = { ...defaultCharacter(W2, 1920), facing };
+    const c = buildCharacter(o);
+    const rig = c.layers[1];
+    const b = { ...bodyOf(c.layers), facing };
+    const hip = rig.bones.find((x) => x.name === 'Hip')!;
+    if (sx !== 1) (b as { start: object }).start = { [hip.id]: { rotation: 0, x: 0, y: 0, scale: 1, sx } };
+    const keys = animationKeys(kind, b as never, { at: 0, fps: 24, repeat: 2, speed: 1, mirror: false, distance, back: false });
+    const foot = (s: string) => rig.bones.find((x) => x.name === `Foot ${s}`)!;
+    return keys.map((k) => {
+      const pose = toPose(k.pose, b.id as never);
+      const w = worldMatrices(rig.bones, pose);
+      const at = (s: string) => {
+        const m = w.get(foot(s).id)!;
+        return { x: m[4], y: m[5] };
+      };
+      return { frame: k.frame, R: at('R'), L: at('L'), ground: o.ground };
+    });
+  };
+
+  for (const [kind, facing, distance, sx] of [
+    ['walk', 1, 300, 1],
+    ['walk', -1, -300, 1],
+    ['walk', 1, -300, -1],
+    ['run', 1, 600, 1]
+  ] as const) {
+    it(`plants the feet: a ${kind} looking ${facing > 0 ? 'right' : 'left'}${sx < 0 ? ', turned' : ''} does not slide a foot on the ground`, () => {
+      const list = ankles(kind, facing, distance, sx);
+      const lowest = Math.max(...list.flatMap((a) => [a.R.y, a.L.y]));
+      for (const s of ['R', 'L'] as const) {
+        // runs of keys where the foot is on the ground stay at one x
+        let run: number[] = [];
+        let checked = 0;
+        const flush = () => {
+          if (run.length >= 3) {
+            checked++;
+            expect(Math.max(...run) - Math.min(...run), `${s} slides`).toBeLessThan(3);
+          }
+          run = [];
+        };
+        for (const a of list) {
+          if (lowest - a[s].y < 1) run.push(a[s].x);
+          else flush();
+        }
+        flush();
+        expect(checked, s).toBeGreaterThan(0);
+      }
+      // the body really goes the distance
+      expect(Math.sign(list[list.length - 1].R.x - list[0].R.x)).toBe(Math.sign(distance));
+    });
+  }
+
+  it('shifts the weight standing without moving the feet', () => {
+    const list = ankles('idle', 1, 0);
+    for (const s of ['R', 'L'] as const) {
+      const xs = list.map((a) => a[s].x);
+      const ys = list.map((a) => a[s].y);
+      expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(1);
+      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(1);
+    }
   });
 });

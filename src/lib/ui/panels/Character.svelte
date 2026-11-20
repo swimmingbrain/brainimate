@@ -149,7 +149,7 @@
     repeat: 2,
     speed: 1,
     mirror: false,
-    distance: 260,
+    distance: 720,
     direction: 1,
     back: true
   });
@@ -184,6 +184,17 @@
   function pickColor(key: keyof CharacterColors, color: string) {
     if (creating) form = { ...form, colors: { ...form.colors, [key]: color } };
     else if (picked) recolorCharacter(picked.id, { [key]: color });
+  }
+
+  // a step that fits the size of the character: a walk goes three quarters of its height a cycle, a
+  // run one and a half, so the planted feet do not have to stretch or shuffle
+  function naturalDistance(kind: AnimKind): number {
+    const u = info ? info.face.r / 0.088 : 960;
+    return Math.round(u * (kind === 'run' ? 1.5 : kind === 'jump' ? 0.3 : 0.75));
+  }
+
+  function pickKind(kind: AnimKind) {
+    anim = { ...anim, kind, distance: kind === 'walk' || kind === 'run' || kind === 'jump' ? naturalDistance(kind) : anim.distance };
   }
 
   function animate() {
@@ -357,7 +368,7 @@
 
     <h3 class="section">Move</h3>
     <Field label="Animation">
-      <SelectField value={anim.kind} options={ANIMATIONS.map((a) => ({ value: a.kind, label: a.label }))} label="Animation" onchange={(v) => (anim = { ...anim, kind: v as AnimKind })} />
+      <SelectField value={anim.kind} options={ANIMATIONS.map((a) => ({ value: a.kind, label: a.label }))} label="Animation" onchange={(v) => pickKind(v as AnimKind)} />
     </Field>
     <Field label={animInfo.cycle ? 'Repeat' : 'Hold'} hint={animInfo.cycle ? 'How many times it plays' : 'Seconds before it goes back'}>
       <NumberField value={anim.repeat} min={animInfo.cycle ? 1 : 0} max={60} step={animInfo.cycle ? 1 : 0.25} precision={animInfo.cycle ? 0 : 2} unit={animInfo.cycle ? '×' : ' s'} label="Repeat or hold" onchange={(v) => (anim = { ...anim, repeat: v })} />
@@ -369,6 +380,9 @@
       <Field label="Distance" hint="Stage pixels each cycle, 0 stays in place">
         <NumberField value={anim.distance} min={0} max={3000} step={10} precision={0} unit=" px" label="Distance" onchange={(v) => (anim = { ...anim, distance: v })} />
       </Field>
+      <div class="buttons">
+        <button class="btn" onclick={() => (anim = { ...anim, distance: naturalDistance(anim.kind) })}>Natural step length</button>
+      </div>
       <Field label="Direction">
         <SelectField value={String(anim.direction)} options={[{ value: '1', label: 'To the right' }, { value: '-1', label: 'To the left' }]} label="Direction" onchange={(v) => (anim = { ...anim, direction: Number(v) })} />
       </Field>
