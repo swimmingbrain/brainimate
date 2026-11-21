@@ -165,9 +165,11 @@ describe('animations', () => {
     const keys = animationKeys('walk', body(c.layers), base);
     expect(keys[0].frame).toBe(10);
     expect(keys[keys.length - 1].frame).toBe(10 + 48);
-    expect(keys).toHaveLength(17);
+    // worked out every other frame
+    expect(keys).toHaveLength(25);
     const k0 = keys[0].pose;
-    expect(Math.sign(k0['Upper leg R']!.rotation!)).toBe(-Math.sign(k0['Upper leg L']!.rotation!));
+    // the near leg reaches forward, turning against the clock for a character looking right
+    expect(k0['Upper leg R']!.rotation!).toBeLessThan(k0['Upper leg L']!.rotation! - 0.2);
     expect(Math.sign(k0['Upper arm R']!.rotation!)).toBe(-Math.sign(k0['Upper leg R']!.rotation!));
     expect(keys[keys.length - 1].pose.Hip!.x).toBeCloseTo(600);
     expect(keys.slice(0, -1).every((k) => k.ease === 'linear')).toBe(true);
@@ -179,7 +181,8 @@ describe('animations', () => {
     const walk = animationKeys('walk', body(c.layers), { ...base, repeat: 1 });
     const run = animationKeys('run', body(c.layers), { ...base, repeat: 1 });
     expect(run[run.length - 1].frame - run[0].frame).toBeLessThan(walk[walk.length - 1].frame - walk[0].frame);
-    expect(Math.abs(run[0].pose['Upper leg R']!.rotation!)).toBeGreaterThan(Math.abs(walk[0].pose['Upper leg R']!.rotation!));
+    const most = (keys: typeof walk, bone: 'Upper leg R' | 'Lower leg R') => Math.max(...keys.map((k) => Math.abs(k.pose[bone]!.rotation!)));
+    expect(most(run, 'Lower leg R')).toBeGreaterThan(most(walk, 'Lower leg R'));
     expect(Math.abs(run[0].pose.Spine!.rotation!)).toBeGreaterThan(Math.abs(walk[0].pose.Spine!.rotation!));
     const fast = animationKeys('walk', body(c.layers), { ...base, repeat: 1, speed: 2 });
     expect(fast[fast.length - 1].frame - fast[0].frame).toBe(12);

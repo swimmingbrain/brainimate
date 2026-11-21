@@ -13,9 +13,18 @@
   import { frame, selection, addToast } from '$lib/stores/app';
   import {
     DEFAULT_COLORS,
+    BROW_STYLES,
     EMOTIONS,
+    EYE_SHAPES,
+    HAIR_STYLES,
     MOUTHS,
+    HAND_POSES,
+    NOSE_SHAPES,
     PART_LABELS,
+    type BrowStyle,
+    type EyeShape,
+    type FaceStyle,
+    type NoseShape,
     defaultCharacter,
     type Build,
     type HairStyle
@@ -23,6 +32,12 @@
   import { ANIMATIONS, type AnimKind } from '$lib/character/anim';
   import {
     applyAnimation,
+    applyFaceStyle,
+    faceStyle,
+    hairOf,
+    hasFingers,
+    setHandPose,
+    setHair,
     autoBlink,
     blink,
     characterRoles,
@@ -62,6 +77,9 @@
     renameEntry,
     saveCharacter
   } from '$lib/character/library';
+  import { INTERACTIONS, REACTIONS, TEMPLATES, applyTemplate, giveItem, handshake, hug, lookAt, pointAtCharacter, react, waveTo, walkTo, type Interaction } from '$lib/editor/interact';
+  import { deleteMotion, loadMotions, motions, saveMotion } from '$lib/character/motions';
+  import { grabMotion, playMotion, characterGroups, focusCharacter, groupCharacters, shiftCharacters, showAllCharacters } from '$lib/editor/cast';
   import { AUDIO_ACCEPT, clipLevels, importAudio, removeClip, setClip } from '$lib/io/audio';
   import { pickFiles } from '$lib/editor/importer';
   import { saveBlob } from '$lib/io/save';
@@ -74,12 +92,10 @@
     { value: 'regular', label: 'Regular' },
     { value: 'broad', label: 'Broad' }
   ];
-  const HAIR = [
-    { value: 'short', label: 'Short' },
-    { value: 'long', label: 'Long' },
-    { value: 'bun', label: 'Bun' },
-    { value: 'bald', label: 'None' }
-  ];
+  const HAIR = HAIR_STYLES.map((h) => ({ value: h.id, label: h.label }));
+  const EYES = EYE_SHAPES.map((e) => ({ value: e.id, label: e.label }));
+  const BROWS = BROW_STYLES.map((b) => ({ value: b.id, label: b.label }));
+  const NOSES = NOSE_SHAPES.map((n) => ({ value: n.id, label: n.label }));
   const FACING = [
     { value: '1', label: 'Looks right' },
     { value: '-1', label: 'Looks left' }
@@ -114,6 +130,54 @@
     void $frame;
     return picked ? faceHere(picked.id) : null;
   });
+  const look = $derived.by(() => {
+    void $docVersion;
+    return picked ? { style: faceStyle(picked.id), hair: hairOf(picked.id) } : null;
+  });
+  // a slider dragged is one undo step
+  function restyle(change: Partial<FaceStyle>, key?: string) {
+    if (picked) applyFaceStyle(picked.id, change, key ? `face-${picked.id}-${key}` : undefined);
+  }
+  const others = $derived(all.filter((f) => f.id !== picked?.id));
+  const groups = $derived.by(() => {
+    void $docVersion;
+    return characterGroups();
+  });
+  let partner = $state<string | null>(null);
+  const partnerId = $derived(others.some((o) => o.id === partner) ? partner : (others[0]?.id ?? null));
+  let walkX = $state(540);
+  let shiftX = $state(100);
+  let grouping = $state<Set<string>>(new Set());
+
+  function together(kind: Interaction) {
+    if (!picked || !partnerId) return;
+    const a = picked.id;
+    const b = partnerId;
+    const done =
+      kind === 'look' ? lookAt(a, b) : kind === 'point' ? pointAtCharacter(a, b) : kind === 'wave' ? waveTo(a, b) : kind === 'handshake' ? handshake(a, b) : kind === 'give' ? giveItem(a, b) : hug(a, b);
+    if (done) addToast(`${INTERACTIONS.find((i) => i.id === kind)?.label} from frame ${$frame + 1}`, 'success', 1800);
+  }
+
+  let moveName = $state('My move');
+  let moveSeconds = $state(2);
+  async function keepMove() {
+    if (!picked) return;
+    const m = grabMotion(picked.id, moveSeconds * editor.doc.fps, moveName);
+    if (!m || m.keys.length < 2) return;
+    try {
+      await saveMotion(m);
+      addToast(`${m.name} saved, it plays on every character`, 'success', 2200);
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'The move could not be saved', 'error');
+    }
+  }
+
+  function toggleGroup(id: string) {
+    const next = new Set(grouping);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    grouping = next;
+  }
   const clips = $derived.by(() => {
     void $docVersion;
     return editor.doc.audio ?? [];
@@ -122,13 +186,14 @@
   let creating = $state(false);
   let form = $state(defaultCharacter(1080, 1920));
   let heightShare = $state(50);
+  let placeShare = $state(50);
   let colorOpen = $state<keyof CharacterColors | null>(null);
   let anim = $state<{ kind: AnimKind; repeat: number; speed: number; mirror: boolean; distance: number; direction: number; back: boolean }>({
     kind: 'walk',
     repeat: 2,
     speed: 1,
     mirror: false,
-    distance: 260,
+    distance: 720,
     direction: 1,
     back: true
   });
@@ -142,18 +207,22 @@
 
   onMount(() => {
     void loadLibrary();
+    void loadMotions();
   });
 
   function startCreate() {
     form = { ...defaultCharacter(editor.doc.width, editor.doc.height), name: `Character ${all.length + 1}`, seed: Math.floor(Math.random() * 1000) };
     heightShare = Math.round((form.height / editor.doc.height) * 100);
+    // a second character stands beside the first one
+    placeShare = all.length === 0 ? 50 : all.length % 2 ? 75 : 25;
+    form = { ...form, facing: placeShare > 50 ? -1 : 1 };
     creating = true;
   }
 
   function create() {
     const doc = editor.doc;
     const height = Math.round((doc.height * heightShare) / 100);
-    const id = createCharacter({ ...form, height, x: form.x, ground: Math.round(doc.height * 0.86) });
+    const id = createCharacter({ ...form, height, x: Math.round((doc.width * placeShare) / 100), ground: Math.round(doc.height * 0.86) });
     if (id) {
       creating = false;
       addToast(`${form.name} is on the stage, the skeleton and the body are in the timeline`, 'success', 3000);
@@ -163,6 +232,17 @@
   function pickColor(key: keyof CharacterColors, color: string) {
     if (creating) form = { ...form, colors: { ...form.colors, [key]: color } };
     else if (picked) recolorCharacter(picked.id, { [key]: color });
+  }
+
+  // a step that fits the size of the character: a walk goes three quarters of its height a cycle, a
+  // run one and a half, so the planted feet do not have to stretch or shuffle
+  function naturalDistance(kind: AnimKind): number {
+    const u = info ? info.face.r / 0.088 : 960;
+    return Math.round(u * (kind === 'run' ? 1.5 : kind === 'jump' ? 0.3 : 0.75));
+  }
+
+  function pickKind(kind: AnimKind) {
+    anim = { ...anim, kind, distance: kind === 'walk' || kind === 'run' || kind === 'jump' ? naturalDistance(kind) : anim.distance };
   }
 
   function animate() {
@@ -269,6 +349,9 @@
     <Field label="Height" hint="Share of the stage height">
       <Slider value={heightShare} min={15} max={95} step={1} precision={0} unit="%" label="Character height" onchange={(v) => (heightShare = v)} />
     </Field>
+    <Field label="Stands at" hint="Share of the stage width from the left">
+      <Slider value={placeShare} min={0} max={100} step={1} precision={0} unit="%" label="Where it stands" onchange={(v) => (placeShare = v)} />
+    </Field>
     <Field label="Build">
       <SelectField value={form.build} options={BUILDS} label="Build" onchange={(v) => (form = { ...form, build: v as Build })} />
     </Field>
@@ -336,7 +419,7 @@
 
     <h3 class="section">Move</h3>
     <Field label="Animation">
-      <SelectField value={anim.kind} options={ANIMATIONS.map((a) => ({ value: a.kind, label: a.label }))} label="Animation" onchange={(v) => (anim = { ...anim, kind: v as AnimKind })} />
+      <SelectField value={anim.kind} options={ANIMATIONS.map((a) => ({ value: a.kind, label: a.label }))} label="Animation" onchange={(v) => pickKind(v as AnimKind)} />
     </Field>
     <Field label={animInfo.cycle ? 'Repeat' : 'Hold'} hint={animInfo.cycle ? 'How many times it plays' : 'Seconds before it goes back'}>
       <NumberField value={anim.repeat} min={animInfo.cycle ? 1 : 0} max={60} step={animInfo.cycle ? 1 : 0.25} precision={animInfo.cycle ? 0 : 2} unit={animInfo.cycle ? '×' : ' s'} label="Repeat or hold" onchange={(v) => (anim = { ...anim, repeat: v })} />
@@ -348,6 +431,9 @@
       <Field label="Distance" hint="Stage pixels each cycle, 0 stays in place">
         <NumberField value={anim.distance} min={0} max={3000} step={10} precision={0} unit=" px" label="Distance" onchange={(v) => (anim = { ...anim, distance: v })} />
       </Field>
+      <div class="buttons">
+        <button class="btn" onclick={() => (anim = { ...anim, distance: naturalDistance(anim.kind) })}>Natural step length</button>
+      </div>
       <Field label="Direction">
         <SelectField value={String(anim.direction)} options={[{ value: '1', label: 'To the right' }, { value: '-1', label: 'To the left' }]} label="Direction" onchange={(v) => (anim = { ...anim, direction: Number(v) })} />
       </Field>
@@ -395,6 +481,53 @@
       <button class="btn" onclick={() => talk(picked!.id, talkSeconds)}>Talk</button>
     </div>
 
+    {#if look?.style}
+      {@const st = look.style}
+      <h3 class="section">Look</h3>
+      <Field label="Hair">
+        <SelectField value={look.hair} options={HAIR} label="Hairstyle" onchange={(v) => setHair(picked!.id, v as HairStyle)} />
+      </Field>
+      <Field label="Eyes">
+        <SelectField value={st.eyes} options={EYES} label="Eye shape" onchange={(v) => restyle({ eyes: v as EyeShape })} />
+      </Field>
+      <Field label="Eye size">
+        <Slider value={st.eyeSize} min={0.6} max={1.6} step={0.05} precision={2} unit="×" label="Eye size" onchange={(v) => restyle({ eyeSize: v }, 'eyeSize')} />
+      </Field>
+      <Field label="Eye height">
+        <Slider value={-st.eyeY} min={-0.2} max={0.2} step={0.01} precision={2} label="Eye height" onchange={(v) => restyle({ eyeY: -v }, 'eyeY')} />
+      </Field>
+      <Field label="Eye spacing">
+        <Slider value={st.eyeSpacing} min={0.6} max={1.4} step={0.05} precision={2} unit="×" label="Eye spacing" onchange={(v) => restyle({ eyeSpacing: v }, 'eyeSpacing')} />
+      </Field>
+      <Field label="Brows">
+        <SelectField value={st.brows} options={BROWS} label="Brow style" onchange={(v) => restyle({ brows: v as BrowStyle })} />
+      </Field>
+      <Field label="Nose" hint="Off keeps the face minimal">
+        <ToggleField value={st.nose} label="Show nose" onchange={(v) => restyle({ nose: v })} />
+      </Field>
+      {#if st.nose}
+        <Field label="Nose shape">
+          <SelectField value={st.noseShape} options={NOSES} label="Nose shape" onchange={(v) => restyle({ noseShape: v as NoseShape })} />
+        </Field>
+        <Field label="Nose size">
+          <Slider value={st.noseSize} min={0.5} max={1.8} step={0.05} precision={2} unit="×" label="Nose size" onchange={(v) => restyle({ noseSize: v }, 'noseSize')} />
+        </Field>
+        <Field label="Nose forward">
+          <Slider value={st.noseX} min={-0.25} max={0.15} step={0.01} precision={2} label="Nose forward" onchange={(v) => restyle({ noseX: v }, 'noseX')} />
+        </Field>
+        <Field label="Nose height">
+          <Slider value={-st.noseY} min={-0.2} max={0.2} step={0.01} precision={2} label="Nose height" onchange={(v) => restyle({ noseY: -v }, 'noseY')} />
+        </Field>
+      {/if}
+      <Field label="Mouth width">
+        <Slider value={st.mouthWidth} min={0.5} max={1.6} step={0.05} precision={2} unit="×" label="Mouth width" onchange={(v) => restyle({ mouthWidth: v }, 'mouthWidth')} />
+      </Field>
+      <Field label="Mouth height">
+        <Slider value={-st.mouthY} min={-0.15} max={0.15} step={0.01} precision={2} label="Mouth height" onchange={(v) => restyle({ mouthY: -v }, 'mouthY')} />
+      </Field>
+      <p class="note">The look changes the character in every keyframe, its moods and mouth moves stay.</p>
+    {/if}
+
     <h3 class="section">Voice and lip sync</h3>
     {#each clips as clip (clip.id)}
       <div class="clip">
@@ -417,12 +550,102 @@
     <p class="note">The mouth follows how loud the voice is. The sound plays with the timeline and goes into the video.</p>
 
     <h3 class="section">Hands</h3>
+    {#if hasFingers(picked.id)}
+      {#each [{ side: 'R', label: 'Near hand' }, { side: 'L', label: 'Far hand' }] as h (h.side)}
+        <p class="note">{h.label}</p>
+        <div class="grid">
+          {#each HAND_POSES as hp (hp.id)}
+            <button class="pill" onclick={() => setHandPose(picked!.id, h.side as 'L' | 'R', hp.id)}>{hp.label}</button>
+          {/each}
+        </div>
+      {/each}
+    {:else}
+      <p class="note">This character was made before hands had fingers. Make it again for hand poses.</p>
+    {/if}
     <p class="note">Pick an object on the stage, then it goes into a hand at the playhead and moves with it.</p>
     <div class="buttons">
       <button class="btn" disabled={$selection.size !== 1} onclick={() => pickUp(picked!.id, 'R')}>Near hand takes it</button>
       <button class="btn" disabled={$selection.size !== 1} onclick={() => pickUp(picked!.id, 'L')}>Far hand takes it</button>
       <button class="btn" disabled={$selection.size !== 1} onclick={putDown}>Put down</button>
     </div>
+
+    <h3 class="section">Moves for product videos</h3>
+    <div class="grid">
+      {#each TEMPLATES as t (t.id)}
+        <button class="pill" title={t.hint} disabled={t.needsItem && $selection.size !== 1} onclick={() => applyTemplate(picked!.id, t.id)}>{t.label}</button>
+      {/each}
+    </div>
+    <Field label="Walk to" hint="Where the hip ends up, in stage pixels">
+      <NumberField value={walkX} min={-2000} max={6000} step={10} precision={0} unit=" px" label="Walk to x" onchange={(v) => (walkX = v)} />
+    </Field>
+    <div class="buttons">
+      <button class="btn" onclick={() => walkTo(picked!.id, walkX)}>Walk there</button>
+      <button class="btn" onclick={() => walkTo(picked!.id, walkX, true)}>Run there</button>
+    </div>
+    <p class="note">Every move starts at the playhead. The object ones work on the object picked on the stage.</p>
+
+    <h3 class="section">My moves</h3>
+    <Field label="Name">
+      <input class="text" bind:value={moveName} aria-label="Move name" />
+    </Field>
+    <Field label="Length" hint="From the playhead on">
+      <NumberField value={moveSeconds} min={0.25} max={60} step={0.25} precision={2} unit=" s" label="Move length" onchange={(v) => (moveSeconds = v)} />
+    </Field>
+    <div class="buttons">
+      <button class="btn" onclick={keepMove}><Icon name="save" size={14} /> Save this move</button>
+    </div>
+    {#each $motions as m (m.id)}
+      <div class="part">
+        <button class="part-name" onclick={() => playMotion(picked!.id, m)}>{m.name} <span class="tag">{(m.frames / editor.doc.fps).toFixed(1)} s</span></button>
+        <button class="eye" aria-label="Delete {m.name}" onclick={() => deleteMotion(m.id)}><Icon name="trash" size={14} /></button>
+      </div>
+    {/each}
+    {#if $motions.length > 0}<p class="note">Tap a move to play it on {info.name} from the playhead.</p>{/if}
+
+    <h3 class="section">Reactions</h3>
+    <div class="grid">
+      {#each REACTIONS as r (r.id)}
+        <button class="pill" onclick={() => react(picked!.id, r.id)}>{r.label}</button>
+      {/each}
+    </div>
+
+    {#if others.length > 0}
+      <h3 class="section">Together with</h3>
+      <Field label="Other">
+        <SelectField value={partnerId ?? ''} options={others.map((o) => ({ value: o.id, label: o.character?.name ?? o.name }))} label="Other character" onchange={(v) => (partner = v)} />
+      </Field>
+      <div class="grid">
+        {#each INTERACTIONS as it (it.id)}
+          <button class="pill" title={it.hint} onclick={() => together(it.id)}>{it.label}</button>
+        {/each}
+      </div>
+      <p class="note">{info.name} does it, the other one turns to it. To hand over, {info.name} must hold the object picked on the stage.</p>
+    {/if}
+
+    {#if all.length > 1}
+      <h3 class="section with-action"><span>Cast</span><button class="link" onclick={showAllCharacters}>Show all</button></h3>
+      {#each all as c (c.id)}
+        <div class="part">
+          <button class="eye" aria-label="Pick {c.character?.name} for a group" onclick={() => toggleGroup(c.id)}>
+            <Icon name={grouping.has(c.id) ? 'check' : 'plus'} size={15} />
+          </button>
+          <button class="part-name" class:on={c.id === picked.id} onclick={() => focusCharacter(c.id)}>{c.character?.name ?? c.name}</button>
+        </div>
+      {/each}
+      <div class="buttons">
+        <button class="btn" disabled={grouping.size < 2} onclick={() => { groupCharacters([...grouping]); grouping = new Set(); }}>Group picked</button>
+      </div>
+      {#each groups as g (g.id)}
+        <p class="note">{g.name}: {g.members.length} characters</p>
+        <Field label="Move by">
+          <NumberField value={shiftX} min={-3000} max={3000} step={10} precision={0} unit=" px" label="Move group by" onchange={(v) => (shiftX = v)} />
+        </Field>
+        <div class="buttons">
+          <button class="btn" onclick={() => shiftCharacters(g.members, shiftX)}>Move {g.name} together</button>
+        </div>
+      {/each}
+      <p class="note">Tap a name to work on it: its layers open in the timeline, the others fold away.</p>
+    {/if}
 
     <h3 class="section">Parts</h3>
     {#each roles as role (role)}

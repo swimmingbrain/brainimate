@@ -1,4 +1,4 @@
-import type { Anchor, Bone, CharacterColors, CharacterInfo, Item, Layer, PathData, Vec } from '$lib/core/types';
+import type { Anchor, Bone, CharacterColors, CharacterInfo, CharacterLook, Item, Layer, PathData, Vec } from '$lib/core/types';
 import { makeGroupItem, makePathItem } from '$lib/core/items';
 import { defaultStyle, solid } from '$lib/core/style';
 import { mixHex } from '$lib/core/color';
@@ -11,7 +11,7 @@ import { makeLayer } from '$lib/editor/editor';
 // are capsules round at the joints, so a bent elbow or knee never opens a gap. the face sits on the
 // head bone, its parts keep the same number of anchors in every expression, so a change of mood morphs
 
-export type HairStyle = 'short' | 'long' | 'bun' | 'bald';
+export type HairStyle = 'short' | 'long' | 'bun' | 'bald' | 'spiky' | 'curly' | 'ponytail' | 'sidepart' | 'buzz' | 'afro';
 export type Build = 'slim' | 'regular' | 'broad';
 
 export interface CharacterOptions {
@@ -33,6 +33,8 @@ export interface CharacterOptions {
   wobble: number;
   // the same seed draws the same wobble
   seed: number;
+  // the face, a minimal one without a nose when left out
+  face?: FaceStyle;
 }
 
 export const DEFAULT_COLORS: CharacterColors = {
@@ -57,7 +59,8 @@ export function defaultCharacter(width: number, height: number): CharacterOption
     colors: { ...DEFAULT_COLORS },
     outline: 6,
     wobble: 0.6,
-    seed: 7
+    seed: 7,
+    face: { ...DEFAULT_FACE }
   };
 }
 
@@ -79,7 +82,13 @@ export const BONES = [
   'Foot L',
   'Upper leg R',
   'Lower leg R',
-  'Foot R'
+  'Foot R',
+  'Fingers L',
+  'Index L',
+  'Thumb L',
+  'Fingers R',
+  'Index R',
+  'Thumb R'
 ] as const;
 export type BoneName = (typeof BONES)[number];
 
@@ -89,6 +98,9 @@ export const PART_BONE: Record<string, BoneName> = {
   upperArmL: 'Upper arm L',
   lowerArmL: 'Lower arm L',
   handL: 'Hand L',
+  fingersL: 'Fingers L',
+  indexL: 'Index L',
+  thumbL: 'Thumb L',
   upperLegL: 'Upper leg L',
   lowerLegL: 'Lower leg L',
   footL: 'Foot L',
@@ -108,7 +120,10 @@ export const PART_BONE: Record<string, BoneName> = {
   hair: 'Head',
   upperArmR: 'Upper arm R',
   lowerArmR: 'Lower arm R',
-  handR: 'Hand R'
+  handR: 'Hand R',
+  fingersR: 'Fingers R',
+  indexR: 'Index R',
+  thumbR: 'Thumb R'
 };
 
 export const PART_LABELS: Record<string, string> = {
@@ -116,6 +131,9 @@ export const PART_LABELS: Record<string, string> = {
   upperArmL: 'Upper arm, far',
   lowerArmL: 'Lower arm, far',
   handL: 'Hand, far',
+  fingersL: 'Fingers, far',
+  indexL: 'Index finger, far',
+  thumbL: 'Thumb, far',
   upperLegL: 'Upper leg, far',
   lowerLegL: 'Lower leg, far',
   footL: 'Foot, far',
@@ -135,7 +153,10 @@ export const PART_LABELS: Record<string, string> = {
   hair: 'Hair',
   upperArmR: 'Upper arm, near',
   lowerArmR: 'Lower arm, near',
-  handR: 'Hand, near'
+  handR: 'Hand, near',
+  fingersR: 'Fingers, near',
+  indexR: 'Index finger, near',
+  thumbR: 'Thumb, near'
 };
 
 export const FACE_ROLES = ['eyeL', 'eyeR', 'browL', 'browR', 'nose', 'mouth'];
@@ -148,6 +169,12 @@ const COLOR_OF: Record<string, keyof CharacterColors> = {
   lowerArmR: 'skin',
   handL: 'skin',
   handR: 'skin',
+  fingersL: 'skin',
+  indexL: 'skin',
+  thumbL: 'skin',
+  fingersR: 'skin',
+  indexR: 'skin',
+  thumbR: 'skin',
   hair: 'hair',
   hairBack: 'hair',
   torso: 'shirt',
@@ -263,7 +290,7 @@ function part(
   shape: PathData,
   shadow: PathData | null,
   color: string,
-  o: CharacterOptions,
+  o: Pick<CharacterOptions, 'colors' | 'outline' | 'wobble'>,
   rnd: () => number,
   far: boolean
 ): Item {
@@ -326,8 +353,18 @@ function skeleton(o: CharacterOptions): Skeleton {
 }
 
 // the face in head units: origin the middle of the head, 1 is the head's radius, x toward where it looks
-export type Emotion = 'neutral' | 'happy' | 'sad' | 'angry' | 'surprised' | 'scared' | 'confused';
-export type MouthShape = 'closed' | 'slight' | 'wide';
+export type Emotion =
+  | 'neutral'
+  | 'happy'
+  | 'sad'
+  | 'angry'
+  | 'surprised'
+  | 'scared'
+  | 'confused'
+  | 'excited'
+  | 'thinking'
+  | 'embarrassed';
+export type MouthShape = 'closed' | 'slight' | 'wide' | 'smile' | 'grin' | 'frown' | 'o' | 'flat' | 'smirk';
 
 export const EMOTIONS: { id: Emotion; label: string }[] = [
   { id: 'neutral', label: 'Neutral' },
@@ -336,14 +373,107 @@ export const EMOTIONS: { id: Emotion; label: string }[] = [
   { id: 'angry', label: 'Angry' },
   { id: 'surprised', label: 'Surprised' },
   { id: 'scared', label: 'Scared' },
-  { id: 'confused', label: 'Confused' }
+  { id: 'confused', label: 'Confused' },
+  { id: 'excited', label: 'Excited' },
+  { id: 'thinking', label: 'Thinking' },
+  { id: 'embarrassed', label: 'Embarrassed' }
 ];
 
 export const MOUTHS: { id: MouthShape; label: string }[] = [
   { id: 'closed', label: 'Closed' },
   { id: 'slight', label: 'Slightly open' },
-  { id: 'wide', label: 'Wide open' }
+  { id: 'wide', label: 'Wide open' },
+  { id: 'smile', label: 'Smile' },
+  { id: 'grin', label: 'Grin' },
+  { id: 'frown', label: 'Frown' },
+  { id: 'o', label: 'O' },
+  { id: 'flat', label: 'Flat' },
+  { id: 'smirk', label: 'Smirk' }
 ];
+
+export type EyeShape = 'round' | 'oval' | 'dot' | 'almond' | 'sleepy';
+export type BrowStyle = 'normal' | 'thin' | 'thick' | 'arched' | 'flat' | 'none';
+export type NoseShape = 'hook' | 'line' | 'button' | 'wedge';
+
+export const EYE_SHAPES: { id: EyeShape; label: string }[] = [
+  { id: 'round', label: 'Round' },
+  { id: 'oval', label: 'Oval' },
+  { id: 'dot', label: 'Dots' },
+  { id: 'almond', label: 'Almond' },
+  { id: 'sleepy', label: 'Sleepy' }
+];
+export const BROW_STYLES: { id: BrowStyle; label: string }[] = [
+  { id: 'normal', label: 'Normal' },
+  { id: 'thin', label: 'Thin' },
+  { id: 'thick', label: 'Thick' },
+  { id: 'arched', label: 'Arched' },
+  { id: 'flat', label: 'Straight' },
+  { id: 'none', label: 'None' }
+];
+export const NOSE_SHAPES: { id: NoseShape; label: string }[] = [
+  { id: 'hook', label: 'Hook' },
+  { id: 'line', label: 'Line' },
+  { id: 'button', label: 'Button' },
+  { id: 'wedge', label: 'Wedge' }
+];
+export const HAIR_STYLES: { id: HairStyle; label: string }[] = [
+  { id: 'short', label: 'Short' },
+  { id: 'buzz', label: 'Buzz cut' },
+  { id: 'sidepart', label: 'Side part' },
+  { id: 'spiky', label: 'Spiky' },
+  { id: 'curly', label: 'Curly' },
+  { id: 'afro', label: 'Afro' },
+  { id: 'long', label: 'Long' },
+  { id: 'ponytail', label: 'Ponytail' },
+  { id: 'bun', label: 'Bun' },
+  { id: 'bald', label: 'None' }
+];
+
+// how the face of a character is drawn: the shapes and where they sit, in head units
+export interface FaceStyle {
+  eyes: EyeShape;
+  eyeSize: number;
+  // up is negative
+  eyeY: number;
+  eyeSpacing: number;
+  brows: BrowStyle;
+  nose: boolean;
+  noseShape: NoseShape;
+  noseSize: number;
+  noseX: number;
+  noseY: number;
+  mouthWidth: number;
+  mouthY: number;
+}
+
+// a new character has no nose, the minimal faces of the style read better without
+export const DEFAULT_FACE: FaceStyle = {
+  eyes: 'round',
+  eyeSize: 1,
+  eyeY: 0,
+  eyeSpacing: 1,
+  brows: 'normal',
+  nose: false,
+  noseShape: 'hook',
+  noseSize: 1,
+  noseX: 0,
+  noseY: 0,
+  mouthWidth: 1,
+  mouthY: 0
+};
+
+// the face of a character, the ones made before faces had a style keep the nose they always had
+export function faceStyleOf(info: { style?: object } | null | undefined): FaceStyle {
+  if (!info?.style) return { ...DEFAULT_FACE, nose: true };
+  return { ...DEFAULT_FACE, ...(info.style as Partial<FaceStyle>) };
+}
+
+// what a character's hair is drawn from, for the ones made before the look was kept: from the face
+export function lookOf(info: CharacterInfo): CharacterLook {
+  if (info.look) return info.look;
+  const r = info.face.r;
+  return { hair: 'short', outline: Math.max(2, r / 14), wobble: 0.6, seed: 7, head: { x: info.face.x, y: info.face.y, rx: r, ry: r * (0.098 / 0.088) } };
+}
 
 interface FaceLook {
   // eye height against its width, and how far up it moves
@@ -368,10 +498,23 @@ const LOOKS: Record<Emotion, FaceLook> = {
   angry: { eye: 0.75, eyeUp: 0.02, eyeSize: 1, browL: [0.11, -0.07], browR: [0.11, -0.07], mouthW: 0.34, corners: -0.06, open: 0.02, tilt: 0 },
   surprised: { eye: 1.3, eyeUp: -0.03, eyeSize: 1.25, browL: [-0.18, -0.16], browR: [-0.18, -0.16], mouthW: 0.2, corners: 0, open: 0.22, tilt: 0 },
   scared: { eye: 1.2, eyeUp: -0.02, eyeSize: 1.15, browL: [-0.16, -0.04], browR: [-0.16, -0.04], mouthW: 0.38, corners: -0.08, open: 0.1, tilt: 0 },
-  confused: { eye: 0.95, eyeUp: 0, eyeSize: 1, browL: [-0.14, -0.1], browR: [0.05, 0.03], mouthW: 0.3, corners: 0.02, open: 0, tilt: 0.08 }
+  confused: { eye: 0.95, eyeUp: 0, eyeSize: 1, browL: [-0.14, -0.1], browR: [0.05, 0.03], mouthW: 0.3, corners: 0.02, open: 0, tilt: 0.08 },
+  excited: { eye: 1.15, eyeUp: -0.03, eyeSize: 1.15, browL: [-0.12, -0.1], browR: [-0.12, -0.1], mouthW: 0.5, corners: 0.16, open: 0.18, tilt: 0 },
+  thinking: { eye: 0.85, eyeUp: -0.05, eyeSize: 1, browL: [-0.12, -0.06], browR: [0.03, 0], mouthW: 0.26, corners: 0, open: 0, tilt: 0.06 },
+  embarrassed: { eye: 0.7, eyeUp: 0.05, eyeSize: 0.95, browL: [-0.08, 0.03], browR: [-0.08, 0.03], mouthW: 0.3, corners: 0.05, open: 0, tilt: 0 }
 };
 
-const MOUTH_OPEN: Record<MouthShape, number> = { closed: 0, slight: 0.13, wide: 0.3 };
+const MOUTH_OPEN: Record<MouthShape, number> = { closed: 0, slight: 0.13, wide: 0.3, smile: 0, grin: 0, frown: 0, o: 0, flat: 0, smirk: 0 };
+
+// a mouth with a shape of its own instead of the one the mood gives
+const MOUTH_SHAPE: Partial<Record<MouthShape, { mw: number; corners: number; open: number; tilt: number }>> = {
+  smile: { mw: 0.48, corners: 0.14, open: 0, tilt: 0 },
+  grin: { mw: 0.55, corners: 0.15, open: 0.2, tilt: 0 },
+  frown: { mw: 0.36, corners: -0.12, open: 0, tilt: 0 },
+  o: { mw: 0.18, corners: 0, open: 0.2, tilt: 0 },
+  flat: { mw: 0.36, corners: 0, open: 0, tilt: 0 },
+  smirk: { mw: 0.36, corners: 0.04, open: 0, tilt: 0.08 }
+};
 
 export interface FaceFrame {
   x: number;
@@ -380,34 +523,82 @@ export interface FaceFrame {
   facing: 1 | -1;
 }
 
+const NOSES: Record<NoseShape, [number, number][]> = {
+  hook: [
+    [0.78, -0.04],
+    [0.86, 0.18],
+    [0.72, 0.22]
+  ],
+  line: [
+    [0.8, -0.02],
+    [0.82, 0.1],
+    [0.79, 0.2]
+  ],
+  button: [
+    [0.74, 0.12],
+    [0.85, 0.15],
+    [0.76, 0.22]
+  ],
+  wedge: [
+    [0.8, -0.06],
+    [0.91, 0.2],
+    [0.75, 0.2]
+  ]
+};
+
 // the path of every face part for a mood, a mouth and open or closed eyes, in stage pixels at rest
-export function facePaths(frame: FaceFrame, emotion: Emotion, mouth: MouthShape, blink = false): Record<string, PathData> {
+export function facePaths(
+  frame: FaceFrame,
+  emotion: Emotion,
+  mouth: MouthShape,
+  blink = false,
+  style: FaceStyle = DEFAULT_FACE
+): Record<string, PathData> {
   const look = LOOKS[emotion] ?? LOOKS.neutral;
   const { r, facing: f } = frame;
   const P = (x: number, y: number): Vec => ({ x: frame.x + x * r * f, y: frame.y + y * r });
+  const shape = style.eyes;
+  const wide = shape === 'oval' ? 0.8 : shape === 'dot' ? 0.6 : shape === 'almond' ? 1.15 : 1;
+  const tall = shape === 'oval' ? 1.35 : shape === 'almond' ? 0.72 : shape === 'sleepy' ? 0.5 : 1;
   const eyeH = blink ? 0.08 : look.eye;
+  const eyeY = -0.02 + look.eyeUp + style.eyeY + (shape === 'sleepy' ? 0.02 : 0);
+  const middle = 0.185;
+  const half = 0.235 * style.eyeSpacing;
   const eye = (cx: number, size: number) => {
-    const c = P(cx, -0.02 + look.eyeUp);
-    const rx = 0.11 * size * look.eyeSize * r;
-    return ellipsePath(c.x, c.y, rx, Math.max(0.006 * r, rx * 1.12 * eyeH));
+    const c = P(cx, eyeY);
+    const rx = 0.11 * size * look.eyeSize * style.eyeSize * wide * r;
+    const path = ellipsePath(c.x, c.y, rx, Math.max(0.006 * r, rx * 1.12 * eyeH * (tall / wide)));
+    // an almond is pointed at both ends
+    if (shape === 'almond') {
+      for (const i of [0, 2]) {
+        const a = path.anchors[i];
+        path.anchors[i] = { ...a, ix: a.ix * 0.3, iy: a.iy * 0.3, ox: a.ox * 0.3, oy: a.oy * 0.3, kind: 'corner' };
+      }
+    }
+    return path;
   };
+  const arch = style.brows === 'arched' ? 0.07 : style.brows === 'flat' ? 0 : 0.03;
+  const browY = -0.24 + style.eyeY;
   const brow = (inner: number, outer: number, end: [number, number], size: number) => {
-    const a = P(inner, -0.24 + end[0]);
-    const b = P((inner + outer) / 2, -0.27 + (end[0] + end[1]) / 2 - 0.03 * size);
-    const c = P(outer, -0.24 + end[1]);
+    const a = P(inner, browY + end[0]);
+    const b = P((inner + outer) / 2, browY - 0.03 + (end[0] + end[1]) / 2 - arch * size + 0.03 * (1 - size));
+    const c = P(outer, browY + end[1]);
     return {
       closed: false,
       anchors: [anchor(a.x, a.y), anchor(b.x, b.y, (a.x - c.x) * 0.25, (a.y - c.y) * 0.25, (c.x - a.x) * 0.25, (c.y - a.y) * 0.25), anchor(c.x, c.y)]
     };
   };
   // the mouth is a closed lens of six anchors: corners, the top lip and the bottom lip
-  const open = (blink ? 0 : 0) + look.open + MOUTH_OPEN[mouth];
-  const mw = look.mouthW;
+  const own = MOUTH_SHAPE[mouth];
+  const open = own ? own.open : look.open + MOUTH_OPEN[mouth];
+  const mw = (own ? own.mw : look.mouthW) * style.mouthWidth;
+  const corners = own ? own.corners : look.corners;
+  const tilt = own ? own.tilt : look.tilt;
   const mx = 0.36;
-  const my = 0.5;
-  const left = P(mx - mw / 2, my - look.corners - look.tilt);
-  const right = P(mx + mw / 2, my - look.corners + look.tilt);
-  const lift = look.corners * 0.4;
+  const my = 0.5 + style.mouthY;
+  const left = P(mx - mw / 2, my - corners - tilt);
+  const right = P(mx + mw / 2, my - corners + tilt);
+  const lift = corners * 0.4;
   const top1 = P(mx - mw / 6, my - open * 0.3 - lift);
   const top2 = P(mx + mw / 6, my - open * 0.3 - lift);
   const bot2 = P(mx + mw / 6, my + open * 0.7 + 0.012 - lift);
@@ -416,51 +607,145 @@ export function facePaths(frame: FaceFrame, emotion: Emotion, mouth: MouthShape,
     closed: true,
     anchors: [left, top1, top2, right, bot2, bot1].map((p) => anchor(p.x, p.y))
   };
-  const n1 = P(0.78, -0.04);
-  const n2 = P(0.86, 0.18);
-  const n3 = P(0.72, 0.22);
+  // the nose scales around its middle and moves with its offsets
+  const pts = NOSES[style.noseShape] ?? NOSES.hook;
+  const nose = pts.map(([x, y]) => P(0.8 + (x - 0.8) * style.noseSize + style.noseX, 0.1 + (y - 0.1) * style.noseSize + style.noseY));
   return {
-    eyeL: eye(-0.05, 0.85),
-    eyeR: eye(0.42, 1),
-    browL: brow(-0.0, -0.22, look.browL, 0.85),
-    browR: brow(0.3, 0.6, look.browR, 1),
-    nose: { closed: false, anchors: [anchor(n1.x, n1.y), anchor(n2.x, n2.y), anchor(n3.x, n3.y)] },
+    eyeL: eye(middle - half, 0.85),
+    eyeR: eye(middle + half, 1),
+    browL: brow(middle - half + 0.05, middle - half - 0.17, look.browL, 0.85),
+    browR: brow(middle + half - 0.12, middle + half + 0.18, look.browR, 1),
+    nose: { closed: false, anchors: nose.map((p) => anchor(p.x, p.y)) },
     mouth: mouthPath
   };
 }
 
-function faceItems(frame: FaceFrame, o: CharacterOptions): Item[] {
-  const paths = facePaths(frame, 'neutral', 'closed');
+// how thick the brows are drawn for a style and an outline
+export function browWidth(style: FaceStyle, outline: number): number {
+  const k = style.brows === 'thin' ? 0.5 : style.brows === 'thick' ? 1.3 : 0.8;
+  return Math.max(1.5, outline * k);
+}
+
+export function faceItems(frame: FaceFrame, o: Pick<CharacterOptions, 'face' | 'colors' | 'outline'>): Item[] {
+  const style = o.face ?? DEFAULT_FACE;
+  const paths = facePaths(frame, 'neutral', 'closed', false, style);
   const ink = o.colors.outline;
-  const line = Math.max(2, o.outline * 0.8);
-  const make = (role: string, filled: boolean) => {
-    const style = filled ? defaultStyle(solid(ink), solid(ink), Math.max(1.5, o.outline * 0.35)) : defaultStyle(null, solid(ink), line);
-    const item = makePathItem(PART_LABELS[role], paths[role], style);
+  const make = (role: string, filled: boolean, width = Math.max(2, o.outline * 0.8)) => {
+    const s = filled ? defaultStyle(solid(ink), solid(ink), Math.max(1.5, o.outline * 0.35)) : defaultStyle(null, solid(ink), width);
+    const item = makePathItem(PART_LABELS[role], paths[role], s);
     item.role = role;
     return item;
   };
-  return [make('eyeL', true), make('eyeR', true), make('browL', false), make('browR', false), make('nose', false), make('mouth', true)];
+  const items = [
+    make('eyeL', true),
+    make('eyeR', true),
+    make('browL', false, browWidth(style, o.outline)),
+    make('browR', false, browWidth(style, o.outline)),
+    make('nose', false),
+    make('mouth', true)
+  ];
+  // the nose and the brows are there to show later, hidden when the style leaves them out
+  for (const item of items) {
+    if (item.role === 'nose') item.visible = style.nose;
+    if (item.role === 'browL' || item.role === 'browR') item.visible = style.brows !== 'none';
+  }
+  return items;
+}
+
+export interface HeadShape {
+  x: number;
+  y: number;
+  rx: number;
+  ry: number;
+}
+
+// a closed path through points, smooth or with corners
+function loop(pts: Vec[], smooth: number): PathData {
+  const n = pts.length;
+  return {
+    closed: true,
+    anchors: pts.map((p, i) => {
+      const a = pts[(i - 1 + n) % n];
+      const b = pts[(i + 1) % n];
+      const tx = (b.x - a.x) * smooth;
+      const ty = (b.y - a.y) * smooth;
+      return anchor(p.x, p.y, -tx, -ty, tx, ty);
+    })
+  };
+}
+
+// hair over the top of a head and behind it, by style. part draws it like the body parts
+export function hairShapes(h: HeadShape, f: number, hair: HairStyle): { front: [PathData, PathData | null] | null; back: [PathData, PathData | null] | null } {
+  if (hair === 'bald') return { front: null, back: null };
+  const bowl = ellipsePath(h.x - 0.1 * h.rx * f, h.y - h.ry * 0.76, h.rx * 1.06, h.ry * 0.42);
+  const bowlShadow = ellipsePath(h.x - 0.4 * h.rx * f, h.y - h.ry * 0.74, h.rx * 0.52, h.ry * 0.28);
+  // points round the top of the head, from the back over to the front
+  const arc = (n: number, radius: (i: number) => number, cy: number) => {
+    const out: Vec[] = [];
+    for (let i = 0; i <= n; i++) {
+      const a = Math.PI + (i / n) * Math.PI;
+      const k = radius(i);
+      out.push({ x: h.x + Math.cos(a) * h.rx * k * f, y: cy + Math.sin(a) * h.ry * k * 0.75 });
+    }
+    return out;
+  };
+  const top = h.y - h.ry * 0.45;
+  switch (hair) {
+    case 'buzz':
+      return { front: [ellipsePath(h.x - 0.05 * h.rx * f, h.y - h.ry * 0.78, h.rx * 1.0, h.ry * 0.34), null], back: null };
+    case 'sidepart':
+      return {
+        front: [ellipsePath(h.x - 0.02 * h.rx * f, h.y - h.ry * 0.7, h.rx * 1.08, h.ry * 0.46, 0.22 * f), ellipsePath(h.x - 0.42 * h.rx * f, h.y - h.ry * 0.76, h.rx * 0.5, h.ry * 0.26, 0.22 * f)],
+        back: null
+      };
+    case 'spiky': {
+      const pts = arc(10, (i) => (i % 2 ? 1.42 : 1.08), top);
+      pts.push({ x: h.x + h.rx * 1.02 * f, y: h.y - h.ry * 0.3 }, { x: h.x - h.rx * 1.02 * f, y: h.y - h.ry * 0.3 });
+      return { front: [loop(pts, 0), bowlShadow], back: null };
+    }
+    case 'curly': {
+      const pts = arc(12, (i) => (i % 2 ? 1.22 : 1.1), top);
+      pts.push({ x: h.x + h.rx * 1.05 * f, y: h.y - h.ry * 0.25 }, { x: h.x - h.rx * 1.08 * f, y: h.y - h.ry * 0.15 });
+      return { front: [loop(pts, 0.18), bowlShadow], back: null };
+    }
+    case 'afro':
+      return {
+        front: [bowl, null],
+        back: [ellipsePath(h.x - 0.12 * h.rx * f, h.y - h.ry * 0.45, h.rx * 1.6, h.ry * 1.22), ellipsePath(h.x - 0.65 * h.rx * f, h.y - h.ry * 0.35, h.rx * 0.7, h.ry * 0.8)]
+      };
+    case 'long': {
+      const a = { x: h.x - 0.3 * h.rx * f, y: h.y };
+      const b = { x: h.x - 0.38 * h.rx * f, y: h.y + h.ry * 1.75 };
+      return {
+        front: [bowl, bowlShadow],
+        back: [capsulePath(a, b, h.rx * 0.98, h.rx * 0.8), capsulePath({ x: a.x - 0.3 * h.rx * f, y: a.y }, { x: b.x - 0.3 * h.rx * f, y: b.y }, h.rx * 0.5, h.rx * 0.4)]
+      };
+    }
+    case 'ponytail': {
+      const a = { x: h.x - 0.9 * h.rx * f, y: h.y - h.ry * 0.35 };
+      const b = { x: h.x - 1.35 * h.rx * f, y: h.y + h.ry * 0.9 };
+      return { front: [bowl, bowlShadow], back: [capsulePath(a, b, h.rx * 0.32, h.rx * 0.18), null] };
+    }
+    case 'bun': {
+      const c = { x: h.x - 0.55 * h.rx * f, y: h.y - h.ry * 1.0 };
+      return { front: [bowl, bowlShadow], back: [ellipsePath(c.x, c.y, h.rx * 0.48, h.ry * 0.42), ellipsePath(c.x - 0.15 * h.rx * f, c.y + 0.08 * h.ry, h.rx * 0.26, h.ry * 0.22)] };
+    }
+    default:
+      return { front: [bowl, bowlShadow], back: null };
+  }
+}
+
+export function hairParts(h: HeadShape, f: number, o: Pick<CharacterOptions, 'hair' | 'colors' | 'outline' | 'wobble'>, rnd: () => number): { back: Item | null; front: Item | null } {
+  const s = hairShapes(h, f, o.hair);
+  const color = o.colors.hair;
+  return {
+    front: s.front ? part('hair', s.front[0], s.front[1], color, o, rnd, false) : null,
+    back: s.back ? part('hairBack', s.back[0], s.back[1], color, o, rnd, false) : null
+  };
 }
 
 function hairItems(s: Skeleton, o: CharacterOptions, rnd: () => number): { back: Item | null; front: Item | null } {
-  const h = s.head;
-  const f = s.f;
-  const color = o.colors.hair;
-  if (o.hair === 'bald') return { back: null, front: null };
-  // a cap over the top of the head that ends above the brows, the face stays free
-  const bowl = ellipsePath(h.x - 0.1 * h.rx * f, h.y - h.ry * 0.76, h.rx * 1.06, h.ry * 0.42);
-  const bowlShadow = ellipsePath(h.x - 0.4 * h.rx * f, h.y - h.ry * 0.74, h.rx * 0.52, h.ry * 0.28);
-  const front = part('hair', bowl, bowlShadow, color, o, rnd, false);
-  let back: Item | null = null;
-  if (o.hair === 'long') {
-    const a = { x: h.x - 0.3 * h.rx * f, y: h.y };
-    const b = { x: h.x - 0.38 * h.rx * f, y: h.y + h.ry * 1.75 };
-    back = part('hairBack', capsulePath(a, b, h.rx * 0.98, h.rx * 0.8), capsulePath({ x: a.x - 0.3 * h.rx * f, y: a.y }, { x: b.x - 0.3 * h.rx * f, y: b.y }, h.rx * 0.5, h.rx * 0.4), color, o, rnd, false);
-  } else if (o.hair === 'bun') {
-    const c = { x: h.x - 0.55 * h.rx * f, y: h.y - h.ry * 1.0 };
-    back = part('hairBack', ellipsePath(c.x, c.y, h.rx * 0.48, h.ry * 0.42), ellipsePath(c.x - 0.15 * h.rx * f, c.y + 0.08 * h.ry, h.rx * 0.26, h.ry * 0.22), color, o, rnd, false);
-  }
-  return { back, front };
+  return hairParts(s.head, s.f, o, rnd);
 }
 
 // a limb part from joint a to joint b, its shadow along the back side
@@ -472,6 +757,58 @@ function limb(role: string, a: Vec, b: Vec, ra: number, rb: number, color: strin
   const sa = { x: a.x + n.x * ra * dir, y: a.y + n.y * ra * dir };
   const sb = { x: b.x + n.x * rb * dir, y: b.y + n.y * rb * dir };
   return part(role, capsulePath(a, b, ra, rb), capsulePath(sa, sb, ra * 0.5, rb * 0.5), color, o, rnd, far);
+}
+
+// where the fingers start and end at rest: they go on from the hand along the arm, the index on the
+// side the character looks to, the thumb out of the palm toward the front
+function fingerJoints(j: Record<string, Vec>, side: 'L' | 'R', u: number, w: number, f: number) {
+  const wrist = j[`wrist${side}`];
+  const tip = j[`hand${side}`];
+  const len = Math.hypot(tip.x - wrist.x, tip.y - wrist.y) || 1;
+  const d = { x: (tip.x - wrist.x) / len, y: (tip.y - wrist.y) / len };
+  // the front, across the hand toward where it looks
+  const n = { x: -d.y, y: d.x };
+  const front = n.x * f >= 0 ? n : { x: -n.x, y: -n.y };
+  const at = (base: Vec, side: number, along: number) => ({ x: base.x + front.x * side * u + d.x * along * u, y: base.y + front.y * side * u + d.y * along * u });
+  const palm = at(wrist, 0, len / u * 0.55);
+  return {
+    palm,
+    fingers: [at(tip, -0.005 * w, -0.008), at(tip, -0.006 * w, 0.034)] as [Vec, Vec],
+    index: [at(tip, 0.012 * w, -0.008), at(tip, 0.015 * w, 0.036)] as [Vec, Vec],
+    thumb: [at(palm, 0.018 * w, -0.004), at(palm, 0.036 * w, 0.02)] as [Vec, Vec]
+  };
+}
+
+// a hand: the fingers under the palm, the index finger in front of them, the thumb over the palm
+function handParts(side: 'L' | 'R', j: Record<string, Vec>, u: number, w: number, f: number, skin: string, o: CharacterOptions, rnd: () => number, far: boolean): Item[] {
+  const fg = fingerJoints(j, side, u, w, f);
+  const r = 0.0105 * u * w;
+  const palm = part(`hand${side}`, ellipsePath(fg.palm.x, fg.palm.y, 0.03 * u * w, 0.032 * u * w), null, skin, o, rnd, far);
+  return [
+    limb(`fingers${side}`, fg.fingers[0], fg.fingers[1], r * 1.45, r * 1.2, skin, o, rnd, far, f),
+    limb(`index${side}`, fg.index[0], fg.index[1], r * 0.85, r * 0.75, skin, o, rnd, far, f),
+    palm,
+    limb(`thumb${side}`, fg.thumb[0], fg.thumb[1], r * 0.9, r * 0.75, skin, o, rnd, far, f)
+  ];
+}
+
+// how far the fingers curl toward the palm in a hand pose, 0 is straight, about 2 a closed fist
+export type HandPose = 'relaxed' | 'open' | 'fist' | 'point' | 'grab' | 'hold';
+export const HAND_POSES: { id: HandPose; label: string; fingers: number; index: number; thumb: number }[] = [
+  { id: 'relaxed', label: 'Relaxed', fingers: 0, index: 0, thumb: 0 },
+  { id: 'open', label: 'Open hand', fingers: 0.05, index: -0.2, thumb: -0.55 },
+  { id: 'fist', label: 'Closed fist', fingers: 2.8, index: 2.75, thumb: 0.9 },
+  { id: 'point', label: 'Pointing', fingers: 2.8, index: -0.05, thumb: 0.9 },
+  { id: 'grab', label: 'Grabbing', fingers: 1.2, index: 1.0, thumb: -0.35 },
+  { id: 'hold', label: 'Holding product', fingers: 2.0, index: 1.9, thumb: 0.45 }
+];
+
+// the finger rotations of a hand pose for a character looking one way. curling folds the fingers
+// back over the palm on the side away from the thumb, a fist hides them under the palm
+export function handPoseValues(id: HandPose, facing: number): Record<'Fingers' | 'Index' | 'Thumb', number> {
+  const p = HAND_POSES.find((h) => h.id === id) ?? HAND_POSES[0];
+  const c = facing >= 0 ? 1 : -1;
+  return { Fingers: p.fingers * c, Index: p.index * c, Thumb: p.thumb * c };
 }
 
 export interface BuiltCharacter {
@@ -507,13 +844,17 @@ export function buildCharacter(o: CharacterOptions): BuiltCharacter {
     add(`Upper leg ${side}`, 'Hip', j[`hip${side}`], j[`knee${side}`]);
     add(`Lower leg ${side}`, `Upper leg ${side}`, j[`knee${side}`], j[`ankle${side}`]);
     add(`Foot ${side}`, `Lower leg ${side}`, j[`ankle${side}`], j[`toe${side}`]);
+    const fg = fingerJoints(j, side, u, w, f);
+    add(`Fingers ${side}`, `Hand ${side}`, fg.fingers[0], fg.fingers[1]);
+    add(`Index ${side}`, `Hand ${side}`, fg.index[0], fg.index[1]);
+    add(`Thumb ${side}`, `Hand ${side}`, fg.thumb[0], fg.thumb[1]);
   }
   // an arm or a leg dragged by its hand or foot bends at the elbow or the knee and nowhere else: the
   // chain stops at the pinned upper bone, so the body does not fold over when a hand is pulled far
   for (const b of bones) if (b.name.startsWith('Upper arm') || b.name.startsWith('Upper leg')) b.pinned = true;
   const boneId = (name: BoneName) => bones.find((b) => b.name === name)!.id;
 
-  const arm = { ua: 0.037 * u * w, ub: 0.031 * u * w, la: 0.029 * u * w, lb: 0.025 * u * w, hand: 0.034 * u * w };
+  const arm = { ua: 0.037 * u * w, ub: 0.031 * u * w, la: 0.029 * u * w, lb: 0.025 * u * w };
   const leg = { ua: 0.052 * u * w, ub: 0.041 * u * w, la: 0.04 * u * w, lb: 0.032 * u * w, foot: 0.03 * u * w };
   const h = s.head;
 
@@ -523,7 +864,7 @@ export function buildCharacter(o: CharacterOptions): BuiltCharacter {
   // the far arm and leg behind the body
   parts.push(limb('upperArmL', j.shoulderL, j.elbowL, arm.ua, arm.ub, c.shirt, o, rnd, true, f));
   parts.push(limb('lowerArmL', j.elbowL, j.wristL, arm.la, arm.lb, c.skin, o, rnd, true, f));
-  parts.push(part('handL', ellipsePath(j.handL.x, j.handL.y, arm.hand, arm.hand * 1.1), null, c.skin, o, rnd, true));
+  parts.push(...handParts('L', j, u, w, f, c.skin, o, rnd, true));
   parts.push(limb('upperLegL', j.hipL, j.kneeL, leg.ua, leg.ub, c.pants, o, rnd, true, f));
   parts.push(limb('lowerLegL', j.kneeL, j.ankleL, leg.la, leg.lb, c.pants, o, rnd, true, f));
   parts.push(limb('footL', j.ankleL, j.toeL, leg.foot, leg.foot * 0.85, c.shoes, o, rnd, true, f));
@@ -542,7 +883,7 @@ export function buildCharacter(o: CharacterOptions): BuiltCharacter {
   parts.push(...faceItems(face, o));
   parts.push(limb('upperArmR', j.shoulderR, j.elbowR, arm.ua, arm.ub, c.shirt, o, rnd, false, f));
   parts.push(limb('lowerArmR', j.elbowR, j.wristR, arm.la, arm.lb, c.skin, o, rnd, false, f));
-  parts.push(part('handR', ellipsePath(j.handR.x, j.handR.y, arm.hand, arm.hand * 1.1), null, c.skin, o, rnd, false));
+  parts.push(...handParts('R', j, u, w, f, c.skin, o, rnd, false));
 
   // every part follows its bone rigidly, it was drawn at the rest pose so nothing moves when bound
   for (const item of parts) {
@@ -550,7 +891,14 @@ export function buildCharacter(o: CharacterOptions): BuiltCharacter {
     if (bone) item.skin = { weights: [], rigid: boneId(bone) };
   }
 
-  const info: CharacterInfo = { id: newId(), name: o.name, colors: { ...c }, face };
+  const info: CharacterInfo = {
+    id: newId(),
+    name: o.name,
+    colors: { ...c },
+    face,
+    style: { ...(o.face ?? DEFAULT_FACE) },
+    look: { hair: o.hair, outline: o.outline, wobble: o.wobble, seed: o.seed, head: { ...h } }
+  };
   const folder = makeLayer(o.name, folderColor, 'folder');
   folder.character = info;
   const rig = makeLayer(`${o.name} skeleton`, folderColor, 'rig');

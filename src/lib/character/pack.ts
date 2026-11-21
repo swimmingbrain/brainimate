@@ -108,7 +108,12 @@ export function unpackCharacter(pkg: CharacterPackage, dx = 0, dy = 0, name?: st
       for (const item of k.items) fixItem(item, true);
     }
     if (l.character) {
-      l.character = { ...l.character, face: { ...l.character.face, x: l.character.face.x + dx, y: l.character.face.y + dy } };
+      const look = l.character.look;
+      l.character = {
+        ...l.character,
+        face: { ...l.character.face, x: l.character.face.x + dx, y: l.character.face.y + dy },
+        ...(look ? { look: { ...look, head: { ...look.head, x: look.head.x + dx, y: look.head.y + dy } } } : {})
+      };
       if (name) {
         l.character.name = name;
         l.name = name;

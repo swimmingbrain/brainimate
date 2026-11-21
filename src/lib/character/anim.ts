@@ -2,7 +2,8 @@ import type { Bone, BonePose, Keyframe, Layer, PathData, Vec } from '$lib/core/t
 import { solveChain } from '$lib/rig/ik';
 import { poseOf, type Pose } from '$lib/rig/bones';
 import type { BoneName, Emotion, FaceFrame, MouthShape } from './model';
-import { facePaths, seeded } from './model';
+import { facePaths, seeded, type FaceStyle } from './model';
+import { gaitPose, legRig, weightShift } from './gait';
 
 // the moves of a character as pose keyframes on its rig layer. a cycle is worked out from smooth waves
 // at eight keyframes a cycle with straight tweens between them, so it plays smooth and stays light.
@@ -155,8 +156,31 @@ export function animationKeys(kind: AnimKind, body: Body, o: AnimOptions): PoseK
   if (info.cycle) {
     const period = frames(info.seconds);
     const cycles = Math.max(1, Math.round(o.repeat));
-    const steps = kind === 'wave' ? 4 : 8;
     const total = period * cycles;
+    const legs = legRig(body);
+    // walking, running and standing are worked out every other frame, the feet stay planted between
+    // keys; a wave and a body without legs at eight keys a cycle
+    if (legs && kind !== 'wave') {
+      const step = period >= 12 ? 2 : 1;
+      const sx = start.sx ?? 1;
+      for (let t = 0; t <= total; t += step) {
+        const phase = t / period;
+        const last = t + step > total;
+        const frame = at + (last ? total : t);
+        let pose: PoseValues;
+        let dx = 0;
+        if (kind === 'idle') pose = weightShift(body, legs, phase);
+        else {
+          // the hip's own x is mirrored when the character turned
+          pose = gaitPose(body, legs, phase, { run: kind === 'run', travel: o.distance * sx, facing: f });
+          dx = (o.distance * (last ? total : t)) / period;
+        }
+        put(frame, withHip(pose, dx), last ? null : 'linear');
+        if (last) break;
+      }
+      return dedupe(keys);
+    }
+    const steps = kind === 'wave' ? 4 : 8;
     // a wave lifts the arm first and puts it down after
     const lift = kind === 'wave' ? frames(0.3) : 0;
     if (kind === 'wave') put(at, withHip({}), 'inout');
@@ -360,8 +384,8 @@ export function faceAt(layer: Layer | null, frame: number): FaceState {
 }
 
 // the anchors of a face part set to the shape of a mood, the item keeps its id, style and binding
-export function faceShapes(frame: FaceFrame, state: FaceState, blink = false): Record<string, PathData> {
-  return facePaths(frame, state.emotion, state.mouth, blink);
+export function faceShapes(frame: FaceFrame, state: FaceState, blink = false, style?: FaceStyle): Record<string, PathData> {
+  return facePaths(frame, state.emotion, state.mouth, blink, style);
 }
 
 // mouth shapes for talking without a sound, a little different every time but the same for a seed
