@@ -1,5 +1,7 @@
 import { get, writable } from 'svelte/store';
-import type { CharacterColors, Doc, Item, Keyframe, Layer, Mat, Vec } from '$lib/core/types';
+import type { CharacterColors, CharacterInfo, Doc, Item, Keyframe, Layer, Mat, Vec } from '$lib/core/types';
+import { modelOf, type CharacterModel } from '$lib/character/views';
+import { blinking, rebuildAll, rebuildKey } from '$lib/character/rebuild';
 import { applyPoint, invert, multiply, translate } from '$lib/core/mat';
 import { itemBounds } from '$lib/core/items';
 import { boxCenter, isEmpty } from '$lib/core/bbox';
@@ -145,20 +147,13 @@ export function recolorCharacter(folderId: string, colors: Partial<CharacterColo
       if (!parts?.body) return;
       const next = { ...parts.folder.character!.colors, ...colors };
       parts.folder.character = { ...parts.folder.character!, colors: next };
-      for (const k of parts.body.keyframes) k.items = recolorItems(k.items, next);
+      if (turnable(parts) && parts.rig) {
+        parts.folder.character = withModel(parts.folder.character, { colors: next });
+        rebuildAll(parts.folder.character, parts.rig, parts.body);
+      } else for (const k of parts.body.keyframes) k.items = recolorItems(k.items, next);
     },
     key
   );
-}
-
-// a closed eye is a flat one, a keyframe of a blink keeps it closed when the face is redrawn
-function blinking(items: Item[]): boolean {
-  const eye = items.find((i) => i.role === 'eyeR');
-  if (!eye || eye.type !== 'path') return false;
-  const ys = eye.path.anchors.map((a) => a.y);
-  const xs = eye.path.anchors.map((a) => a.x);
-  const w = Math.max(...xs) - Math.min(...xs);
-  return w > 0 && (Math.max(...ys) - Math.min(...ys)) / w < 0.2;
 }
 
 export function faceStyle(folderId: string): FaceStyle | null {
@@ -176,6 +171,11 @@ export function applyFaceStyle(folderId: string, change: Partial<FaceStyle>, key
       const info = parts.folder.character!;
       const style = { ...faceStyleOf(info), ...change };
       parts.folder.character = { ...info, style: { ...style } };
+      if (turnable(parts) && parts.rig) {
+        parts.folder.character = withModel(parts.folder.character, { face: style });
+        rebuildAll(parts.folder.character, parts.rig, parts.body);
+        return;
+      }
       const look = lookOf(info);
       for (const k of parts.body.keyframes) {
         const shapes = faceShapes(info.face, faceAt(parts.body, k.frame), blinking(k.items), style);
@@ -208,6 +208,11 @@ export function setHair(folderId: string, hair: HairStyle) {
     const info = parts.folder.character!;
     const look = { ...lookOf(info), hair };
     parts.folder.character = { ...info, look };
+    if (turnable(parts)) {
+      parts.folder.character = withModel(parts.folder.character, { hair });
+      rebuildAll(parts.folder.character, parts.rig, parts.body);
+      return;
+    }
     const head = parts.rig.bones.find((b) => b.name === 'Head');
     const made = hairParts(look.head, info.face.facing, { hair, colors: info.colors, outline: look.outline, wobble: look.wobble }, seeded(look.seed + 101));
     for (const item of [made.front, made.back]) if (item && head) item.skin = { weights: [], rigid: head.id };
@@ -255,6 +260,18 @@ export function selectPart(folderId: string, role: string) {
   if (!item) return;
   activeLayer.set(body.id);
   selection.set(new Set([item.id]));
+}
+
+// a character that can be seen from every side: it keeps a model and its rig knows the room
+export function turnable(parts: { folder: Layer; rig: Layer | null } | null): parts is { folder: Layer; rig: Layer; body: Layer | null } {
+  return !!parts?.rig?.turnRig && !!modelOf(parts.folder.character);
+}
+
+// the model of a character changed, kept on its info
+export function withModel(info: CharacterInfo, change: Partial<CharacterModel>): CharacterInfo {
+  const m = modelOf(info);
+  if (!m) return info;
+  return { ...info, model: { ...m, ...change } as unknown as CharacterInfo['model'] };
 }
 
 // what an animation knows of a character: its size, where it looked, its bones and the pose at frame
@@ -382,7 +399,13 @@ export function restPose(folderId: string) {
 }
 
 // the face parts of a keyframe set to a state, every face part keeps its id, style and binding
-function setFace(layer: Layer, key: Keyframe, frame: Parameters<typeof faceShapes>[0], state: FaceState, blink: boolean, style?: FaceStyle) {
+function setFace(layer: Layer, key: Keyframe, frame: Parameters<typeof faceShapes>[0], state: FaceState, blink: boolean, style?: FaceStyle, turned?: { info: CharacterInfo; rig: Layer }) {
+  if (turned) {
+    // a turnable character draws the face at the angle of the keyframe
+    rebuildKey(turned.info, turned.rig, layer, key, state, blink);
+    if (!blink) key.face = { emotion: state.emotion, mouth: state.mouth };
+    return;
+  }
   const shapes = faceShapes(frame, state, blink, style);
   key.items = key.items.map((item) => {
     const role = item.role ?? '';
@@ -399,6 +422,7 @@ export function faceDraft(draft: Doc, folderId: string, changes: { frame: number
   const frame = parts.folder.character!.face;
   const style = faceStyleOf(parts.folder.character);
   const body = parts.body;
+  const turned = turnable(parts) && parts.rig ? { info: parts.folder.character!, rig: parts.rig } : undefined;
   for (const c of changes) {
     const now = faceAt(body, c.frame);
     const state = { ...now, ...c.state } as FaceState;
@@ -408,7 +432,7 @@ export function faceDraft(draft: Doc, folderId: string, changes: { frame: number
       before.tween = { ease: 'inout' };
     }
     const key = insertKeyframe(body, c.frame);
-    setFace(body, key, frame, state, !!c.blink, style);
+    setFace(body, key, frame, state, !!c.blink, style, turned);
     key.tween = null;
   }
   reach(draft, Math.max(...changes.map((c) => c.frame)));
@@ -416,29 +440,8 @@ export function faceDraft(draft: Doc, folderId: string, changes: { frame: number
 
 function faceKeys(folderId: string, label: string, changes: { frame: number; state: Partial<FaceState>; blink?: boolean; blend?: number }[]) {
   if (!mainOnly()) return;
-  const parts = characterLayers(editor.doc.layers, folderId);
-  if (!parts?.body) return;
-  const frame = parts.folder.character!.face;
-  const style = faceStyleOf(parts.folder.character);
-  const bodyId = parts.body.id;
-  const last = Math.max(...changes.map((c) => c.frame));
-  editor.commit(label, (draft) => {
-    const body = draft.layers.find((l) => l.id === bodyId);
-    if (!body) return;
-    for (const c of changes) {
-      const now = faceAt(body, c.frame);
-      const state = { ...now, ...c.state } as FaceState;
-      const blend = c.blend ?? 0;
-      if (blend > 0 && c.frame - blend > 0) {
-        const before = insertKeyframe(body, c.frame - blend);
-        before.tween = { ease: 'inout' };
-      }
-      const key = insertKeyframe(body, c.frame);
-      setFace(body, key, frame, state, !!c.blink, style);
-      key.tween = null;
-    }
-    reach(draft, last);
-  });
+  if (!characterLayers(editor.doc.layers, folderId)?.body) return;
+  editor.commit(label, (draft) => faceDraft(draft, folderId, changes));
 }
 
 export function setEmotion(folderId: string, emotion: Emotion, blend = 4) {

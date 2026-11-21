@@ -263,6 +263,8 @@ export interface CharacterInfo {
   // how the face is drawn and the hair, characters made before these existed have neither
   style?: CharacterFaceStyle;
   look?: CharacterLook;
+  // everything a turnable character is drawn from at any angle, see character/views.ts
+  model?: Record<string, unknown>;
 }
 
 // see FaceStyle in character/model, kept loose here so the core types know nothing of the drawing
