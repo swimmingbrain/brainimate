@@ -267,6 +267,8 @@ export interface CharacterInfo {
   model?: Record<string, unknown>;
   // who the character is: a few words about its personality, for writing its lines
   personality?: string;
+  // the voice of the character in every project: pitch, speed, loudness and a generator voice
+  voice?: { pitch: number; rate: number; volume?: number; provider: string; voiceId: string; style?: string };
 }
 
 // see FaceStyle in character/model, kept loose here so the core types know nothing of the drawing
@@ -293,6 +295,9 @@ export interface AudioClip {
   // the track it plays on and who speaks in it, a production mixes by track
   track?: 'narration' | 'dialogue' | 'music' | 'sfx';
   speaker?: string;
+  // how fast it plays, 1 as recorded; its length in frames at that speed once read
+  rate?: number;
+  frames?: number;
 }
 
 export interface Symbol {
