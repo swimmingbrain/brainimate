@@ -182,7 +182,8 @@ export function animationKeys(kind: AnimKind, body: Body, o: AnimOptions): PoseK
   // the hip keeps where it is, the move adds to it
   const withHip = (p: PoseValues, dx = 0, dy = 0): PoseValues => ({
     ...p,
-    Hip: { ...p.Hip, x: start.x + dx + (p.Hip?.x ?? 0), y: start.y + dy + (p.Hip?.y ?? 0), sx: start.sx ?? 1 }
+    // the size a walk toward the camera left it at stays
+    Hip: { ...p.Hip, x: start.x + dx + (p.Hip?.x ?? 0), y: start.y + dy + (p.Hip?.y ?? 0), sx: start.sx ?? 1, scale: (start.scale ?? 1) * (p.Hip?.scale ?? 1) }
   });
 
   if (info.cycle) {
@@ -216,7 +217,8 @@ export function animationKeys(kind: AnimKind, body: Body, o: AnimOptions): PoseK
         if (kind === 'idle') pose = weightShift(body, legs, phase);
         else {
           // the hip's own x is mirrored when the character turned
-          pose = gaitPose(body, legs, phase, { run: kind === 'run', travel: o.distance * sx, facing: f });
+          // a character made bigger by a walk toward the camera takes bigger steps on the screen
+          pose = gaitPose(body, legs, phase, { run: kind === 'run', travel: (o.distance * sx) / (start.scale || 1), facing: f });
           dx = (o.distance * (last ? total : t)) / period;
         }
         put(frame, withHip(pose, dx), last ? null : 'linear');

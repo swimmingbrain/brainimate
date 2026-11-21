@@ -295,3 +295,25 @@ describe('keeping turnable characters', () => {
     expect(turnHere(id, 20)!.body).toBeCloseTo(50);
   });
 });
+
+describe('size after a walk toward the camera', () => {
+  beforeEach(() => {
+    editor.newDoc(W, H, 24);
+    frame.set(0);
+  });
+
+  it('stays when the character turns and walks on', async () => {
+    const { applyTemplate, walkTo } = await import('$lib/editor/interact');
+    const { poseAt } = await import('$lib/render/frame');
+    const id = createCharacter({ ...opts(), view: 90 })!;
+    const last = () => Math.max(...editor.doc.layers.map((l) => l.length)) - 1;
+    applyTemplate(id, 'toward');
+    const rig = () => characterLayers(editor.doc.layers, id)!.rig!;
+    const hip = rig().bones.find((b) => b.name === 'Hip')!.id;
+    const big = poseAt(rig(), last())[hip].scale;
+    expect(big).toBeGreaterThan(1.2);
+    frame.set(last());
+    walkTo(id, 900);
+    expect(poseAt(rig(), last())[hip].scale).toBeCloseTo(big, 2);
+  });
+});

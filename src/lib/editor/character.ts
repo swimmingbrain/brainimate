@@ -396,7 +396,7 @@ export function restPose(folderId: string) {
     const hip = rig.bones.find((b) => b.name === 'Hip');
     // the character stays where it walked to
     const kept: Pose = {};
-    if (hip && k.pose[hip.id]) kept[hip.id] = { rotation: 0, x: k.pose[hip.id].x, y: 0, scale: 1, ...(k.pose[hip.id].sx ? { sx: k.pose[hip.id].sx } : {}) };
+    if (hip && k.pose[hip.id]) kept[hip.id] = { rotation: 0, x: k.pose[hip.id].x, y: k.pose[hip.id].scale !== 1 ? k.pose[hip.id].y : 0, scale: k.pose[hip.id].scale ?? 1, ...(k.pose[hip.id].sx ? { sx: k.pose[hip.id].sx } : {}) };
     k.pose = kept;
   });
 }
