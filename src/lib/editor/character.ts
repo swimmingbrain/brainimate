@@ -7,6 +7,7 @@ import { insertKeyframe, layersLength, keyframeAt } from '$lib/anim/timeline';
 import { resolveItems } from '$lib/render/frame';
 import { poseAt } from '$lib/render/frame';
 import { rigFor, worldMatrices, type Pose } from '$lib/rig/bones';
+import { bonesAt } from '$lib/rig/turn';
 import {
   BONES,
   FACE_ROLES,
@@ -265,7 +266,8 @@ export function bodyIn(layers: Layer[], folderId: string, at: number): (Body & {
   const parts = characterLayers(layers, folderId);
   if (!parts?.rig) return null;
   const rig = parts.rig;
-  const bones = rig.bones;
+  // a turned character has its bones where its angle at the frame puts them
+  const bones = bonesAt(layers, rig, at);
   const byName = new Map(bones.map((b) => [b.name, b.id]));
   const rest = worldMatrices(bones, {});
   let top = Infinity;

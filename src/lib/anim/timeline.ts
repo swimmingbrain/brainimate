@@ -1,3 +1,4 @@
+import { turnAt } from '$lib/rig/turn';
 import type { Doc, Item, Keyframe, Layer } from '$lib/core/types';
 import { cloneItems } from '$lib/core/items';
 import { newId } from '$lib/core/ids';
@@ -94,6 +95,9 @@ export function insertKeyframe(layer: Layer, frame: number): Keyframe {
     tween: spot ? { ease: spot.key.tween!.ease } : null,
     label: ''
   };
+  // the body of a turnable character keeps the angle it is seen from right there
+  const turn = turnAt(layer, frame);
+  if (turn) key.turn = turn;
   // a camera keyframe holds where the camera is right there, a new shot it is not
   if (layer.type === 'camera') {
     const size = cameraStage();

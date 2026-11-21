@@ -31,6 +31,8 @@ interface Where {
   height: number;
   world: Map<string, readonly number[]>;
   bone: (name: string) => string | null;
+  // the bones as they stand at the frame
+  bones: import('$lib/core/types').Bone[];
 }
 
 function where(draft: Doc, id: string, at: number): Where | null {
@@ -38,13 +40,13 @@ function where(draft: Doc, id: string, at: number): Where | null {
   const parts = characterLayers(draft.layers, id);
   if (!body || !parts) return null;
   const pose = poseAt(body.rig, at);
-  const world = worldMatrices(body.rig.bones, pose);
-  const bone = (name: string) => body.rig.bones.find((b) => b.name === name)?.id ?? null;
+  const world = worldMatrices(body.bones, pose);
+  const bone = (name: string) => body.bones.find((b) => b.name === name)?.id ?? null;
   const hipId = bone('Hip');
   const headId = bone('Head');
   if (!hipId || !headId) return null;
   const hip = world.get(hipId)!;
-  const headBone = body.rig.bones.find((b) => b.id === headId)!;
+  const headBone = body.bones.find((b) => b.id === headId)!;
   const head = applyPoint(world.get(headId)!, { x: headBone.length * 0.5, y: 0 });
   const sx = pose[hipId]?.sx ?? 1;
   return {
@@ -55,7 +57,8 @@ function where(draft: Doc, id: string, at: number): Where | null {
     facing: body.facing,
     height: body.height,
     world,
-    bone
+    bone,
+    bones: body.bones
   };
 }
 
@@ -112,8 +115,8 @@ function armRotations(w: Where, side: Side, target: Vec, at: number): { upper: n
   const lower = w.bone(`Lower arm ${side}`);
   if (!upper || !lower) return null;
   const base = poseAt(w.rig, at);
-  const lowerBone = w.rig.bones.find((b) => b.id === lower)!;
-  const solved = solveChain(w.rig.bones, base, lower, { x: lowerBone.length, y: 0 }, target, { limit: 2 });
+  const lowerBone = w.bones.find((b) => b.id === lower)!;
+  const solved = solveChain(w.bones, base, lower, { x: lowerBone.length, y: 0 }, target, { limit: 2 });
   return { upper: solved[upper]?.rotation ?? 0, lower: solved[lower]?.rotation ?? 0 };
 }
 
