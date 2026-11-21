@@ -5,6 +5,7 @@ import { characterLayers } from '$lib/character/model';
 import { VIEW_ANGLES, modelOf, type CharacterModel, type ViewId, type ViewTweak } from '$lib/character/views';
 import { deriveModel, rebuildAll, rebuildKey, rebuildRig } from '$lib/character/rebuild';
 import { addToast } from '$lib/stores/app';
+import { BODY_PRESETS, wearOutfit, type BodyType, type Identity, type Look, type Outfit } from '$lib/character/wardrobe';
 import { editor } from './editor';
 import { reach, turnable, withModel } from './character';
 
@@ -162,12 +163,20 @@ export function modelHere(folderId: string): CharacterModel | null {
 
 // the model changed: clothes, accessories, proportions or what one view changes. every keyframe is
 // drawn again, a change of proportions places the skeleton again with the same bones
-export function setModel(folderId: string, change: Partial<CharacterModel>, key?: string) {
+export function setModel(folderId: string, change: Partial<CharacterModel>, key?: string, label = 'Turnaround'): boolean {
   const parts = characterLayers(editor.doc.layers, folderId);
-  if (!turnable(parts)) return;
-  const proportions = 'height' in change || 'build' in change || 'headSize' in change;
+  if (!turnable(parts)) return false;
+  const before = modelOf(parts.folder.character)!;
+  // a main character keeps its look until it is unlocked
+  if (before.locked && !(Object.keys(change).length === 1 && 'locked' in change)) {
+    addToast('The look of this character is locked: unlock it under Save to change it', 'info');
+    return false;
+  }
+  const ident = change.identity;
+  const moved = !!ident && (['shoulders', 'hips', 'legs'] as const).some((k) => Math.abs((ident[k] ?? before.identity[k]) - before.identity[k]) > 1e-9);
+  const proportions = 'height' in change || 'build' in change || 'headSize' in change || moved;
   editor.commit(
-    'Turnaround',
+    label,
     (draft) => {
       const p = characterLayers(draft.layers, folderId);
       if (!turnable(p) || !p.body) return;
@@ -185,6 +194,44 @@ export function setModel(folderId: string, change: Partial<CharacterModel>, key?
     },
     key
   );
+  return true;
+}
+
+export function lookLocked(folderId: string): boolean {
+  return !!modelHere(folderId)?.locked;
+}
+
+export function setLocked(folderId: string, locked: boolean) {
+  setModel(folderId, { locked }, undefined, locked ? 'Lock look' : 'Unlock look');
+}
+
+// a part of the identity changed: the body, the face details, the clothes, the shoes, the extras
+export function setIdentity(folderId: string, change: Partial<Identity>, key?: string): boolean {
+  const m = modelHere(folderId);
+  if (!m) return false;
+  return setModel(folderId, { identity: { ...m.identity, ...change } }, key ? `identity-${folderId}-${key}` : undefined, 'Character look');
+}
+
+// a whole new look from the generator, or an outfit put on
+export function applyLook(folderId: string, look: Look): boolean {
+  const m = modelHere(folderId);
+  if (!m) return false;
+  return setModel(folderId, { identity: look.identity, colors: { ...look.colors, outline: m.colors.outline }, hair: look.hair, headSize: look.headSize }, undefined, 'New look');
+}
+
+export function applyOutfit(folderId: string, outfit: Outfit): boolean {
+  const m = modelHere(folderId);
+  if (!m) return false;
+  const worn = wearOutfit(m.identity, m.colors, outfit);
+  return setModel(folderId, { identity: worn.identity, colors: worn.colors }, undefined, 'Outfit');
+}
+
+// a body type with its proportions, everything else stays
+export function setBodyType(folderId: string, type: BodyType): boolean {
+  const m = modelHere(folderId);
+  if (!m) return false;
+  const p = BODY_PRESETS[type];
+  return setModel(folderId, { identity: { ...m.identity, type, shoulders: p.shoulders, waist: p.waist, hips: p.hips, legs: p.legs, bust: p.bust }, headSize: p.headSize }, undefined, 'Body type');
 }
 
 export function setTweak(folderId: string, view: ViewId, change: Partial<ViewTweak>, key?: string) {

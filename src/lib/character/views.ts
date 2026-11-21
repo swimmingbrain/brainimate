@@ -1,7 +1,10 @@
 import type { Item, PathData, Point3, Turn, TurnRig, Vec } from '$lib/core/types';
 import { makePathItem } from '$lib/core/items';
+import { mixHex } from '$lib/core/color';
 import { defaultStyle, solid } from '$lib/core/style';
 import { project, SIDE } from '$lib/rig/turn';
+import { identityOf, type Identity } from './wardrobe';
+import { dress } from './outfit';
 import {
   DEFAULT_FACE,
   LOOKS,
@@ -16,6 +19,7 @@ import {
   loop,
   part,
   seeded,
+  shadeOf,
   type BoneName,
   type CharacterOptions,
   type Emotion,
@@ -73,7 +77,10 @@ export interface ViewTweak {
 
 export const NO_TWEAK: ViewTweak = { headScale: 1, bodyWidth: 1, hairX: 0, hairY: 0, hairScale: 1, eyeX: 0, eyeY: 0, noseX: 0, noseY: 0, mouthX: 0, mouthY: 0 };
 
-export interface CharacterModel extends Required<Omit<CharacterOptions, 'name' | 'view' | 'sleeves' | 'glasses' | 'hat'>> {
+export interface CharacterModel extends Required<Omit<CharacterOptions, 'name' | 'view' | 'sleeves' | 'glasses' | 'hat' | 'identity'>> {
+  identity: Identity;
+  // a main character's look stays as it is until someone unlocks it
+  locked?: boolean;
   sleeves: Sleeves;
   glasses: Glasses;
   hat: Hat;
@@ -81,20 +88,23 @@ export interface CharacterModel extends Required<Omit<CharacterOptions, 'name' |
 }
 
 export function modelFrom(o: CharacterOptions, extra: Partial<Pick<CharacterModel, 'sleeves' | 'glasses' | 'hat' | 'tweaks'>> = {}): CharacterModel {
-  const { name: _name, view: _view, sleeves: _s, glasses: _g, hat: _h, ...rest } = o;
+  const { name: _name, view: _view, sleeves: _s, glasses: _g, hat: _h, identity: _i, ...rest } = o;
+  void _i;
   void _name;
   void _view;
   void _s;
   void _g;
   void _h;
-  return { ...rest, face: { ...DEFAULT_FACE, ...(o.face ?? {}) }, sleeves: 'short', glasses: 'none', hat: 'none', tweaks: {}, ...extra };
+  const out: CharacterModel = { ...rest, face: { ...DEFAULT_FACE, ...(o.face ?? {}) }, sleeves: 'short', glasses: 'none', hat: 'none', tweaks: {}, identity: identityOf(o.identity), ...extra };
+  out.identity = identityOf(o.identity, out.sleeves);
+  return out;
 }
 
 // the model a character keeps, null for one made before characters could turn
 export function modelOf(info: { model?: unknown } | null | undefined): CharacterModel | null {
   const m = info?.model as CharacterModel | undefined;
   if (!m || typeof m.height !== 'number') return null;
-  return { ...m, face: { ...DEFAULT_FACE, ...(m.face ?? {}) }, tweaks: m.tweaks ?? {}, sleeves: m.sleeves ?? 'short', glasses: m.glasses ?? 'none', hat: m.hat ?? 'none' };
+  return { ...m, face: { ...DEFAULT_FACE, ...(m.face ?? {}) }, tweaks: m.tweaks ?? {}, sleeves: m.sleeves ?? 'short', glasses: m.glasses ?? 'none', hat: m.hat ?? 'none', identity: identityOf(m.identity, m.sleeves) };
 }
 
 const ORDER: ViewId[] = ['back', 'backthree', 'side', 'three', 'front'];
@@ -119,15 +129,21 @@ export function tweakAt(m: Pick<CharacterModel, 'tweaks'>, angle: number): ViewT
 }
 
 // the joints in the room: forward, across to the near side, up from the floor
-export function joints3d(m: Pick<CharacterModel, 'height' | 'build' | 'headSize'>): Record<string, Point3> {
+export function joints3d(m: Pick<CharacterModel, 'height' | 'build' | 'headSize'> & { identity?: Partial<Identity> }): Record<string, Point3> {
   const u = m.height;
   const w = m.build === 'slim' ? 0.86 : m.build === 'broad' ? 1.18 : 1;
   const hs = Math.max(0.7, Math.min(1.4, m.headSize));
+  const id = m.identity ?? {};
+  const sh = id.shoulders ?? 1;
+  const hp = id.hips ?? 1;
+  // longer legs lift the hip, the neck stays where it is
+  const L = Math.max(0.9, Math.min(1.1, id.legs ?? 1));
   const up = (t: number) => u * t;
+  const legUp = (t: number) => u * t * L;
   const out: Record<string, Point3> = {
-    hip: [0, 0, up(0.47)],
-    hipTop: [0, 0, up(0.52)],
-    spine: [0, 0, up(0.6)],
+    hip: [0, 0, legUp(0.47)],
+    hipTop: [0, 0, legUp(0.52)],
+    spine: [0, 0, up(0.6 + (L - 1) * 0.25)],
     neckBase: [0.005 * u, 0, up(0.785)],
     neckTop: [0.01 * u, 0, up(0.825)],
     headTop: [0.012 * u, 0, up(0.825 + 0.19 * hs)],
@@ -137,14 +153,14 @@ export function joints3d(m: Pick<CharacterModel, 'height' | 'build' | 'headSize'
     ['R', 1],
     ['L', -1]
   ] as const) {
-    out[`shoulder${side}`] = [0.005 * u, s * 0.1 * w * u, up(0.755)];
-    out[`elbow${side}`] = [0.012 * u, s * 0.112 * w * u, up(0.61)];
-    out[`wrist${side}`] = [0.02 * u, s * 0.112 * w * u, up(0.48)];
-    out[`hand${side}`] = [0.025 * u, s * 0.112 * w * u, up(0.425)];
-    out[`hip${side}`] = [0, s * 0.05 * w * u, up(0.46)];
-    out[`knee${side}`] = [0.012 * u, s * 0.052 * w * u, up(0.245)];
-    out[`ankle${side}`] = [0, s * 0.052 * w * u, up(0.055)];
-    out[`toe${side}`] = [0.085 * u, s * 0.052 * w * u, up(0.025)];
+    out[`shoulder${side}`] = [0.005 * u, s * 0.1 * w * sh * u, up(0.755)];
+    out[`elbow${side}`] = [0.012 * u, s * 0.112 * w * sh * u, up(0.61)];
+    out[`wrist${side}`] = [0.02 * u, s * 0.112 * w * sh * u, up(0.48)];
+    out[`hand${side}`] = [0.025 * u, s * 0.112 * w * sh * u, up(0.425)];
+    out[`hip${side}`] = [0, s * 0.05 * w * hp * u, legUp(0.46)];
+    out[`knee${side}`] = [0.012 * u, s * 0.052 * w * hp * u, legUp(0.245)];
+    out[`ankle${side}`] = [0, s * 0.052 * w * hp * u, up(0.055)];
+    out[`toe${side}`] = [0.085 * u, s * 0.052 * w * hp * u, up(0.025)];
   }
   return out;
 }
@@ -178,7 +194,7 @@ function fingers3d(j: Record<string, Point3>, side: 'L' | 'R', u: number, w: num
 }
 
 // every bone of the humanoid from where to where in the room
-export function boneSpots(m: Pick<CharacterModel, 'height' | 'build' | 'headSize'>): Record<BoneName, { from: Point3; to: Point3 }> {
+export function boneSpots(m: Pick<CharacterModel, 'height' | 'build' | 'headSize'> & { identity?: Partial<Identity> }): Record<BoneName, { from: Point3; to: Point3 }> {
   const j = joints3d(m);
   const u = m.height;
   const w = m.build === 'slim' ? 0.86 : m.build === 'broad' ? 1.18 : 1;
@@ -335,7 +351,7 @@ export function turnedFace(
 // hair seen at an angle: the mass sits at the back of the head, it covers more of the head the more of
 // its back shows, long hair hangs over the back seen from behind
 export function turnedHair(h: Head, facing: number, angle: number, hair: HairStyle, tw: ViewTweak) {
-  if (hair === 'bald') return { front: null, back: null, backInFront: false };
+  if (hair === 'bald') return { front: null, back: null, backInFront: false, shaved: false, hangs: false };
   const t = angle * RAD;
   const f = facing;
   const c = Math.cos(t);
@@ -361,6 +377,30 @@ export function turnedHair(h: Head, facing: number, angle: number, hair: HairSty
   const top = hy - ry * 0.45 + back * ry * 0.25;
   const base = hy - ry * (0.3 - 0.75 * back);
   let out: { front: [PathData, PathData | null] | null; back: [PathData, PathData | null] | null } = { front: [bowl, bowlShadow], back: null };
+  // the sides of an undercut are shaved: a short cap drawn over the head under the long top
+  let shaved = false;
+  // hair hanging from the head down to a length, wavy at the edges or straight, seen from any side
+  // hair hanging from the head down to a length: from the front two strands beside the face that close to
+  // one sheet over the back as the back turns to the viewer, wavy at the edges or straight
+  const hanging = (length: number, width: number, waves: number, sweep = 3) => {
+    const n = 5;
+    const wd = rx * (width + 0.3 * front + 0.08 * back);
+    // how much of the face the hair leaves open between the strands
+    const gap = rx * 0.78 * Math.max(0, Math.sin(t)) * Math.min(1, width);
+    const cx = hx + off * sweep;
+    const yAt = (tt: number) => hy - ry * 0.55 + ry * (0.55 + length) * tt;
+    const wave = (tt: number, ph: number) => Math.sin(tt * Math.PI * 3 + ph) * waves * rx;
+    const pts: Vec[] = [];
+    // close to the head at the top, out to its full width further down, so nothing sticks out like wings
+    const wide = (tt: number) => rx * 1.0 + (wd * (1 - 0.1 * tt) - rx * 1.0) * Math.min(1, tt * 2.2);
+    for (let i = 0; i <= n; i++) pts.push({ x: cx + wide(i / n) + wave(i / n, 0), y: yAt(i / n) });
+    for (let i = n; i >= 1; i--) pts.push({ x: cx + gap * (0.85 + 0.15 * (i / n)) + wave(i / n, 0.5) * 0.5, y: yAt(i / n) });
+    for (let i = 1; i <= n; i++) pts.push({ x: cx - gap * (0.85 + 0.15 * (i / n)) - wave(i / n, 1.5) * 0.5, y: yAt(i / n) });
+    for (let i = n; i >= 0; i--) pts.push({ x: cx - wide(i / n) - wave(i / n, 1), y: yAt(i / n) });
+    hangs = true;
+    return loop(pts, waves > 0 ? 0.2 : 0.1);
+  };
+  let hangs = false;
   switch (hair) {
     case 'buzz':
       out = { front: [ellipsePath(hx + off * 0.5, hy - ry * (0.78 - 0.45 * back), rx, ry * (0.34 + 0.55 * back)), null], back: null };
@@ -397,6 +437,51 @@ export function turnedHair(h: Head, facing: number, angle: number, hair: HairSty
       out = { front: [bowl, bowlShadow], back: [capsulePath(a, b, width, width * 0.82), capsulePath({ x: a.x + off * 3, y: a.y }, { x: b.x + off * 3, y: b.y }, rx * 0.5, rx * 0.4)] };
       break;
     }
+    case 'pixie': {
+      // short and close with a fringe over the forehead toward where it looks
+      const pts = arc(8, (i) => (i > 5 ? 1.12 : 1.05), top + ry * 0.05);
+      pts.push({ x: hx + rx * 0.85 * f * c + rx * 0.1 * front, y: hy - ry * (0.28 - 0.7 * back) }, { x: hx - rx * 1.0 * f * c, y: base + ry * 0.1 });
+      out = { front: [loop(pts, 0.2), bowlShadow], back: null };
+      break;
+    }
+    case 'middlepart': {
+      // parted in the middle: the part line shows from the front, the hair falls to the chin
+      const part = ellipsePath(hx + off * 0.3 + rx * 0.0, hy - ry * (0.75 - 0.45 * back), rx * (0.08 + 0.4 * back), ry * (0.3 + 0.35 * back));
+      out = { front: [ellipsePath(hx + off * 0.3, hy - ry * (0.68 - 0.45 * back), rx * 1.1, ry * (0.48 + 0.5 * back)), part], back: [hanging(0.75, 1.05, 0), null] };
+      break;
+    }
+    case 'undercut': {
+      shaved = true;
+      const pts = arc(8, (i) => (i > 4 ? 1.02 + 0.04 * (i - 4) : 0.9), top - ry * 0.12);
+      pts.push({ x: hx + rx * 0.82 * f, y: hy - ry * (0.5 - 0.3 * back) }, { x: hx - rx * 0.78 * f, y: hy - ry * (0.52 - 0.3 * back) });
+      out = { front: [loop(pts, 0.18), null], back: [ellipsePath(hx + off * 0.5, hy - ry * (0.62 - 0.4 * back), rx * 1.02, ry * (0.42 + 0.5 * back)), null] };
+      break;
+    }
+    case 'quiff':
+      // the hair swept up and forward: a tall mass tipped up at the front
+      out = {
+        front: [ellipsePath(hx + 0.12 * rx * f * c, hy - ry * (0.84 - 0.5 * back), rx * 1.06, ry * (0.52 + 0.42 * back), -0.28 * f * c), ellipsePath(hx - 0.3 * rx * f * c, hy - ry * (0.8 - 0.4 * back), rx * 0.5, ry * (0.28 + 0.3 * back), -0.28 * f * c)],
+        back: null
+      };
+      break;
+    case 'wavy':
+      out = { front: [bowl, bowlShadow], back: [hanging(0.8, 1.08, 0.06), null] };
+      break;
+    case 'medium':
+      out = { front: [bowl, bowlShadow], back: [hanging(0.95, 1.02, 0), null] };
+      break;
+    case 'bob': {
+      // chin length all round with a fringe in front
+      const fringe = ellipsePath(hx + off * 0.2, hy - ry * (0.6 - 0.35 * back), rx * 1.12, ry * (0.55 + 0.4 * back));
+      out = { front: [fringe, bowlShadow], back: [hanging(0.55, 1.18, 0, 1), null] };
+      break;
+    }
+    case 'longwavy':
+      out = { front: [bowl, bowlShadow], back: [hanging(1.75, 1.0, 0.07), null] };
+      break;
+    case 'straight':
+      out = { front: [ellipsePath(hx + off * 0.3, hy - ry * (0.7 - 0.45 * back), rx * 1.08, ry * (0.47 + 0.5 * back)), ellipsePath(hx + off * 0.3, hy - ry * (0.76 - 0.4 * back), rx * (0.06 + 0.4 * back), ry * (0.28 + 0.3 * back))], back: [hanging(1.9, 0.98, 0, 2.5), null] };
+      break;
     case 'ponytail': {
       const a = { x: hx - 0.9 * rx * f * c, y: hy - ry * 0.35 };
       const b = { x: hx - 1.35 * rx * f * c, y: hy + ry * (0.9 - 0.2 * back) };
@@ -409,7 +494,7 @@ export function turnedHair(h: Head, facing: number, angle: number, hair: HairSty
       break;
     }
   }
-  return { ...out, backInFront: back > 0.45 };
+  return { ...out, backInFront: back > 0.45 || shaved, shaved, hangs };
 }
 
 export interface BuildState {
@@ -452,44 +537,38 @@ export function buildView(m: CharacterModel, turn: Turn, state: BuildState, idFo
   const z3 = (p: Point3) => P(p).z;
   const mid = (a: Point3, b: Point3): Point3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
 
-  // arms and legs, the near ones in front, from the front and the back beside the body
-  const armBias = 0.03 * u * Math.abs(sin);
-  const legBias = -0.06 * u * Math.abs(sin);
-  const arm = { ua: 0.037 * u * w, ub: 0.031 * u * w, la: 0.029 * u * w, lb: 0.025 * u * w };
-  const leg = { ua: 0.052 * u * w, ub: 0.041 * u * w, la: 0.04 * u * w, lb: 0.032 * u * w, foot: 0.03 * u * w };
-  const lowerArmColor = m.sleeves === 'long' ? c.shirt : c.skin;
-  for (const side of ['L', 'R'] as const) {
-    const zArm = z3(mid(j[`shoulder${side}`], j[`wrist${side}`])) + armBias;
-    const isFar = far(zArm - armBias);
-    const fg = fingers3d(j, side, u, w);
-    const r = 0.0105 * u * w;
-    const palm = P(fg.palm);
-    put(
-      zArm,
-      limb(`upperArm${side}`, P(j[`shoulder${side}`]), P(j[`elbow${side}`]), arm.ua, arm.ub, c.shirt, o, rnd, isFar, fs),
-      limb(`lowerArm${side}`, P(j[`elbow${side}`]), P(j[`wrist${side}`]), arm.la, arm.lb, lowerArmColor, o, rnd, isFar, fs),
-      limb(`fingers${side}`, P(fg.fingers[0]), P(fg.fingers[1]), r * 1.45, r * 1.2, c.skin, o, rnd, isFar, fs),
-      limb(`index${side}`, P(fg.index[0]), P(fg.index[1]), r * 0.85, r * 0.75, c.skin, o, rnd, isFar, fs),
-      part(`hand${side}`, ellipsePath(palm.x, palm.y, 0.03 * u * w, 0.032 * u * w), null, c.skin, o, rnd, isFar),
-      limb(`thumb${side}`, P(fg.thumb[0]), P(fg.thumb[1]), r * 0.9, r * 0.75, c.skin, o, rnd, isFar, fs)
-    );
-    const zLeg = z3(mid(j[`hip${side}`], j[`ankle${side}`])) + legBias;
-    const legFar = far(zLeg - legBias);
-    put(
-      zLeg,
-      limb(`upperLeg${side}`, P(j[`hip${side}`]), P(j[`knee${side}`]), leg.ua, leg.ub, c.pants, o, rnd, legFar, fs),
-      limb(`lowerLeg${side}`, P(j[`knee${side}`]), P(j[`ankle${side}`]), leg.la, leg.lb, c.pants, o, rnd, legFar, fs),
-      limb(`foot${side}`, P(j[`ankle${side}`]), P(j[`toe${side}`]), leg.foot, leg.foot * 0.85, c.shoes, o, rnd, legFar, fs)
-    );
-  }
-  // the body is an oval seen from the side or wide from the front
-  const across = (depth: number, width: number) => Math.sqrt((depth * cos) ** 2 + (width * sin) ** 2) * twBody.bodyWidth;
-  const hip = P(j.hip);
-  put(-0.005 * u, part('pelvis', ellipsePath(hip.x, hip.y + 0.01 * u, across(0.088, 0.1) * u * w, 0.056 * u), null, c.pants, o, rnd, false));
-  const chestTop = P(add(j.neckBase, [0, 0, -0.035 * u]));
-  const waist = P(add(j.hip, [0, 0, 0.02 * u]));
-  put(0, limb('torso', chestTop, waist, across(0.098, 0.118) * u * w, across(0.08, 0.1) * u * w, c.shirt, o, rnd, false, fs));
-  put(0.001 * u, limb('neck', P(j.neckBase), P(j.neckTop), 0.026 * u * w, 0.025 * u * w, c.skin, o, rnd, false, fs));
+  // the body and its clothes, the hands with their fingers drawn here
+  dress({
+    P,
+    j,
+    u,
+    w,
+    id: m.identity,
+    colors: c,
+    o,
+    rnd,
+    fs,
+    sin,
+    far,
+    bodyWidth: twBody.bodyWidth,
+    put,
+    hand: (side, z, isFar) => {
+      const fg = fingers3d(j, side, u, w);
+      const r = 0.0105 * u * w;
+      const palm = P(fg.palm);
+      put(
+        z,
+        limb(`fingers${side}`, P(fg.fingers[0]), P(fg.fingers[1]), r * 1.45, r * 1.2, c.skin, o, rnd, isFar, fs),
+        limb(`index${side}`, P(fg.index[0]), P(fg.index[1]), r * 0.85, r * 0.75, c.skin, o, rnd, isFar, fs),
+        part(`hand${side}`, ellipsePath(palm.x, palm.y, 0.03 * u * w, 0.032 * u * w), null, c.skin, o, rnd, isFar),
+        limb(`thumb${side}`, P(fg.thumb[0]), P(fg.thumb[1]), r * 0.9, r * 0.75, c.skin, o, rnd, isFar, fs)
+      );
+    }
+  });
+  void cos;
+  void mid;
+  void z3;
+  void add;
 
   // the head with its face and hair, all at the angle of the head
   const hc = P(j.head);
@@ -498,25 +577,57 @@ export function buildView(m: CharacterModel, turn: Turn, state: BuildState, idFo
   const hfs = m.facing * (Math.cos(th3) >= -0.05 ? 1 : -1);
   const headItems: Item[] = [];
   // under a hat the hair on top lies flat, only what hangs below shows
-  const flat: HairStyle = m.hat !== 'none' && ['spiky', 'curly', 'sidepart'].includes(m.hair) ? 'short' : m.hair;
+  const flat: HairStyle = m.hat !== 'none' && ['spiky', 'curly', 'sidepart', 'quiff', 'undercut', 'pixie'].includes(m.hair) ? 'short' : m.hair;
   const hair = turnedHair(head, m.facing, th, flat, tw);
-  const hairPart = (role: string, shapes: [PathData, PathData | null]) => part(role, shapes[0], shapes[1], c.hair, o, rnd, false);
-  const hairBack = hair.back ? hairPart('hairBack', hair.back) : null;
-  if (hairBack && !hair.backInFront) put(-1e6, hairBack);
-  headItems.push(part('head', ellipsePath(head.x, head.y, head.rx, head.ry), ellipsePath(head.x - 0.45 * head.rx * hfs, head.y + 0.1 * head.ry, head.rx * 0.45, head.ry * 0.75), c.skin, o, rnd, false));
+  const hairPart = (role: string, shapes: [PathData, PathData | null], color = c.hair) => part(role, shapes[0], shapes[1], color, o, rnd, false);
+  // shaved sides: the color of the hair over the skin
+  const hairBack = hair.back ? hairPart('hairBack', hair.back, hair.shaved ? mixHex(c.hair, c.skin, 0.45) : c.hair) : null;
+  // hair that hangs lies over the shoulders and the back, behind the head; other hair behind everything
+  if (hairBack && !hair.backInFront) put(hair.hangs ? 0.0015 * u : -1e6, hairBack);
+  const id = m.identity;
+  headItems.push(part('head', headShape(head, id.faceShape), ellipsePath(head.x - 0.45 * head.rx * hfs, head.y + 0.1 * head.ry, head.rx * 0.45, head.ry * 0.75), c.skin, o, rnd, false));
   if (hairBack && hair.backInFront) headItems.push(hairBack);
   if (hair.front) headItems.push(hairPart('hair', hair.front));
   // the face over the hair, a brow never hides under a fringe
   const face = turnedFace(head, m.facing, th, state.emotion, state.mouth, state.blink, m.face, tw);
   const ink = c.outline;
+  // freckles and blush under the eyes, a beard round the jaw
+  headItems.push(...faceExtras(head, m.facing, th, id, c, o, rnd));
+  const iris = id.eyeColor !== 'ink' ? id.eyeColor : null;
   for (const role of ['eyeL', 'eyeR', 'browL', 'browR', 'nose', 'mouth']) {
     const filled = role.startsWith('eye') || role === 'mouth';
     const width = role.startsWith('brow') ? browWidth(m.face, m.outline) : Math.max(2, m.outline * 0.8);
-    const s = filled ? defaultStyle(solid(ink), solid(ink), Math.max(1.5, m.outline * 0.35)) : defaultStyle(null, solid(ink), width);
+    const fill = role.startsWith('eye') && iris ? iris : role === 'mouth' && id.lipstick ? id.lipColor : ink;
+    const s = filled ? defaultStyle(solid(fill), solid(ink), Math.max(1.5, m.outline * 0.35)) : defaultStyle(null, solid(ink), width);
     const item = makePathItem(PART_LABELS[role], face.paths[role], s);
     item.role = role;
     item.visible = face.shown[role];
     headItems.push(item);
+    // a dark pupil in a colored eye
+    if (iris && role.startsWith('eye')) {
+      const e = face.paths[role].anchors;
+      const cx = (e[1].x + e[3].x) / 2;
+      const cy = (e[0].y + e[2].y) / 2;
+      const rx = Math.abs(e[1].x - e[3].x) * 0.24;
+      const ry = Math.abs(e[2].y - e[0].y) * 0.3;
+      const pupil = makePathItem(role === 'eyeL' ? 'Pupil, far' : 'Pupil, near', ellipsePath(cx, cy, Math.max(0.5, rx), Math.max(0.3, ry)), defaultStyle(solid(ink), null, 0));
+      pupil.role = role === 'eyeL' ? 'pupilL' : 'pupilR';
+      pupil.visible = face.shown[role];
+      headItems.push(pupil);
+    }
+  }
+  // earrings at the ears, seen while that side of the head shows
+  if (id.jewelry === 'earrings' || id.jewelry === 'both') {
+    for (const [role, lon] of [
+      ['earringL', -90],
+      ['earringR', 90]
+    ] as const) {
+      const d = Math.sin(lon * RAD + th3);
+      const x = head.x + m.facing * head.rx * 0.96 * Math.cos(lon * RAD + th3);
+      const ring = part(role, ellipsePath(x, head.y + head.ry * 0.38, head.rx * 0.07, head.rx * 0.09), null, id.extra, o, rnd, false);
+      ring.visible = d > -0.25;
+      headItems.push(ring);
+    }
   }
   // glasses round the eyes
   if (m.glasses !== 'none') {
@@ -549,18 +660,18 @@ export function buildView(m: CharacterModel, turn: Turn, state: BuildState, idFo
   if (m.hat !== 'none') {
     const cth = Math.cos(th3);
     const dome = m.hat === 'cap' ? ellipsePath(head.x - 0.05 * head.rx * m.facing * cth, head.y - head.ry * 0.62, head.rx * 1.1, head.ry * 0.5) : ellipsePath(head.x, head.y - head.ry * 0.6, head.rx * 1.08, head.ry * 0.62);
-    const domeItem = part('hat', dome, null, c.pants, o, rnd, false);
+    const domeItem = part('hat', dome, null, id.hatColor, o, rnd, false);
     let brimItem: Item;
     if (m.hat === 'cap') {
       const a = { x: head.x + m.facing * head.rx * 0.3 * cth, y: head.y - head.ry * 0.42 };
       const b = { x: head.x + m.facing * head.rx * (0.3 + 1.15 * cth), y: head.y - head.ry * 0.4 };
       const thick = head.ry * 0.09;
-      brimItem = part('hatBrim', capsulePath(a, { x: b.x + (Math.abs(b.x - a.x) < 1 ? 1 : 0), y: b.y }, thick, thick * 0.8), null, c.pants, o, rnd, false);
+      brimItem = part('hatBrim', capsulePath(a, { x: b.x + (Math.abs(b.x - a.x) < 1 ? 1 : 0), y: b.y }, thick, thick * 0.8), null, id.hatColor, o, rnd, false);
       if (Math.sin(th3) < 0) headItems.push(brimItem, domeItem);
       else headItems.push(domeItem, brimItem);
     } else {
       const y = head.y - head.ry * 0.3;
-      brimItem = part('hatBrim', capsulePath({ x: head.x - head.rx * 1.08, y }, { x: head.x + head.rx * 1.08, y }, head.ry * 0.12, head.ry * 0.12), null, c.shirt, o, rnd, false);
+      brimItem = part('hatBrim', capsulePath({ x: head.x - head.rx * 1.08, y }, { x: head.x + head.rx * 1.08, y }, head.ry * 0.12, head.ry * 0.12), null, shadeOf(id.hatColor), o, rnd, false);
       headItems.push(domeItem, brimItem);
     }
   }
@@ -574,6 +685,109 @@ export function buildView(m: CharacterModel, turn: Turn, state: BuildState, idFo
     if (item.type === 'group') for (const child of item.children) child.id = idFor(role, child.name);
   }
   return items;
+}
+
+// the head by the shape of the face, always four anchors so it morphs with the rest
+export function headShape(h: Head, shape: Identity['faceShape']): PathData {
+  const rx = shape === 'round' ? h.rx * 1.04 : shape === 'long' ? h.rx * 0.93 : h.rx;
+  const ry = shape === 'round' ? h.ry * 0.97 : shape === 'long' ? h.ry * 1.06 : h.ry;
+  const p = ellipsePath(h.x, h.y, rx, ry);
+  const scale = (i: number, k: number) => {
+    const a = p.anchors[i];
+    p.anchors[i] = { ...a, ix: a.ix * k, iy: a.iy * k, ox: a.ox * k, oy: a.oy * k };
+  };
+  if (shape === 'square') for (let i = 0; i < 4; i++) scale(i, 1.32);
+  if (shape === 'heart') {
+    // a narrow pointed chin under wide cheeks
+    scale(2, 0.45);
+    for (const i of [1, 3]) p.anchors[i] = { ...p.anchors[i], y: p.anchors[i].y - ry * 0.12 };
+  }
+  return p;
+}
+
+// freckles and blush on the cheeks, a beard or a mustache, all at the angle of the head
+function faceExtras(h: Head, facing: number, angle: number, id: Identity, c: CharacterOptions['colors'], o: Pick<CharacterOptions, 'colors' | 'outline' | 'wobble'>, rnd: () => number): Item[] {
+  const t = angle * RAD;
+  const r = h.rx;
+  const X = (lon: number, k = 0.92) => h.x + facing * r * k * Math.cos(lon * RAD + t);
+  const D = (lon: number) => Math.sin(lon * RAD + t);
+  const out: Item[] = [];
+  if (id.blush) {
+    for (const [role, lon] of [
+      ['blushL', -42],
+      ['blushR', 42]
+    ] as const) {
+      const d = D(lon);
+      const item = makePathItem(role === 'blushL' ? 'Blush, far' : 'Blush, near', ellipsePath(X(lon), h.y + r * 0.2, r * 0.15 * Math.max(0.15, d), r * 0.09), defaultStyle(solid('#c9706a'), null, 0));
+      item.role = role;
+      item.opacity = 0.4;
+      item.visible = d > 0.1;
+      out.push(item);
+    }
+  }
+  if (id.freckles) {
+    const dots: [number, number][] = [
+      [-48, 0.16],
+      [-40, 0.22],
+      [-33, 0.15],
+      [33, 0.15],
+      [40, 0.22],
+      [48, 0.16]
+    ];
+    const paths = dots.map(([lon, y]) => {
+      const d = D(lon);
+      const k = d > 0.05 ? Math.min(1, d * 1.3) : 0.001;
+      return ellipsePath(X(lon), h.y + r * y, r * 0.022 * k, r * 0.022 * k);
+    });
+    const item = makePathItem('Freckles', paths[0], defaultStyle(solid(shadeOf(shadeOf(c.skin))), null, 0));
+    item.subpaths = paths.slice(1);
+    item.role = 'freckles';
+    item.visible = D(0) > -0.4;
+    out.push(item);
+  }
+  if (id.beard !== 'none') {
+    const color = shadeOf(c.hair);
+    const chin = D(0) > -0.35;
+    if (id.beard !== 'mustache') {
+      // the jaw from ear to ear, only the part that turns to the viewer
+      const reach = id.beard === 'goatee' ? 24 : 82;
+      // a longitude faces the viewer while it plus the angle lies between 0 and 180
+      const lo = Math.max(-reach, -angle + 8);
+      const hi = Math.min(reach, 180 - angle - 8);
+      const span = hi > lo ? [lo, hi] : [0, 0.01];
+      const n = 7;
+      const thick = id.beard === 'full' ? 0.34 : id.beard === 'goatee' ? 0.24 : 0.2;
+      const outer: Vec[] = [];
+      const inner: Vec[] = [];
+      for (let i = 0; i < n; i++) {
+        const lon = span[0] + ((span[1] - span[0]) * i) / (n - 1);
+        const side = Math.min(1, Math.abs(lon) / 85);
+        // down the cheek to the corner of the jaw, then along the jaw to the chin
+        const yo = h.y + h.ry * (0.98 - 0.56 * side ** 4);
+        // the head narrows toward the chin, the beard follows its outline
+        const narrow = (y: number) => Math.sqrt(Math.max(0.05, 1 - ((y - h.y) / (h.ry * 1.02)) ** 2));
+        const yi = yo - h.ry * thick * (1 + 0.4 * side);
+        outer.push({ x: X(lon, 1.0 * narrow(yo - h.ry * 0.04)), y: yo + (id.beard === 'full' ? h.ry * 0.06 : 0) });
+        inner.push({ x: X(lon, 0.86 * narrow(yi)), y: yi });
+      }
+      const item = part('beard', loop([...outer, ...inner.reverse()], 0.12), null, color, o, rnd, false);
+      if (id.beard === 'stubble') {
+        item.opacity = 0.35;
+      }
+      item.visible = chin && hi > lo;
+      out.push(item);
+    }
+    if (id.beard === 'mustache' || id.beard === 'goatee' || id.beard === 'full') {
+      const y = h.y + r * 0.42;
+      const k = 0.95 * Math.sqrt(1 - ((y - h.y) / (h.ry * 1.02)) ** 2);
+      const pts = [-20, -8, 8, 20].map((lon, i) => ({ x: X(lon, k), y: y + (i === 0 || i === 3 ? r * 0.05 : 0) }));
+      const under = [8, -8].map((lon) => ({ x: X(lon, k), y: y + r * 0.07 }));
+      const item = part('mustache', loop([...pts, ...under], 0.2), null, color, o, rnd, false);
+      item.visible = D(0) > -0.1;
+      out.push(item);
+    }
+  }
+  return out;
 }
 
 // where the face of a turned character sits at rest, for what needs a face frame

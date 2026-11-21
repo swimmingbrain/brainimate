@@ -140,6 +140,7 @@ export function renameCharacter(folderId: string, name: string) {
 
 // new colors on every part in every keyframe, the outlines and the face included
 export function recolorCharacter(folderId: string, colors: Partial<CharacterColors>, key?: string) {
+  if (isLocked(folderId)) return;
   editor.commit(
     'Character colors',
     (draft) => {
@@ -163,6 +164,7 @@ export function faceStyle(folderId: string): FaceStyle | null {
 
 // the face of a character drawn in a new style in every keyframe, the moods and mouths it had stay
 export function applyFaceStyle(folderId: string, change: Partial<FaceStyle>, key?: string) {
+  if (isLocked(folderId)) return;
   editor.commit(
     'Face style',
     (draft) => {
@@ -202,6 +204,7 @@ export function hairOf(folderId: string): HairStyle {
 
 // new hair for a character in every keyframe: the front over the head, the back behind everything
 export function setHair(folderId: string, hair: HairStyle) {
+  if (isLocked(folderId)) return;
   editor.commit('Hair', (draft) => {
     const parts = draftParts(draft, folderId);
     if (!parts?.body || !parts.rig) return;
@@ -260,6 +263,14 @@ export function selectPart(folderId: string, role: string) {
   if (!item) return;
   activeLayer.set(body.id);
   selection.set(new Set([item.id]));
+}
+
+// a main character keeps its look until it is unlocked
+function isLocked(folderId: string): boolean {
+  const info = characterLayers(editor.doc.layers, folderId)?.folder.character;
+  if (!modelOf(info)?.locked) return false;
+  addToast('The look of this character is locked: unlock it under Save to change it', 'info');
+  return true;
 }
 
 // a character that can be seen from every side: it keeps a model and its rig knows the room

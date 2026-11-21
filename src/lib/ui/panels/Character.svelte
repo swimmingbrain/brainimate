@@ -3,6 +3,9 @@
   import Panel from '../Panel.svelte';
   import Field from '../Field.svelte';
   import Turnaround from './Turnaround.svelte';
+  import Creator from './Creator.svelte';
+  import { BODY_TYPES, randomLook, type BodyType } from '$lib/character/wardrobe';
+  import { isTurnable, makeTurnable } from '$lib/editor/turn';
   import NumberField from '../NumberField.svelte';
   import SelectField from '../SelectField.svelte';
   import ToggleField from '../ToggleField.svelte';
@@ -27,6 +30,7 @@
     type FaceStyle,
     type NoseShape,
     defaultCharacter,
+    seeded,
     type Build,
     type HairStyle
   } from '$lib/character/model';
@@ -188,6 +192,13 @@
   let form = $state(defaultCharacter(1080, 1920));
   let heightShare = $state(50);
   let placeShare = $state(50);
+  let kind = $state<BodyType>('female');
+  let mode = $state<'design' | 'animate'>('design');
+  const turnableNow = $derived.by(() => {
+    void $docVersion;
+    return picked ? isTurnable(picked.id) : false;
+  });
+  const mains = $derived([$library.find((m) => m.main === 1) ?? null, $library.find((m) => m.main === 2) ?? null]);
   let colorOpen = $state<keyof CharacterColors | null>(null);
   let anim = $state<{ kind: AnimKind; repeat: number; speed: number; mirror: boolean; distance: number; direction: number; back: boolean }>({
     kind: 'walk',
@@ -215,7 +226,10 @@
     form = { ...defaultCharacter(editor.doc.width, editor.doc.height), name: `Character ${all.length + 1}`, seed: Math.floor(Math.random() * 1000) };
     heightShare = Math.round((form.height / editor.doc.height) * 100);
     // a second character stands beside the first one
-    placeShare = all.length === 0 ? 50 : all.length % 2 ? 75 : 25;
+    // the place on the stage furthest from the characters already there
+    const taken = all.map((f) => ((f.character?.face.x ?? 0) / editor.doc.width) * 100);
+    const spots = [50, 75, 25, 88, 12, 62, 38];
+    placeShare = taken.length === 0 ? 50 : spots.reduce((best, x) => (Math.min(...taken.map((t) => Math.abs(t - x))) > Math.min(...taken.map((t) => Math.abs(t - best))) ? x : best), spots[0]);
     form = { ...form, facing: placeShare > 50 ? -1 : 1 };
     creating = true;
   }
@@ -223,9 +237,21 @@
   function create() {
     const doc = editor.doc;
     const height = Math.round((doc.height * heightShare) / 100);
-    const id = createCharacter({ ...form, height, x: Math.round((doc.width * placeShare) / 100), ground: Math.round(doc.height * 0.86) });
+    // a look of its own: body, face, hair, outfit and colors from the generator for the body type
+    const look = randomLook(kind, seeded(form.seed * 7919 + all.length * 31 + Math.floor(Math.random() * 1e5)));
+    const id = createCharacter({
+      ...form,
+      height: Math.round(height * look.heightShare),
+      x: Math.round((doc.width * placeShare) / 100),
+      ground: Math.round(doc.height * 0.86),
+      hair: look.hair,
+      headSize: look.headSize,
+      colors: look.colors,
+      identity: look.identity
+    });
     if (id) {
       creating = false;
+      mode = 'design';
       addToast(`${form.name} is on the stage, the skeleton and the body are in the timeline`, 'success', 3000);
     }
   }
@@ -342,25 +368,35 @@
     </button>
   </div>
 
+  {#if mains.some((m) => m)}
+    <div class="mains">
+      {#each mains as m, i (i)}
+        <div class="main">
+          {#if m}
+            {#if m.thumb}<img src={m.thumb} alt="" width="32" height="48" />{/if}
+            <span class="main-name">{i + 1}: {m.name}</span>
+            <button class="btn small primary" onclick={() => insert(m.id)}>Insert</button>
+          {:else}
+            <span class="main-name muted">Main character {i + 1}: not set</span>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+
   {#if creating}
     <h3 class="section">New character</h3>
     <Field label="Name">
       <input class="text" bind:value={form.name} aria-label="Character name" />
     </Field>
-    <Field label="Height" hint="Share of the stage height">
-      <Slider value={heightShare} min={15} max={95} step={1} precision={0} unit="%" label="Character height" onchange={(v) => (heightShare = v)} />
-    </Field>
+    <div class="grid">
+      {#each BODY_TYPES as t (t.id)}
+        <button class="pill" class:on={kind === t.id} onclick={() => (kind = t.id)}>{t.label}</button>
+      {/each}
+    </div>
+    <p class="note">Every new character gets its own look: body, face, hair, outfit and colors. Change anything afterwards in the creator.</p>
     <Field label="Stands at" hint="Share of the stage width from the left">
       <Slider value={placeShare} min={0} max={100} step={1} precision={0} unit="%" label="Where it stands" onchange={(v) => (placeShare = v)} />
-    </Field>
-    <Field label="Build">
-      <SelectField value={form.build} options={BUILDS} label="Build" onchange={(v) => (form = { ...form, build: v as Build })} />
-    </Field>
-    <Field label="Head">
-      <Slider value={form.headSize} min={0.8} max={1.35} step={0.05} precision={2} label="Head size" onchange={(v) => (form = { ...form, headSize: v })} />
-    </Field>
-    <Field label="Hair">
-      <SelectField value={form.hair} options={HAIR} label="Hair" onchange={(v) => (form = { ...form, hair: v as HairStyle })} />
     </Field>
     <Field label="Seen from" hint="The view it starts in, it can turn later">
       <SelectField value={String(form.view ?? 12)} options={[{ value: '90', label: 'Front' }, { value: '50', label: '3/4' }, { value: '12', label: 'Side' }, { value: '-90', label: 'Back' }]} label="Start view" onchange={(v) => (form = { ...form, view: Number(v) })} />
@@ -368,18 +404,12 @@
     <Field label="Looks">
       <SelectField value={String(form.facing)} options={FACING} label="Where it looks" onchange={(v) => (form = { ...form, facing: v === '-1' ? -1 : 1 })} />
     </Field>
-    <Field label="Outline">
-      <Slider value={form.outline} min={2} max={12} step={0.5} precision={1} unit=" px" label="Outline width" onchange={(v) => (form = { ...form, outline: v })} />
-    </Field>
-    <Field label="Hand drawn" hint="How much the lines wobble">
-      <Slider value={form.wobble} min={0} max={2} step={0.1} precision={1} label="Line wobble" onchange={(v) => (form = { ...form, wobble: v })} />
-    </Field>
   {/if}
 
-  {#if creating || info}
+  {#if !creating && info && mode === 'design' && !turnableNow}
     <h3 class="section">Colors</h3>
     {#each COLOR_KEYS as c (c.key)}
-      {@const now = creating ? form.colors[c.key] : (info?.colors[c.key] ?? DEFAULT_COLORS[c.key])}
+      {@const now = info?.colors[c.key] ?? DEFAULT_COLORS[c.key]}
       <div class="color-row">
         <button class="color-btn" onclick={() => (colorOpen = colorOpen === c.key ? null : c.key)} aria-expanded={colorOpen === c.key}>
           <span class="dot" style="background: {now}"></span>
@@ -420,6 +450,18 @@
       <button class="btn" disabled={busy} onclick={save}><Icon name="save" size={14} /> Save to library</button>
       <button class="btn danger" onclick={() => deleteLayer(picked!.id)}><Icon name="trash" size={14} /></button>
     </div>
+    <div class="modes" role="tablist" aria-label="Character mode">
+      <button class="mode" class:on={mode === 'design'} role="tab" aria-selected={mode === 'design'} onclick={() => (mode = 'design')}>Design</button>
+      <button class="mode" class:on={mode === 'animate'} role="tab" aria-selected={mode === 'animate'} onclick={() => (mode = 'animate')}>Animate</button>
+    </div>
+    {#if mode === 'design'}
+      {#if turnableNow}
+        <Creator id={picked.id} />
+      {:else}
+        <p class="note">This character was made before the creator. Make it turnable to dress it, give it a body type and a face of its own; its moves stay.</p>
+        <div class="buttons"><button class="btn primary" onclick={() => makeTurnable(picked!.id)}>Make turnable</button></div>
+      {/if}
+    {:else}
 
     <h3 class="section">Move</h3>
     <Field label="Animation">
@@ -487,7 +529,7 @@
 
     <Turnaround id={picked.id} />
 
-    {#if look?.style}
+    {#if look?.style && !turnableNow}
       {@const st = look.style}
       <h3 class="section">Look</h3>
       <Field label="Hair">
@@ -663,6 +705,7 @@
       </div>
     {/each}
     <p class="note">Tap a part to pick it, then move, scale, turn or recolor it like any shape.</p>
+    {/if}
   {/if}
 
   <h3 class="section with-action">
@@ -698,6 +741,58 @@
 </Panel>
 
 <style>
+  .mains {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 8px 6px;
+  }
+
+  .main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 2px 6px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .main img {
+    border-radius: 4px;
+    background: var(--bg-canvas, #fff);
+  }
+
+  .main-name {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+
+  .modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin: 4px 8px 6px;
+  }
+
+  .mode {
+    min-height: 38px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .mode.on {
+    color: #111;
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
   .bar {
     display: flex;
     gap: 6px;

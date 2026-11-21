@@ -20,6 +20,8 @@ export interface LibraryMeta {
   character: string;
   // keyframes it carries, its animations
   keys: number;
+  // one of the two main characters of a series, kept as it is in every project and episode
+  main?: 1 | 2;
 }
 
 export interface LibraryEntry extends LibraryMeta {
@@ -37,7 +39,7 @@ function shelf(): UseStore | null {
 export const library = writable<LibraryMeta[]>([]);
 
 function meta(e: LibraryEntry): LibraryMeta {
-  return { id: e.id, name: e.name, updated: e.updated, thumb: e.thumb, character: e.character, keys: e.keys };
+  return { id: e.id, name: e.name, updated: e.updated, thumb: e.thumb, character: e.character, keys: e.keys, ...(e.main ? { main: e.main } : {}) };
 }
 
 // how many keyframes a character carries over its rig and body
@@ -126,10 +128,33 @@ export async function saveCharacter(doc: Doc, folderId: string): Promise<Library
     thumb: await characterThumb(pkg),
     character: pkg.info.id,
     keys: keyCount(pkg),
-    pkg
+    pkg,
+    ...(same?.main ? { main: same.main } : {})
   };
   await put(e);
   return meta(e);
+}
+
+// a library character made main character 1 or 2, the one that was it before is not any more
+export async function setMain(id: string, slot: 1 | 2 | null) {
+  const list = await loadLibrary();
+  for (const m of list) {
+    if (m.id === id || m.main !== slot || slot === null) continue;
+    const other = await libraryEntry(m.id);
+    if (other) {
+      delete other.main;
+      await put(other);
+    }
+  }
+  const e = await libraryEntry(id);
+  if (!e) return;
+  if (slot) e.main = slot;
+  else delete e.main;
+  await put(e);
+}
+
+export function mainCharacter(list: LibraryMeta[], slot: 1 | 2): LibraryMeta | null {
+  return list.find((m) => m.main === slot) ?? null;
 }
 
 export async function renameEntry(id: string, name: string) {
@@ -153,6 +178,8 @@ export async function duplicateEntry(id: string): Promise<LibraryMeta | null> {
     layers: e.pkg.layers.map((l) => (l.character ? { ...l, name, character: { ...l.character, id: character, name } } : l))
   };
   const copy: LibraryEntry = { ...e, id: newId(), name, character, updated: Date.now(), pkg };
+  // a copy is never a main character itself
+  delete copy.main;
   await put(copy);
   return meta(copy);
 }
@@ -192,7 +219,8 @@ export async function addPackage(pkg: CharacterPackage): Promise<LibraryMeta> {
     thumb: await characterThumb(pkg),
     character: pkg.info.id,
     keys: keyCount(pkg),
-    pkg
+    pkg,
+    ...(same?.main ? { main: same.main } : {})
   };
   await put(e);
   return meta(e);
