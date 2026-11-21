@@ -1,7 +1,7 @@
 // sound effects and music beds made in the browser: no files from anywhere else, nothing to license.
 // each one is worked out sample by sample, written as a wav and added like an imported sound
 
-export type Sfx = 'whoosh' | 'pop' | 'boom' | 'ding' | 'click' | 'riser' | 'impact' | 'sparkle' | 'buzzer' | 'drumroll' | 'brakes' | 'crackle' | 'rattle' | 'rain' | 'vibrate' | 'drone' | 'lightsout';
+export type Sfx = 'whoosh' | 'pop' | 'boom' | 'ding' | 'click' | 'riser' | 'impact' | 'sparkle' | 'buzzer' | 'drumroll' | 'brakes' | 'crackle' | 'rattle' | 'rain' | 'vibrate' | 'drone' | 'lightsout' | 'alarm' | 'heartbeat';
 
 export const SFX: { id: Sfx; label: string }[] = [
   { id: 'whoosh', label: 'Whoosh' },
@@ -21,7 +21,9 @@ export const SFX: { id: Sfx; label: string }[] = [
   { id: 'rain', label: 'Rain (8 s)' },
   { id: 'vibrate', label: 'Phone vibrates' },
   { id: 'drone', label: 'Deep drone (6 s)' },
-  { id: 'lightsout', label: 'Lights out' }
+  { id: 'lightsout', label: 'Lights out' },
+  { id: 'alarm', label: 'Emergency alarm (3 s)' },
+  { id: 'heartbeat', label: 'Heartbeat (4 s)' }
 ];
 
 export type Mood = 'calm' | 'tense' | 'upbeat' | 'mystery';
@@ -210,6 +212,29 @@ export function sfxSamples(kind: Sfx): Float32Array {
         const t = i / RATE;
         const sw = Math.min(1, t / 3) * (t > 5.2 ? (6 - t) / 0.8 : 1);
         out[i] = sw * (Math.sin(2 * Math.PI * 49 * t) * 0.5 + Math.sin(2 * Math.PI * 73.5 * t + Math.sin(t) * 2) * 0.25 + Math.sin(2 * Math.PI * 98.3 * t) * 0.12);
+      }
+      break;
+    }
+    case 'alarm': {
+      // an emergency signal in a train: a two tone beep that repeats
+      out = new Float32Array(len(3));
+      for (let i = 0; i < out.length; i++) {
+        const t = i / RATE;
+        const cyc = t % 0.75;
+        const f = cyc < 0.3 ? 880 : cyc < 0.6 ? 660 : 0;
+        const tri = f ? (2 / Math.PI) * Math.asin(Math.sin(2 * Math.PI * f * t)) : 0;
+        out[i] = tri * 0.28 * (t > 2.8 ? (3 - t) / 0.2 : 1);
+      }
+      break;
+    }
+    case 'heartbeat': {
+      // a slow heart, felt more than heard
+      out = new Float32Array(len(4));
+      for (let i = 0; i < out.length; i++) {
+        const t = i / RATE;
+        const b = t % 1;
+        const thump = (u: number) => (u > 0 && u < 0.12 ? Math.sin(2 * Math.PI * 55 * u) * Math.exp(-u * 30) : 0);
+        out[i] = (thump(b) + 0.7 * thump(b - 0.22)) * 0.9;
       }
       break;
     }

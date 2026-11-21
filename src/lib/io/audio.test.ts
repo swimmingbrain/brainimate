@@ -52,3 +52,16 @@ describe('sound', () => {
     expect(back.assets.unused).toBeUndefined();
   });
 });
+
+describe('the peak limiter of the export', () => {
+  it('keeps every sample under the ceiling and leaves quiet parts alone', async () => {
+    const { limitPeaks } = await import('./audio');
+    const rate = 8000;
+    const x = new Float32Array(rate * 2);
+    for (let i = 0; i < x.length; i++) x[i] = Math.sin(i / 5) * (i > rate ? 1.6 : 0.3);
+    const quiet = x.slice(0, rate / 2);
+    limitPeaks(x, rate, 0.94);
+    expect(Math.max(...Array.from(x).map(Math.abs))).toBeLessThanOrEqual(0.9401);
+    expect(Array.from(x.slice(0, rate / 2))).toEqual(Array.from(quiet));
+  });
+});

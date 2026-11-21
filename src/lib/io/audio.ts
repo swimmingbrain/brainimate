@@ -265,6 +265,7 @@ export async function mixAudio(doc: Doc, from: number, to: number): Promise<Audi
   const rate = 48000;
   const seconds = (to - from + 1) / doc.fps;
   const off = new O(2, Math.max(1, Math.ceil(seconds * rate)), rate);
+  const out: AudioNode = off.destination;
   let any = false;
   for (const clip of clips) {
     let buffer: AudioBuffer;
@@ -281,10 +282,41 @@ export async function mixAudio(doc: Doc, from: number, to: number): Promise<Audi
     src.playbackRate.value = speed;
     const gain = off.createGain();
     gain.gain.value = clipGain(doc, clip);
-    src.connect(gain).connect(off.destination);
+    src.connect(gain).connect(out);
     src.start(Math.max(0, -offset / speed), Math.max(0, offset));
     any = true;
   }
   if (!any) return null;
-  return await off.startRendering();
+  const mixed = await off.startRendering();
+  // voices, music and effects added up can go past full scale: the peaks are brought down, the rest stays
+  for (let c = 0; c < mixed.numberOfChannels; c++) limitPeaks(mixed.getChannelData(c), mixed.sampleRate);
+  return mixed;
+}
+
+// a peak limiter: looks a few milliseconds ahead, turns down just before a peak above the ceiling and
+// comes back up slowly, so nothing clips and nothing pumps
+export function limitPeaks(x: Float32Array, rate: number, ceiling = 0.94) {
+  const ahead = Math.max(1, Math.round(rate * 0.005));
+  const release = Math.exp(-1 / (rate * 0.25));
+  const need = new Float32Array(x.length);
+  let any = false;
+  for (let i = 0; i < x.length; i++) {
+    const a = Math.abs(x[i]);
+    need[i] = a > ceiling ? ceiling / a : 1;
+    if (a > ceiling) any = true;
+  }
+  if (!any) return;
+  // each peak reaches back over the look-ahead window, only the samples above the ceiling cost time
+  const pre = new Float32Array(need);
+  for (let i = 0; i < x.length; i++) {
+    if (need[i] >= 1) continue;
+    for (let k = Math.max(0, i - ahead); k < i; k++) if (pre[k] > need[i]) pre[k] = need[i];
+  }
+  // then the gain follows: down at once, back up with a smooth release
+  let g = 1;
+  for (let i = 0; i < x.length; i++) {
+    const target = pre[i];
+    g = target < g ? target : Math.min(target, 1 - (1 - g) * release);
+    x[i] *= g;
+  }
 }
