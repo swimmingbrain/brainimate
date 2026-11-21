@@ -158,7 +158,7 @@ export function deleteWorkspace(id: string) {
 
 // the dock holds two panel groups, one above the other. the rig sits below so its bones and the
 // properties of the picked one show together
-export const DOCK_TOP: DockTab[] = ['properties', 'character', 'camera', 'transform', 'align'];
+export const DOCK_TOP: DockTab[] = ['studio', 'properties', 'character', 'camera', 'transform', 'align'];
 export const DOCK_BOTTOM: DockTab[] = ['color', 'swatches', 'library', 'scenes', 'rig'];
 
 export const PANEL_LABELS: Record<DockTab, string> = {
@@ -171,7 +171,8 @@ export const PANEL_LABELS: Record<DockTab, string> = {
   rig: 'Rig',
   camera: 'Camera',
   character: 'Character',
-  scenes: 'Scenes'
+  scenes: 'Scenes',
+  studio: 'Studio'
 };
 
 function setPanels(patch: Partial<Preferences['panels']>) {

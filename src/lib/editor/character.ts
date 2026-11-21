@@ -125,6 +125,14 @@ export function insertPackage(pkg: CharacterPackage, dx = 0, dy = 0, name?: stri
   return folder.id;
 }
 
+// a few words about who the character is, not part of its look, so a locked main character takes it too
+export function setPersonality(folderId: string, text: string) {
+  editor.commit('Personality', (draft) => {
+    const folder = draft.layers.find((l) => l.id === folderId && l.character);
+    if (folder?.character) folder.character = { ...folder.character, personality: text.slice(0, 400) };
+  });
+}
+
 export function renameCharacter(folderId: string, name: string) {
   const clean = name.trim().slice(0, 60);
   if (!clean) return;

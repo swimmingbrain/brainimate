@@ -265,6 +265,8 @@ export interface CharacterInfo {
   look?: CharacterLook;
   // everything a turnable character is drawn from at any angle, see character/views.ts
   model?: Record<string, unknown>;
+  // who the character is: a few words about its personality, for writing its lines
+  personality?: string;
 }
 
 // see FaceStyle in character/model, kept loose here so the core types know nothing of the drawing
@@ -288,6 +290,9 @@ export interface AudioClip {
   start: number;
   // 0 to 1
   volume: number;
+  // the track it plays on and who speaks in it, a production mixes by track
+  track?: 'narration' | 'dialogue' | 'music' | 'sfx';
+  speaker?: string;
 }
 
 export interface Symbol {
@@ -321,6 +326,8 @@ export interface Doc {
   guides: Guides;
   // sounds played with the timeline and put into the video
   audio?: AudioClip[];
+  // the video this document is made for: format, script, scenes, sources, subtitles, see studio/types.ts
+  production?: import('$lib/studio/types').Production;
 }
 
 export interface Guides {
