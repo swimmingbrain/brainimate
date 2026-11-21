@@ -1,4 +1,4 @@
-import type { Beat, CameraMove, Certainty } from './types';
+import type { PovSettings, Scene, SceneMove, Beat, CameraMove, Certainty } from './types';
 
 // the kinds of videos the channel makes. a format brings a structure of beats and templates to start
 // from, new formats can be added by the person and are kept in the browser like characters and scenes
@@ -9,9 +9,24 @@ export interface FormatTemplate {
   title: string;
   description: string;
   // the scenes it starts with: beat index, name, place, camera, action
-  scenes: { beat: number; name: string; place: string; camera: CameraMove; action: string }[];
-  // the lines it starts with: beat index, who speaks, what
-  lines: { beat: number; speaker: string; text: string; certainty?: Certainty }[];
+  scenes: ({ beat: number; name: string; place: string; camera: CameraMove; action: string } & TemplateShot)[];
+  // the lines it starts with: beat index, who speaks, what, and the scene it is heard in
+  lines: { beat: number; speaker: string; text: string; certainty?: Certainty; scene?: number }[];
+  // it needs two characters: without main characters in the library two are made for it
+  cast?: boolean;
+}
+
+// what a template scene may say about its film language. characters are 'main1' and 'main2'
+export interface TemplateShot {
+  weight?: number;
+  transition?: Scene['transition'];
+  subject?: string;
+  partner?: string;
+  pov?: PovSettings;
+  moves?: SceneMove[];
+  slow?: boolean;
+  mood?: string;
+  cast?: string[];
 }
 
 export interface Format {
@@ -220,6 +235,64 @@ export const FORMATS: Format[] = [
           { beat: 1, speaker: 'main1', text: '„Heute regnet es um 15:03 Uhr.“ … Es ist 15:03.' },
           { beat: 2, speaker: N, text: 'In dieser Nacht blieb sie wach.' },
           { beat: 3, speaker: 'main1', text: 'Das … ist meine Handschrift.' }
+        ]
+      },
+      {
+        id: 'test-pov',
+        label: 'Test A: first person walk',
+        title: 'Test A – Ego-Perspektive',
+        description: 'Durch die Stadt gehen, umschauen, eine Tür öffnen, einen Schlüssel aufheben – alles durch die Augen der Figur.',
+        cast: true,
+        scenes: [
+          { beat: 0, name: 'Walk through the city', place: 'street', camera: 'pov-walk', action: 'Walking down the street', weight: 1, pov: { actor: 'main1', look: 'ahead', action: 'none', at: 0.5, item: '', hands: true } },
+          { beat: 1, name: 'Look around', place: 'street', camera: 'pov-look', action: 'Looking left and right', weight: 1, transition: 'cut', pov: { actor: 'main1', look: 'around', action: 'none', at: 0.5, item: '', hands: true } },
+          { beat: 2, name: 'Pick up the keys', place: 'street', camera: 'pov-interact', action: 'Keys on the ground, picked up', weight: 1, transition: 'cut', pov: { actor: 'main1', look: 'ahead', action: 'pickup', at: 0.45, item: 'keys', hands: true } },
+          { beat: 3, name: 'Open the door', place: 'living', camera: 'pov-interact', action: 'The door opens into the flat', weight: 1, transition: 'black', pov: { actor: 'main1', look: 'ahead', action: 'door', at: 0.3, item: '', hands: true } }
+        ],
+        lines: [
+          { beat: 0, speaker: 'main1', text: 'Irgendwas ist heute anders in dieser Straße.', scene: 0 },
+          { beat: 1, speaker: 'main1', text: 'Niemand da. Seltsam.', scene: 1 },
+          { beat: 2, speaker: 'main1', text: 'Moment … das sind doch meine Schlüssel?', scene: 2 },
+          { beat: 3, speaker: 'main1', text: 'Und die Tür war offen.', scene: 3 }
+        ]
+      },
+      {
+        id: 'test-switch',
+        label: 'Test B: perspective switch',
+        title: 'Test B – Perspektivwechsel',
+        description: 'Klassisch von außen, dann durch die Augen der Figur, dann wieder von außen.',
+        cast: true,
+        scenes: [
+          { beat: 0, name: 'Outside: arrival', place: 'street', camera: 'wide', action: 'Main character walks in', weight: 1, cast: ['main1'], moves: [{ actor: 'main1', kind: 'walk', at: 0.05 }] },
+          { beat: 1, name: 'Behind the character', place: 'street', camera: 'tracking', action: 'Camera follows', weight: 1, cast: ['main1'], subject: 'main1', moves: [{ actor: 'main1', kind: 'look', at: 0.1 }] },
+          { beat: 2, name: 'Through the eyes', place: 'street', camera: 'pov-look', action: 'What the character sees: the other one', weight: 1.2, transition: 'cut', pov: { actor: 'main1', look: 'around', action: 'none', at: 0.5, item: '', hands: true } },
+          { beat: 3, name: 'Back outside: reaction', place: 'street', camera: 'closeup', action: 'Surprised face', weight: 1, transition: 'cut', cast: ['main1'], subject: 'main1', mood: 'surprise', moves: [{ actor: 'main1', kind: 'startle', at: 0.15 }] }
+        ],
+        lines: [
+          { beat: 0, speaker: N, text: 'Ein ganz normaler Abend. Dachte er.', scene: 0 },
+          { beat: 2, speaker: 'main1', text: 'Wer steht denn da?', scene: 2 },
+          { beat: 3, speaker: 'main1', text: 'Du?!', scene: 3 }
+        ]
+      },
+      {
+        id: 'test-cinematic',
+        label: 'Test C: cinematic dialogue',
+        title: 'Test C – Tom und Lina',
+        description: 'Ein kurzes Gespräch mit Gesten, Nahaufnahmen, Kamerabewegungen, Geräuschen und Untertiteln.',
+        cast: true,
+        scenes: [
+          { beat: 0, name: 'Introduce Lina', place: 'office', camera: 'reveal', action: 'Camera pans to Lina', weight: 1, subject: 'main2' },
+          { beat: 1, name: 'Over the shoulder', place: 'office', camera: 'over-shoulder', action: 'Tom asks', weight: 1.2, transition: 'cut', subject: 'main1', partner: 'main2', moves: [{ actor: 'main1', kind: 'gesture', at: 0.1 }] },
+          { beat: 2, name: 'Lina answers', place: 'office', camera: 'over-shoulder', action: 'Lina explains', weight: 1.2, transition: 'cut', subject: 'main2', partner: 'main1', moves: [{ actor: 'main2', kind: 'shrug', at: 0.2 }] },
+          { beat: 2, name: 'Push in', place: 'office', camera: 'push-in', action: 'Tension rises', weight: 1, transition: 'crossfade', subject: 'main1', mood: 'emotion', moves: [{ actor: 'main1', kind: 'nod', at: 0.4 }] },
+          { beat: 3, name: 'Dramatic close-up', place: 'office', camera: 'dramatic', action: 'The twist', weight: 1, transition: 'black', subject: 'main2', moves: [{ actor: 'main2', kind: 'point', at: 0.3 }] }
+        ],
+        lines: [
+          { beat: 0, speaker: N, text: 'Montagmorgen im Büro.', scene: 0 },
+          { beat: 1, speaker: 'main1', text: 'Hast du die Nachricht auch bekommen?', scene: 1 },
+          { beat: 2, speaker: 'main2', text: 'Welche Nachricht? Ich habe nichts gesehen.', scene: 2 },
+          { beat: 2, speaker: 'main1', text: 'Dann solltest du jetzt besser zuhören.', scene: 3 },
+          { beat: 3, speaker: 'main2', text: 'Warte … sie ist von dir?', scene: 4 }
         ]
       }
     ]

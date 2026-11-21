@@ -11,11 +11,15 @@
   import { addToast, dialog, dirty, frame, selection } from '$lib/stores/app';
   import { characterFolders } from '$lib/character/model';
   import { STARTERS } from '$lib/scene/starters';
-  import { STATUSES, beatWords, checks, duplicateScene, moveIn, newLine, newScene, newSource, normalizeShares, removeScene, sceneStarts, totalSeconds, wordBudget, lineSeconds } from '$lib/studio/production';
+  import { STATUSES, beatWords, checks, duplicateScene, moveIn, newLine, newScene, newSource, normalizeShares, removeScene, sceneStarts, totalSeconds, wordBudget, paceOf, pauseOf, breathingOf, sceneTimings, lengthChecks, speechSeconds } from '$lib/studio/production';
+  import { FILM, POV_ACTIONS, POV_LOOKS, SHOTS, TRANSITION_KINDS, applyFilm, shotLabel } from '$lib/studio/film';
+  import { clipSeconds } from '$lib/studio/build';
+  import { ANIMATIONS } from '$lib/character/anim';
+  import { thumbnail } from '$lib/io/render';
   import { SFX, MOODS } from '$lib/studio/sounds';
   import { CATEGORIES, VISUALS, type VisualCategory } from '$lib/studio/visuals';
   import { addFormat, customFormats, deleteVideo, keepVideo, loadFormats, loadVideos, videoDoc, videos } from '$lib/studio/library';
-  import type { CameraMove, Certainty, Production, Status, TrackKind } from '$lib/studio/types';
+  import type { CameraMove, Certainty, PovAction, PovLook, PovSettings, Production, Scene, SceneMove, Status, TrackKind } from '$lib/studio/types';
   import { newId } from '$lib/core/ids';
   import {
     addMusic,
@@ -24,7 +28,12 @@
     allFormats,
     asNewEpisode,
     buildFromStoryboard,
+    clipToScene,
+    fitScenes,
     formatOf,
+    linkClip,
+    nudgeClip,
+    setPace,
     previewLine,
     recordLine,
     refreshSubtitles,
@@ -59,15 +68,6 @@
     { value: 'plot', label: 'Original plot' },
     { value: 'interpretation', label: 'Interpretation' }
   ];
-  const CAMERAS: { value: CameraMove; label: string }[] = [
-    { value: 'still', label: 'Still' },
-    { value: 'push', label: 'Push in' },
-    { value: 'pull', label: 'Pull out' },
-    { value: 'pan', label: 'Pan' },
-    { value: 'shake', label: 'Shake' },
-    { value: 'closeup', label: 'Close-up' }
-  ];
-  const TRANSITIONS = ['cut', 'fade', 'crossfade', 'zoom', 'slide'].map((t) => ({ value: t, label: t[0].toUpperCase() + t.slice(1) }));
   const TRACKS: { id: TrackKind; label: string }[] = [
     { id: 'narration', label: 'Narrator' },
     { id: 'dialogue', label: 'Dialogue' },
@@ -189,6 +189,49 @@
     if (s) frame.set(s.start);
   }
 
+  let openScene = $state<string | null>(null);
+  let thumbs = $state<Record<string, string>>({});
+  const clipSecs = $derived.by(() => {
+    void $docVersion;
+    return clipSeconds(editor.doc);
+  });
+  const timings = $derived(p ? sceneTimings(p, clipSecs) : []);
+  const lengths = $derived(p ? lengthChecks(p, clipSecs) : []);
+
+  const nameOf = (id: string) => (id === 'narrator' ? 'Narrator' : (cast.find((c) => c.id === id)?.character?.name ?? id));
+  const castNames = (s: Scene) => (cast.length === 0 ? 'No characters' : (s.cast.length === 0 ? cast : cast.filter((c) => s.cast.includes(c.id))).map((c) => c.character?.name).join(', ') || 'Nobody');
+  const animLabel = (kind: string) => ANIMATIONS.find((a) => a.kind === kind)?.label ?? kind;
+  const upScene = (id: string, label: string, change: Partial<Scene>) => up(label, (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === id ? { ...x, ...change } : x)) }));
+  // a first person shot sees through somebody: the subject, else the first character
+  function setCamera(id: string, camera: CameraMove) {
+    up('Camera', (q) => ({
+      ...q,
+      scenes: q.scenes.map((x) => {
+        if (x.id !== id) return x;
+        const next: Scene = { ...x, camera };
+        if (camera.startsWith('pov-') && !x.pov && cast.length) next.pov = { actor: x.subject ?? x.cast[0] ?? cast[0].id, look: camera === 'pov-look' ? 'around' : 'ahead', action: camera === 'pov-interact' ? 'pickup' : 'none', at: 0.5, item: camera === 'pov-interact' ? 'keys' : '', hands: true };
+        return next;
+      })
+    }));
+  }
+  const setPov = (id: string, pov: PovSettings, key?: string) => up('First person', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === id ? { ...x, pov } : x)) }), key);
+  const setMove = (id: string, index: number, change: Partial<SceneMove>) => up('Move', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === id ? { ...x, moves: (x.moves ?? []).map((m, n) => (n === index ? { ...m, ...change } : m)) } : x)) }));
+
+  // the timeline built, then a small picture of every scene from the middle of it
+  async function build() {
+    if (!buildFromStoryboard()) return;
+    const doc = editor.doc;
+    const out: Record<string, string> = {};
+    for (const sp of sceneStarts(doc.production!, doc.fps)) {
+      try {
+        out[sp.scene.id] = await thumbnail(doc, Math.round((sp.start + sp.end) / 2), 54, 96);
+      } catch {
+        // a picture that cannot be drawn leaves the card without one
+      }
+    }
+    thumbs = out;
+  }
+
   const nums = (s: string) => s.split(/[,;\s]+/).map(Number).filter((n) => Number.isFinite(n));
 </script>
 
@@ -302,9 +345,13 @@
               <SelectField value={line.speaker} options={who.map((s) => ({ value: s.id, label: s.label }))} label="Speaker" onchange={(v) => up('Speaker', (q) => ({ ...q, lines: q.lines.map((x) => (x.id === line.id ? { ...x, speaker: v } : x)) }))} />
               <SelectField value={line.certainty ?? 'fiction'} options={CERTAINTIES} label="What it is" onchange={(v) => up('Certainty', (q) => ({ ...q, lines: q.lines.map((x) => (x.id === line.id ? { ...x, certainty: v as Certainty } : x)) }))} />
             </div>
+            {#if clips.length}
+              <SelectField value={line.clip ?? ''} options={[{ value: '', label: 'No recording linked' }, ...clips.map((c) => ({ value: c.id, label: `Recording: ${c.name}` }))]} label="Recording of the line" onchange={(v) => linkClip(line.id, v || null)} />
+            {/if}
+            <SelectField value={line.scene ?? ''} options={[{ value: '', label: 'Scene: first of its part' }, ...p.scenes.map((sc, n) => ({ value: sc.id, label: `Scene ${n + 1}: ${sc.name}` }))]} label="Scene of the line" onchange={(v) => up('Line scene', (q) => ({ ...q, lines: q.lines.map((x) => (x.id === line.id ? { ...x, scene: v || null } : x)) }))} />
             <textarea class="area" rows="2" aria-label="Line text" value={line.text} onchange={(e) => up('Line', (q) => ({ ...q, lines: q.lines.map((x) => (x.id === line.id ? { ...x, text: (e.currentTarget as HTMLTextAreaElement).value } : x)) }))}></textarea>
             <div class="line-tools">
-              <small>{lineSeconds(line.text).toFixed(1)} s</small>
+              <small>{speechSeconds(p, line, clipSecs).toFixed(1)} s{line.clip ? ' 🎙' : ''}</small>
               <button class="icon" aria-label="Line up" onclick={() => up('Move line', (q) => ({ ...q, lines: moveIn(q.lines, li, -1) }))}>▲</button>
               <button class="icon" aria-label="Line down" onclick={() => up('Move line', (q) => ({ ...q, lines: moveIn(q.lines, li, 1) }))}>▼</button>
               <button class="icon" aria-label="Hear the line" onclick={() => previewLine(line)}>▶</button>
@@ -322,41 +369,139 @@
     <p class="note">Words per part: what fits its share of the length at a calm pace. ▶ reads a line with the voice of the device to hear the timing, 🎙 adds a recording of it where it is said.</p>
   {:else if tab === 'board'}
     <div class="buttons">
-      <button class="btn primary" onclick={() => buildFromStoryboard()}>Build the timeline</button>
+      <button class="btn primary" onclick={build}>Build the timeline</button>
       <button class="btn" onclick={() => up('Add scene', (q) => ({ ...q, scenes: [...q.scenes, newScene(q, q.beats[q.beats.length - 1].id)] }))}>+ Scene</button>
     </div>
-    <p class="note">{p.scenes.length} scenes, {totalSeconds(p).toFixed(1)} s of {p.target || '–'} s. Building puts the places, camera shots, cast and subtitles on the timeline; build again after changes.</p>
+    <p class="note">{p.scenes.length} scenes, {totalSeconds(p).toFixed(1)} s of {p.target || '–'} s. Building puts places, camera shots, first person views, moves, cast, lip movement and subtitles on the timeline; build again after changes.</p>
+
+    <details class="pace">
+      <summary>Speaking pace and scene lengths</summary>
+      <div class="two">
+        <Slider value={paceOf(p)} min={1.5} max={4} step={0.1} precision={1} unit=" w/s" label="Words per second" onchange={(v) => setPace({ pace: v }, 'pace')} />
+        <Slider value={pauseOf(p)} min={0} max={1.5} step={0.05} precision={2} unit=" s" label="Pause after a line" onchange={(v) => setPace({ pause: v }, 'pause')} />
+      </div>
+      <div class="two">
+        <Slider value={breathingOf(p)} min={0} max={3} step={0.25} precision={2} unit=" s" label="Room for reactions" onchange={(v) => setPace({ breathing: v }, 'breathing')} />
+        <ToggleField value={!!p.gestures} label="Characters gesture while talking" onchange={(v) => setPace({ gestures: v })} />
+      </div>
+      <div class="grid">
+        {#each lengths as c (c.target)}
+          <span class="pill" class:bad={!c.fits}>{c.target} s: {c.fits ? `fits, about ${c.words} words free` : `about ${-c.words} words too many`}</span>
+        {/each}
+      </div>
+      <p class="note">Speech {lengths[0]?.speech.toFixed(1)} s, with reactions and camera moves {lengths[0]?.recommended.toFixed(1)} s. Only suggestions: the words are never changed.</p>
+      <div class="buttons">
+        <button class="btn small" onclick={() => fitScenes(false)}>Lengthen scenes that are too short</button>
+        <button class="btn small" onclick={() => fitScenes(true)}>All scenes to the recommended length</button>
+      </div>
+    </details>
+
     {#each p.scenes as s, si (s.id)}
-      <div class="scene">
+      {@const t = timings[si]}
+      {@const sceneLines = p.lines.filter((l) => (l.scene ?? p.scenes.find((x) => x.beat === l.beat)?.id) === s.id)}
+      {@const span = spans[si]}
+      {@const sounds = clips.filter((c) => span && c.start >= span.start && c.start < span.end)}
+      <div class="scene" class:open={openScene === s.id}>
         <div class="beat-head">
           <button class="num" onclick={() => goTo(s.id)} aria-label="Go to scene {si + 1}">{si + 1}</button>
-          <input class="text beat-name" value={s.name} aria-label="Scene name" onchange={(e) => up('Scene', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, name: (e.currentTarget as HTMLInputElement).value } : x)) }))} />
-          <button class="icon" aria-label="Scene up" onclick={() => up('Move scene', (q) => ({ ...q, scenes: moveIn(q.scenes, si, -1) }))}>▲</button>
-          <button class="icon" aria-label="Scene down" onclick={() => up('Move scene', (q) => ({ ...q, scenes: moveIn(q.scenes, si, 1) }))}>▼</button>
-          <button class="icon" aria-label="Duplicate scene" onclick={() => up('Duplicate scene', (q) => duplicateScene(q, s.id))}>⧉</button>
-          <button class="icon" aria-label="Delete scene" onclick={() => up('Delete scene', (q) => removeScene(q, s.id))}>✕</button>
+          <input class="text beat-name" value={s.name} aria-label="Scene name" onchange={(e) => upScene(s.id, 'Scene', { name: (e.currentTarget as HTMLInputElement).value })} />
+          <span class="count" class:over={t?.state === 'short'} title="Speech {t?.speech.toFixed(1)} s, recommended {t?.recommended.toFixed(1)} s">{s.duration.toFixed(1)} s</span>
+          <button class="icon" aria-label="Edit scene {si + 1}" aria-expanded={openScene === s.id} onclick={() => (openScene = openScene === s.id ? null : s.id)}>{openScene === s.id ? '▾' : '▸'}</button>
         </div>
-        <div class="two">
-          <SelectField value={s.beat} options={p.beats.map((b) => ({ value: b.id, label: b.name }))} label="Part" onchange={(v) => up('Scene part', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, beat: v } : x)) }))} />
-          <NumberField value={s.duration} min={0.5} max={60} step={0.25} precision={2} unit=" s" label="Scene length" onchange={(v) => up('Scene length', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, duration: v } : x)) }), `dur-${s.id}`)} />
-        </div>
-        <div class="two">
-          <SelectField value={s.place} options={[{ value: '', label: 'Keep place' }, ...STARTERS.map((x) => ({ value: x.id, label: x.label }))]} label="Place" onchange={(v) => up('Place', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, place: v } : x)) }))} />
-          <SelectField value={s.camera} options={CAMERAS} label="Camera" onchange={(v) => up('Camera', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, camera: v as CameraMove } : x)) }))} />
-        </div>
-        <div class="two">
-          <SelectField value={s.transition} options={TRANSITIONS} label="Transition in" onchange={(v) => up('Transition', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, transition: v as typeof s.transition } : x)) }))} />
-          <span></span>
-        </div>
-        {#if cast.length}
+        <button class="summary" onclick={() => (openScene = openScene === s.id ? null : s.id)}>
+          {#if thumbs[s.id]}<img class="thumb" src={thumbs[s.id]} alt="Scene {si + 1}" />{/if}
+          <span class="facts">
+            <span>📍 {STARTERS.find((x) => x.id === s.place)?.label ?? 'Place kept'}</span>
+            <span>👥 {castNames(s)}</span>
+            <span>🎥 {shotLabel(s.camera)}{s.pov && s.camera.startsWith('pov-') ? ` · ${nameOf(s.pov.actor)} · ${POV_ACTIONS.find((x) => x.value === s.pov?.action)?.label}` : ''}</span>
+            {#if s.moves?.length}<span>🕺 {s.moves.map((m) => `${nameOf(m.actor)}: ${animLabel(m.kind)}`).join(', ')}</span>{/if}
+            {#if s.action}<span>🎬 {s.action}</span>{/if}
+            <span>💬 {sceneLines.length ? sceneLines.map((l) => `${nameOf(l.speaker)}: ${l.text}`).join(' / ') : 'No lines'}</span>
+            <span>🔊 {sounds.length ? sounds.map((c) => c.name).join(', ') : 'No sounds'} · {p.subtitles.shown ? 'Subtitles on' : 'Subtitles off'}</span>
+            <span>↪ {TRANSITION_KINDS.find((x) => x.value === s.transition)?.label}{s.slow ? ' · slow motion' : ''}{s.mood ? ` · ${FILM.find((f) => f.id === s.mood)?.label ?? ''}` : ''}</span>
+            {#if t?.state === 'short'}<span class="warn">⚠ Shorter than its words: {t.speech.toFixed(1)} s needed</span>{/if}
+          </span>
+        </button>
+        {#if openScene === s.id}
+          <div class="buttons">
+            <button class="icon" aria-label="Scene up" onclick={() => up('Move scene', (q) => ({ ...q, scenes: moveIn(q.scenes, si, -1) }))}>▲</button>
+            <button class="icon" aria-label="Scene down" onclick={() => up('Move scene', (q) => ({ ...q, scenes: moveIn(q.scenes, si, 1) }))}>▼</button>
+            <button class="icon" aria-label="Duplicate scene" onclick={() => up('Duplicate scene', (q) => duplicateScene(q, s.id))}>⧉</button>
+            <button class="icon" aria-label="Delete scene" onclick={() => up('Delete scene', (q) => removeScene(q, s.id))}>✕</button>
+          </div>
+          <div class="two">
+            <SelectField value={s.beat} options={p.beats.map((b) => ({ value: b.id, label: b.name }))} label="Part" onchange={(v) => upScene(s.id, 'Scene part', { beat: v })} />
+            <NumberField value={s.duration} min={0.5} max={60} step={0.25} precision={2} unit=" s" label="Scene length" onchange={(v) => up('Scene length', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, duration: v } : x)) }), `dur-${s.id}`)} />
+          </div>
+          {#if t}
+            <p class="note">Speech {t.speech.toFixed(1)} s · recommended {t.recommended.toFixed(1)} s
+              {#if Math.abs(t.recommended - s.duration) > 0.2}<button class="btn small" onclick={() => upScene(s.id, 'Scene length', { duration: t.recommended })}>Use {t.recommended.toFixed(1)} s</button>{/if}
+            </p>
+          {/if}
+          <p class="label">Film language</p>
           <div class="grid">
-            {#each cast as c (c.id)}
-              <button class="pill" class:on={s.cast.length === 0 || s.cast.includes(c.id)} onclick={() => up('Cast', (q) => ({ ...q, scenes: q.scenes.map((x) => { if (x.id !== s.id) return x; const all = x.cast.length === 0 ? cast.map((y) => y.id) : x.cast; const next = all.includes(c.id) ? all.filter((y) => y !== c.id) : [...all, c.id]; return { ...x, cast: next.length === cast.length ? [] : next }; }) }))}>{c.character?.name}</button>
+            {#each FILM as f (f.id)}
+              <button class="pill" class:on={s.mood === f.id} title={f.hint} onclick={() => up('Film language', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? applyFilm(x, f, cast[0]?.id ?? null) : x)) }))}>{f.label}</button>
             {/each}
           </div>
+          <div class="two">
+            <SelectField value={s.place} options={[{ value: '', label: 'Keep place' }, ...STARTERS.map((x) => ({ value: x.id, label: x.label }))]} label="Place" onchange={(v) => upScene(s.id, 'Place', { place: v })} />
+            <SelectField value={s.camera} options={SHOTS.map((x) => ({ value: x.value, label: `${x.group}: ${x.label}` }))} label="Camera" onchange={(v) => setCamera(s.id, v as CameraMove)} />
+          </div>
+          <p class="note">{SHOTS.find((x) => x.value === s.camera)?.hint}</p>
+          <div class="two">
+            <SelectField value={s.transition} options={TRANSITION_KINDS} label="Transition in" onchange={(v) => upScene(s.id, 'Transition', { transition: v as typeof s.transition })} />
+            <ToggleField value={!!s.slow} label="Slow motion" onchange={(v) => upScene(s.id, 'Slow motion', { slow: v })} />
+          </div>
+          {#if cast.length}
+            <div class="two">
+              <SelectField value={s.subject ?? ''} options={[{ value: '', label: 'Camera on: everyone' }, ...cast.map((c) => ({ value: c.id, label: `Camera on: ${c.character?.name}` }))]} label="Subject of the shot" onchange={(v) => upScene(s.id, 'Subject', { subject: v || undefined })} />
+              {#if s.camera === 'over-shoulder'}
+                <SelectField value={s.partner ?? ''} options={[{ value: '', label: 'Looking at: –' }, ...cast.map((c) => ({ value: c.id, label: `Looking at: ${c.character?.name}` }))]} label="Partner" onchange={(v) => upScene(s.id, 'Partner', { partner: v || undefined })} />
+              {:else}<span></span>{/if}
+            </div>
+            <div class="grid">
+              {#each cast as c (c.id)}
+                <button class="pill" class:on={s.cast.length === 0 || s.cast.includes(c.id)} onclick={() => up('Cast', (q) => ({ ...q, scenes: q.scenes.map((x) => { if (x.id !== s.id) return x; const all = x.cast.length === 0 ? cast.map((y) => y.id) : x.cast; const next = all.includes(c.id) ? all.filter((y) => y !== c.id) : [...all, c.id]; return { ...x, cast: next.length === cast.length ? [] : next }; }) }))}>{c.character?.name}</button>
+              {/each}
+            </div>
+          {/if}
+          {#if s.camera.startsWith('pov-')}
+            {@const pov = s.pov ?? { actor: cast[0]?.id ?? '', look: 'ahead', action: 'none', at: 0.5, item: '', hands: true }}
+            <div class="povbox">
+              <p class="label">First person</p>
+              {#if !cast.length}<p class="note warn">Add a character first: the camera sees through its eyes.</p>{/if}
+              <div class="two">
+                <SelectField value={pov.actor} options={cast.map((c) => ({ value: c.id, label: `Eyes of ${c.character?.name}` }))} label="Whose eyes" onchange={(v) => setPov(s.id, { ...pov, actor: v })} />
+                <SelectField value={pov.look} options={POV_LOOKS} label="Looks" onchange={(v) => setPov(s.id, { ...pov, look: v as PovLook })} />
+              </div>
+              <div class="two">
+                <SelectField value={pov.action} options={POV_ACTIONS} label="Hands" onchange={(v) => setPov(s.id, { ...pov, action: v as PovAction })} />
+                <ToggleField value={pov.hands} label="Show hands" onchange={(v) => setPov(s.id, { ...pov, hands: v })} />
+              </div>
+              {#if pov.action === 'pickup'}
+                <SelectField value={pov.item || 'keys'} options={VISUALS.filter((v) => v.category === 'objects').map((v) => ({ value: v.id, label: v.label }))} label="Object" onchange={(v) => setPov(s.id, { ...pov, item: v })} />
+              {/if}
+              {#if pov.action !== 'none' && pov.action !== 'drive'}
+                <Slider value={Math.round(pov.at * 100)} min={5} max={90} step={5} precision={0} unit="%" label="When in the scene" onchange={(v) => setPov(s.id, { ...pov, at: v / 100 }, `pov-at-${s.id}`)} />
+              {/if}
+              <p class="note">The character is hidden in this scene, its hands come in from below. Lines it speaks are heard, its mouth is not shown.</p>
+            </div>
+          {/if}
+          {#if cast.length}
+            <p class="label">Moves</p>
+            {#each s.moves ?? [] as m, mi (mi)}
+              <div class="move">
+                <SelectField value={m.actor} options={cast.map((c) => ({ value: c.id, label: c.character?.name ?? '' }))} label="Who" onchange={(v) => setMove(s.id, mi, { actor: v })} />
+                <SelectField value={m.kind} options={ANIMATIONS.map((a) => ({ value: a.kind, label: a.label }))} label="Move" onchange={(v) => setMove(s.id, mi, { kind: v })} />
+                <NumberField value={Math.round(m.at * 100)} min={0} max={95} step={5} precision={0} unit="%" label="Starts at" onchange={(v) => setMove(s.id, mi, { at: v / 100 })} />
+                <button class="icon" aria-label="Remove move" onclick={() => up('Remove move', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, moves: (x.moves ?? []).filter((_, n) => n !== mi) } : x)) }))}>✕</button>
+              </div>
+            {/each}
+            <div class="buttons"><button class="btn small" onclick={() => up('Add move', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, moves: [...(x.moves ?? []), { actor: s.subject ?? cast[0].id, kind: 'gesture', at: 0.1 }] } : x)) }))}>+ Move</button></div>
+          {/if}
+          <textarea class="area" rows="2" placeholder="What happens" aria-label="Scene action" value={s.action} onchange={(e) => upScene(s.id, 'Action', { action: (e.currentTarget as HTMLTextAreaElement).value })}></textarea>
         {/if}
-        <textarea class="area" rows="2" placeholder="What happens" aria-label="Scene action" value={s.action} onchange={(e) => up('Action', (q) => ({ ...q, scenes: q.scenes.map((x) => (x.id === s.id ? { ...x, action: (e.currentTarget as HTMLTextAreaElement).value } : x)) }))}></textarea>
-        <p class="note">{p.lines.filter((l) => (l.scene ?? p.scenes.find((x) => x.beat === l.beat)?.id) === s.id).map((l) => l.text).join(' ') || 'No lines in this scene'}</p>
       </div>
     {/each}
   {:else if tab === 'sound'}
@@ -389,6 +534,17 @@
           <NumberField value={c.start + 1} min={1} max={100000} step={1} precision={0} label="Starts at frame" onchange={(v) => setClip(c.id, { start: v - 1 })} />
           <Slider value={Math.round(c.volume * 100)} min={0} max={100} step={1} precision={0} unit="%" label="Volume" onchange={(v) => setClip(c.id, { volume: v / 100 }, `vol-${c.id}`)} />
         </div>
+        <div class="buttons">
+          <button class="btn small" aria-label="Half a second earlier" onclick={() => nudgeClip(c.id, -Math.round(editor.doc.fps / 2))}>−½ s</button>
+          <button class="btn small" aria-label="One frame earlier" onclick={() => nudgeClip(c.id, -1)}>−1</button>
+          <button class="btn small" aria-label="One frame later" onclick={() => nudgeClip(c.id, 1)}>+1</button>
+          <button class="btn small" aria-label="Half a second later" onclick={() => nudgeClip(c.id, Math.round(editor.doc.fps / 2))}>+½ s</button>
+          <button class="btn small" onclick={() => setClip(c.id, { start: $frame })}>To playhead</button>
+        </div>
+        <div class="two">
+          <SelectField value="" options={[{ value: '', label: 'Move to the start of…' }, ...p.scenes.map((sc, n) => ({ value: sc.id, label: `Scene ${n + 1}: ${sc.name}` }))]} label="Move to scene" onchange={(v) => v && clipToScene(c.id, v)} />
+          <Slider value={c.rate ?? 1} min={0.8} max={1.25} step={0.05} precision={2} unit="×" label="Tempo" onchange={(v) => setClip(c.id, { rate: v }, `rate-${c.id}`)} />
+        </div>
       </div>
     {/each}
     <h3 class="section">Voices</h3>
@@ -400,10 +556,14 @@
           <Slider value={v.pitch} min={0.5} max={1.8} step={0.05} precision={2} label="{s.label} pitch" onchange={(x) => setVoice(s.id, { pitch: x }, `pitch-${s.id}`)} />
           <Slider value={v.rate} min={0.6} max={1.6} step={0.05} precision={2} label="{s.label} speed" onchange={(x) => setVoice(s.id, { rate: x }, `rate-${s.id}`)} />
         </div>
+        <div class="two">
+          <Slider value={Math.round((v.volume ?? 1) * 100)} min={0} max={150} step={5} precision={0} unit="%" label="{s.label} loudness" onchange={(x) => setVoice(s.id, { volume: x / 100 }, `vvol-${s.id}`)} />
+          <input class="text" placeholder="Style: warm, young, calm" value={v.style ?? ''} aria-label="{s.label} voice style" onchange={(e) => setVoice(s.id, { style: (e.currentTarget as HTMLInputElement).value })} />
+        </div>
         <input class="text" placeholder="Voice id of a generator, later" value={v.voiceId} aria-label="{s.label} generator voice" onchange={(e) => setVoice(s.id, { voiceId: (e.currentTarget as HTMLInputElement).value, provider: (e.currentTarget as HTMLInputElement).value ? 'external' : '' })} />
       </div>
     {/each}
-    <p class="note">The voice of every speaker is kept with the project. A voice generator can be connected later through these ids; until then recordings are added per line.</p>
+    <p class="note">The voice of every speaker is kept with the project, a character keeps its voice in the library for the next video. Tempo of a recording changes its pitch a little. A voice generator can be connected later through these ids; until then recordings are added per line.</p>
   {:else if tab === 'subs'}
     <Field label="Show subtitles"><ToggleField value={p.subtitles.shown} label="Show subtitles" onchange={(v) => up('Subtitles', (q) => ({ ...q, subtitles: { ...q.subtitles, shown: v } }))} /></Field>
     <div class="grid">
@@ -710,5 +870,86 @@
   .swatch.on {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+  .scene.open {
+    border-color: var(--accent);
+  }
+  .summary {
+    display: flex;
+    gap: 8px;
+    width: calc(100% - 16px);
+    margin: 4px 8px 0;
+    padding: 4px;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+  }
+  .thumb {
+    flex: none;
+    width: 54px;
+    height: 96px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .facts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .facts span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .facts .warn,
+  .note.warn {
+    color: var(--accent);
+  }
+  .pill.bad {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .pace {
+    margin: 6px 8px;
+    padding: 6px 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .pace summary {
+    min-height: 32px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .povbox {
+    margin: 6px 8px;
+    padding: 4px 0;
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+  }
+  .move {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr 0.9fr auto;
+    gap: 4px;
+    padding: 2px 8px;
+    align-items: center;
+  }
+  /* bigger targets for a finger in the storyboard cards */
+  .scene :global(.select),
+  .pace :global(.select) {
+    min-height: 36px;
+  }
+  .scene :global(.switch),
+  .pace :global(.switch) {
+    margin: 8px 0;
+    transform: scale(1.3);
+    transform-origin: left center;
   }
 </style>

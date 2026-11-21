@@ -37,24 +37,31 @@ export function lineSeconds(text: string): number {
 // a new production from a format and maybe a template, the lengths of the scenes from the target
 export function newProduction(format: Format, template: FormatTemplate | null, target: number, speakers: Record<string, string> = {}): Production {
   const beats = beatsOf(format, newId);
+  const who = (id: string) => speakers[id] ?? id;
   const scenes: Scene[] = (template?.scenes ?? beats.map((b, i) => ({ beat: i, name: b.name, place: '', camera: 'still' as const, action: '' }))).map((s) => ({
     id: newId(),
     name: s.name,
     beat: beats[Math.min(s.beat, beats.length - 1)].id,
-    duration: 4,
+    duration: 4 * ('weight' in s && s.weight ? s.weight : 1),
     place: s.place,
-    cast: [],
+    cast: 'cast' in s && s.cast ? s.cast.map(who) : [],
     action: s.action,
     camera: s.camera,
-    transition: 'cut',
-    note: ''
+    transition: ('transition' in s && s.transition) || 'cut',
+    note: '',
+    ...('subject' in s && s.subject ? { subject: who(s.subject) } : {}),
+    ...('partner' in s && s.partner ? { partner: who(s.partner) } : {}),
+    ...('pov' in s && s.pov ? { pov: { ...s.pov, actor: who(s.pov.actor) } } : {}),
+    ...('moves' in s && s.moves ? { moves: s.moves.map((m) => ({ ...m, actor: who(m.actor) })) } : {}),
+    ...('slow' in s && s.slow ? { slow: true } : {}),
+    ...('mood' in s && s.mood ? { mood: s.mood } : {})
   }));
   const lines: ScriptLine[] = (template?.lines ?? []).map((l) => ({
     id: newId(),
     beat: beats[Math.min(l.beat, beats.length - 1)].id,
-    speaker: speakers[l.speaker] ?? l.speaker,
+    speaker: who(l.speaker),
     text: l.text,
-    scene: null,
+    scene: l.scene !== undefined && scenes[l.scene] ? scenes[l.scene].id : null,
     certainty: l.certainty ?? format.certainty
   }));
   const p: Production = {

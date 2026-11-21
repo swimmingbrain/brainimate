@@ -374,6 +374,16 @@ function buildPov(doc: Doc, p: Production, spans: ReturnType<typeof sceneStarts>
   }
 }
 
+// the camera kept over the stage, so no edge of the drawn place comes into the picture; a tilt and the
+// shake are left as they are
+export function inside(c: CameraKey, W: number, H: number): CameraKey {
+  const z = Math.max(1, c.zoom);
+  const tilt = 1 + Math.abs(c.rotation) * 2;
+  const hw = Math.min(W / 2, ((W / 2) * tilt) / z);
+  const hh = Math.min(H / 2, ((H / 2) * tilt) / z);
+  return { ...c, zoom: Math.max(1, c.zoom), x: Math.max(hw, Math.min(W - hw, c.x)), y: Math.max(hh, Math.min(H - hh, c.y)) };
+}
+
 export const HANDS = 'POV hands';
 export const PROPS = 'POV props';
 
@@ -488,7 +498,7 @@ export function buildTimeline(doc: Doc, p: Production): Built {
     const keys = shot(doc, scene, end - start, focus ? { x: focus.x, y: focus.y + doc.height * 0.05 } : null);
     for (const [n, sk] of keys.entries()) {
       const k = keyAt(cam, start + sk.f);
-      k.camera = { ...sk.cam, transition: n === 0 ? (i === 0 ? null : transitionOf(scene, fps)) : null };
+      k.camera = { ...inside(sk.cam, doc.width, doc.height), transition: n === 0 ? (i === 0 ? null : transitionOf(scene, fps)) : null };
       k.tween = sk.ease ? { ease: sk.ease } : null;
       k.label = `${MARK}${scene.name}${n === 0 ? '' : n === keys.length - 1 ? ' end' : ` ${n}`}`;
     }
@@ -556,9 +566,15 @@ function animateMove(doc: Doc, id: string, kind: AnimKind, at: number, end: numb
   const fps = doc.fps;
   const room = Math.max(1, end - at) / fps;
   const cycleLen = (a.seconds / speed) || 1;
-  const cycles = a.cycle ? Math.max(1, Math.floor((room * 0.95) / cycleLen)) : 0;
+  let cycles = a.cycle ? Math.max(1, Math.floor((room * 0.95) / cycleLen)) : 0;
   const u = Math.abs(info.face.r) * 7;
   const distance = kind === 'walk' ? info.face.facing * u * 0.35 : kind === 'run' ? info.face.facing * u * 0.45 : 0;
+  // walking stays on the stage: as many steps as there is room ahead
+  if (distance !== 0) {
+    const hip = jointAt(doc, id, at, 'Hip')?.x ?? info.face.x;
+    const ahead = distance > 0 ? doc.width * 0.76 - hip : hip - doc.width * 0.24;
+    cycles = Math.max(1, Math.min(cycles, Math.floor(Math.max(0, ahead) / Math.abs(distance))));
+  }
   const back = ['point', 'reach', 'fall'].includes(kind);
   return animateDraft(doc, id, { kind, repeat: a.cycle ? cycles : back ? 0.8 : 0, speed, mirror: false, distance, back }, at);
 }

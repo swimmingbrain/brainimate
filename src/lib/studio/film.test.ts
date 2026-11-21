@@ -231,3 +231,32 @@ describe('pace, recordings and voices', () => {
     expect(S.voiceOf(tom).pitch).toBe(1.3);
   });
 });
+
+describe('the three test projects', () => {
+  beforeEach(() => {
+    editor.newDoc(W, H, 24);
+    frame.set(0);
+    selection.set(new Set());
+  });
+
+  it('A, B and C start with Tom and Lina, build, keep the camera on the stage and characters on it', async () => {
+    const S = await import('$lib/editor/studio');
+    const { inside } = await import('./build');
+    for (const id of ['test-pov', 'test-switch', 'test-cinematic']) {
+      expect(await S.startVideo('story', id, 60, 24, false, true), id).toBe(true);
+      const names = editor.doc.layers.filter((l) => l.character).map((l) => l.character!.name);
+      expect(names, id).toEqual(['Tom', 'Lina']);
+      const p = production()!;
+      expect(p.lines.every((l) => l.scene), id).toBe(true);
+      buildFromStoryboard();
+      const cam = editor.doc.layers.find((l) => l.type === 'camera')!;
+      for (const k of cam.keyframes) expect(inside(k.camera!, W, H), id).toEqual(k.camera);
+      const tom = editor.doc.layers.find((l) => l.character?.name === 'Tom')!.id;
+      const end = sceneStarts(production()!, 24).at(-1)!.end - 1;
+      const x = jointAt(editor.doc, tom, end, 'Hip')!.x;
+      expect(x, id).toBeGreaterThan(W * 0.1);
+      expect(x, id).toBeLessThan(W * 0.9);
+      if (id === 'test-pov') expect(editor.doc.layers.some((l) => l.name === HANDS && l.keyframes.length > 3)).toBe(true);
+    }
+  });
+});

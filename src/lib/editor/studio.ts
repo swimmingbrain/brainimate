@@ -3,9 +3,9 @@ import type { Doc } from '$lib/core/types';
 import { addToast, dialog, dirty, frame } from '$lib/stores/app';
 import { editor, makeDoc, makeLayer, LAYER_COLORS } from './editor';
 import { COMIC_SCENE_LAYERS } from '$lib/core/comic';
-import { characterFolders } from '$lib/character/model';
+import { characterFolders, defaultCharacter, DEFAULT_COLORS } from '$lib/character/model';
 import { libraryEntry, loadLibrary, placeOffset } from '$lib/character/library';
-import { insertPackage } from './character';
+import { createCharacter, insertPackage } from './character';
 import { FORMATS, type Format } from '$lib/studio/formats';
 import { cloneProduction, cuesFrom, fitScenesToSpeech, fitToLength, newProduction, sceneOf, sceneStarts } from '$lib/studio/production';
 import { buildTimeline, clipSeconds, type Built } from '$lib/studio/build';
@@ -75,6 +75,15 @@ export async function startVideo(formatId: string, templateId: string | null, ta
       const id = insertPackage(e.pkg, off.dx + (slot === 1 ? -0.2 : 0.2) * editor.doc.width, off.dy);
       if (id) speakers[`main${slot}`] = id;
     }
+  }
+  // a template that needs two characters gets them when the library has no main characters
+  if (template?.cast) {
+    const W = editor.doc.width;
+    const H = editor.doc.height;
+    if (speakers.main1 === 'Main character 1') speakers.main1 = createCharacter({ ...defaultCharacter(W, H), name: 'Tom', x: W * 0.3, facing: 1 }) ?? speakers.main1;
+    if (speakers.main2 === 'Main character 2')
+      speakers.main2 =
+        createCharacter({ ...defaultCharacter(W, H), name: 'Lina', x: W * 0.7, facing: -1, hair: 'long', seed: 11, colors: { ...DEFAULT_COLORS, hair: '#6b4a32', shirt: '#a8433a', pants: '#2b3348' } }) ?? speakers.main2;
   }
   const p = newProduction(format, template, target, speakers);
   editor.commit('New video', (draft) => {
