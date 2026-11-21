@@ -65,7 +65,8 @@ export function drawSubtitles(ctx: Ctx2D, doc: Doc, frame: number, base: Mat) {
   const lineH = size * 1.22;
   const blockH = lines.length * lineH;
   const free = doc.height - safe.top - safe.bottom - blockH;
-  const bottom = doc.height - safe.bottom - free * Math.max(0, Math.min(1, st.position));
+  // a cue can sit somewhere else, above a phone held in the picture
+  const bottom = doc.height - safe.bottom - free * Math.max(0, Math.min(1, cue.position ?? st.position));
   const top = bottom - blockH;
   const cx = safe.left + maxWidth / 2;
   // pop: the block grows in over the first frames

@@ -158,6 +158,8 @@ export interface Cue {
   certainty?: Certainty;
   // the script line it is a piece of
   line?: string;
+  // up from the bottom of the safe zone like the style's position, for this cue only
+  position?: number;
 }
 
 export type TrackKind = 'narration' | 'dialogue' | 'music' | 'sfx';

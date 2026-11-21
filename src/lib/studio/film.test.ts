@@ -260,3 +260,28 @@ describe('the three test projects', () => {
     }
   });
 });
+
+describe('subtitles over a phone', () => {
+  beforeEach(() => {
+    editor.newDoc(W, H, 24);
+    frame.set(0);
+    selection.set(new Set());
+  });
+
+  it('moves the subtitles of a first person phone scene up, the others stay', () => {
+    const { tom } = setup();
+    updateProduction('phone', (p) => {
+      p.scenes[1].camera = 'pov-interact';
+      p.scenes[1].pov = { actor: tom, look: 'down', action: 'phone', at: 0.1, item: 'phone-message', hands: true };
+      p.lines = [
+        { id: 'a', beat: p.scenes[0].beat, speaker: 'narrator', text: 'Ein ganz normaler Satz', scene: p.scenes[0].id },
+        { id: 'b', beat: p.scenes[1].beat, speaker: 'narrator', text: 'Dann vibrierte das Handy', scene: p.scenes[1].id }
+      ];
+      return p;
+    });
+    buildFromStoryboard();
+    const cues = production()!.cues;
+    expect(cues.find((c) => c.line === 'a')!.position).toBeUndefined();
+    expect(cues.find((c) => c.line === 'b')!.position).toBeGreaterThan(0.8);
+  });
+});

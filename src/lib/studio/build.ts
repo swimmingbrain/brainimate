@@ -554,6 +554,11 @@ export function buildTimeline(doc: Doc, p: Production): Built {
   }
 
   for (const l of doc.layers) if (l.type !== 'folder') l.length = Math.max(l.length, total);
+  // in a first person scene with a phone in the hands the subtitles move up, the screen stays free
+  for (const c of cues) {
+    const span = spans.find((x) => c.start >= x.start && c.start < x.end);
+    if (span && isPov(span.scene) && span.scene.pov?.action === 'phone') c.position = 0.92;
+  }
   p.cues = cues;
   doc.production = p;
   return { scenes: spans.length, frames: total, cues: p.cues.length };
