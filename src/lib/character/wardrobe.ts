@@ -265,7 +265,14 @@ export interface Look {
 
 // a whole new look for a body type from a random source: a body inside the type's range, a skin tone,
 // a hair style and color, eyes, an outfit that fits, sometimes a beard, make-up, freckles or extras
-export function randomLook(type: BodyType, rnd: () => number): Look {
+export function randomLook(type: BodyType, source: () => number): Look {
+  // the first values of nearby seeds lie close together: they are stirred into each other first
+  let state = 0;
+  for (let i = 0; i < 6; i++) state = (state * 31 + Math.floor(source() * 1e9)) % 2147483647;
+  const rnd = () => {
+    state = (state * 48271 + Math.floor(source() * 65536)) % 2147483647;
+    return state / 2147483647;
+  };
   const pick = <T>(list: T[]): T => list[Math.floor(rnd() * list.length) % list.length];
   const near = (v: number, spread: number) => v + (rnd() * 2 - 1) * spread;
   const preset = BODY_PRESETS[type];
@@ -298,10 +305,12 @@ export function randomLook(type: BodyType, rnd: () => number): Look {
     extra: pick(['#c4a15e', '#b5b2ac', '#5e4433', '#222124']),
     hatColor: pick(CLOTH_COLORS).color
   };
+  // the same outfit comes in other colors now and then, the top never in the color of the bottom
+  const shirt = rnd() < 0.45 ? pick(CLOTH_COLORS.filter((x) => x.color !== outfit.pants)).color : outfit.shirt;
   const colors: CharacterColors = {
     skin: pick(SKIN_TONES).color,
     hair: hairColor,
-    shirt: outfit.shirt,
+    shirt,
     pants: outfit.pants,
     shoes: outfit.shoeColor,
     outline: '#1d1b19'
