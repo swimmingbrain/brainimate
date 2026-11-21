@@ -120,11 +120,16 @@
 
   const up = (label: string, change: (q: Production) => Production, key?: string) => updateProduction(label, change, key);
 
-  async function start() {
+  async function start(confirmed = false) {
     if (!pickFormat) return;
+    // the question about unsaved changes comes first, the studio then goes on to the script
+    if (!confirmed && $dirty) {
+      dialog.set({ kind: 'confirm', title: 'New video', message: 'The open project has changes that are not saved. Start a new video anyway?', confirm: 'Start', danger: true, onconfirm: () => void start(true) });
+      return;
+    }
     busy = true;
     try {
-      if (await startVideo(pickFormat, pickTemplate, pickLength, pickFps, withMains)) {
+      if (await startVideo(pickFormat, pickTemplate, pickLength, pickFps, withMains, true)) {
         savedId = null;
         pickFormat = null;
         tab = 'script';
@@ -255,7 +260,7 @@
           <ToggleField value={withMains} label="Put in the main characters" onchange={(v) => (withMains = v)} />
         </Field>
         <div class="buttons">
-          <button class="btn primary" disabled={busy} onclick={start}>Start this video</button>
+          <button class="btn primary" disabled={busy} onclick={() => start()}>Start this video</button>
           {#if !p}<button class="btn" onclick={() => addProduction(f.id, pickLength)}>Plan the open project</button>{/if}
         </div>
       {/if}

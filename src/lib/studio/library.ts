@@ -4,6 +4,7 @@ import type { Doc } from '$lib/core/types';
 import { newId } from '$lib/core/ids';
 import { customFormat, type Format } from './formats';
 import type { Status } from './types';
+import type { Outfit } from '$lib/character/wardrobe';
 
 // the videos of the channel kept in the browser: each one the whole project with its production, so it
 // opens again as it was, can be copied for the next episode and stays after the browser closes. custom
@@ -103,4 +104,33 @@ export async function deleteFormat(id: string) {
   if (!s) return;
   await del(id, s);
   await loadFormats();
+}
+
+// outfits of one's own: the kinds and colors of top, bottom and shoes kept to put on any character
+
+let outfitStore: UseStore | null = null;
+const outfitsShelf = () => (typeof indexedDB === 'undefined' ? null : (outfitStore ??= createStore('brainimate-outfits', 'outfits')));
+export const savedOutfits = writable<(Outfit & { id: string })[]>([]);
+
+export async function loadOutfits() {
+  const s = outfitsShelf();
+  if (!s) return [];
+  const list = (await entries<string, Outfit & { id: string }>(s).catch(() => [])).map(([, v]) => v).filter((o) => o && o.top);
+  savedOutfits.set(list);
+  return list;
+}
+
+export async function keepOutfit(o: Outfit) {
+  const s = outfitsShelf();
+  if (!s) throw new Error('This browser keeps no library, private browsing may be on');
+  const id = newId();
+  await idbSet(id, { ...o, id }, s);
+  await loadOutfits();
+}
+
+export async function deleteOutfit(id: string) {
+  const s = outfitsShelf();
+  if (!s) return;
+  await del(id, s);
+  await loadOutfits();
 }

@@ -26,7 +26,9 @@
     type Identity
   } from '$lib/character/wardrobe';
   import { applyLook, applyOutfit, lookLocked, modelHere, setBodyType, setIdentity, setLocked, setModel } from '$lib/editor/turn';
-  import { duplicateCharacter, renameCharacter } from '$lib/editor/character';
+  import { duplicateCharacter, renameCharacter, setPersonality } from '$lib/editor/character';
+  import { onMount } from 'svelte';
+  import { deleteOutfit, keepOutfit, loadOutfits, savedOutfits } from '$lib/studio/library';
   import { library, loadLibrary, saveCharacter, setMain } from '$lib/character/library';
 
   // the character creator: nine short pages, each a tap away, every change shows on the stage at once and
@@ -99,6 +101,18 @@
     } finally {
       busy = false;
     }
+  }
+
+  onMount(() => {
+    void loadOutfits();
+  });
+
+  async function keepThisOutfit() {
+    if (!model || !ident) return;
+    const top = TOPS.find((t) => t.id === ident.top)?.label ?? ident.top;
+    const bottom = BOTTOMS.find((b) => b.id === ident.bottom)?.label ?? ident.bottom;
+    await keepOutfit({ label: `${info?.name ?? 'My'}: ${top}, ${bottom}`, for: 'any', top: ident.top, shirt: model.colors.shirt, accent: ident.accent, bottom: ident.bottom, pants: model.colors.pants, shoes: ident.shoes, shoeColor: model.colors.shoes, sole: ident.sole });
+    addToast('Outfit kept, it fits every character', 'success', 2000);
   }
 
   const HAIR_GROUPS = [
@@ -333,6 +347,17 @@
         </button>
       {/each}
     </div>
+    <p class="label">My outfits</p>
+    {#each $savedOutfits as o (o.id)}
+      <div class="saved">
+        <button class="outfit grow" onclick={() => applyOutfit(id, o)}>
+          <span class="dots"><span style="background: {o.shirt}"></span><span style="background: {o.pants}"></span><span style="background: {o.shoeColor}"></span></span>
+          {o.label}
+        </button>
+        <button class="pill" aria-label="Delete outfit {o.label}" onclick={() => deleteOutfit(o.id)}>✕</button>
+      </div>
+    {/each}
+    <div class="buttons"><button class="btn" onclick={keepThisOutfit}>Keep this outfit</button></div>
     <p class="label">Outline</p>
     <div class="swatches">
       {#each ['#1d1b19', '#3a3734', '#2b3348', '#4f3529'] as x (x)}
@@ -348,6 +373,8 @@
       <button class="btn" onclick={() => duplicateCharacter(id)}><Icon name="duplicate" size={14} /> Duplicate</button>
       <button class="btn primary" disabled={busy} onclick={() => keep()}><Icon name="save" size={14} /> Save to library</button>
     </div>
+    <p class="label">Personality</p>
+    <textarea class="text area" rows="2" placeholder="E.g. curious, talks fast, always late" aria-label="Personality" value={info?.personality ?? ''} onchange={(e) => setPersonality(id, (e.currentTarget as HTMLTextAreaElement).value)}></textarea>
     <p class="label">Main characters of the series</p>
     <div class="buttons">
       <button class="btn" class:on={entry?.main === 1} disabled={busy} onclick={() => keep(1)}>{entry?.main === 1 ? 'Main character 1' : 'Make main character 1'}</button>
@@ -495,6 +522,23 @@
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: 6px;
+  }
+
+  .saved {
+    display: flex;
+    gap: 4px;
+    padding: 0 8px 4px;
+  }
+
+  .grow {
+    flex: 1;
+  }
+
+  .area {
+    margin: 0 8px 6px;
+    width: calc(100% - 16px);
+    min-height: 54px;
+    resize: vertical;
   }
 
   .dots {

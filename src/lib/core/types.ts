@@ -265,6 +265,8 @@ export interface CharacterInfo {
   look?: CharacterLook;
   // everything a turnable character is drawn from at any angle, see character/views.ts
   model?: Record<string, unknown>;
+  // who the character is: a few words about its personality, for writing its lines
+  personality?: string;
 }
 
 // see FaceStyle in character/model, kept loose here so the core types know nothing of the drawing

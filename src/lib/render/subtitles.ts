@@ -76,7 +76,8 @@ export function drawSubtitles(ctx: Ctx2D, doc: Doc, frame: number, base: Mat) {
   ctx.translate(-cx, -(top + blockH / 2));
   const tag = cue.certainty ? CERTAINTY_TAG[cue.certainty] : undefined;
   if (st.box) {
-    const widest = Math.max(...lines.map((l) => ctx.measureText(l).width));
+    const gapW = Math.max(ctx.measureText(' ').width, size * 0.32);
+    const widest = Math.max(...lines.map((l) => l.split(' ').reduce((n, w) => n + ctx.measureText(w).width, 0) + gapW * (l.split(' ').length - 1)));
     ctx.fillStyle = 'rgba(20, 18, 17, 0.62)';
     roundRect(ctx, cx - widest / 2 - size * 0.45, top - size * 0.25, widest + size * 0.9, blockH + size * 0.5, size * 0.3);
     ctx.fill();
@@ -101,7 +102,9 @@ export function drawSubtitles(ctx: Ctx2D, doc: Doc, frame: number, base: Mat) {
   for (const [i, line] of lines.entries()) {
     const y = top + lineH * (i + 0.5);
     const ws = line.split(' ');
-    const width = ctx.measureText(line).width;
+    // a clear gap between words, the lit one grows a little and must not touch its neighbours
+    const gap = Math.max(ctx.measureText(' ').width, size * 0.32);
+    const width = ws.reduce((n, w) => n + ctx.measureText(w).width, 0) + gap * (ws.length - 1);
     let x = cx - width / 2;
     for (const w of ws) {
       const lit = st.animation !== 'none' && index === said;
@@ -118,7 +121,7 @@ export function drawSubtitles(ctx: Ctx2D, doc: Doc, frame: number, base: Mat) {
       ctx.fillStyle = lit ? st.highlight : '#ffffff';
       ctx.fillText(w, x, y);
       ctx.restore();
-      x += ww + ctx.measureText(' ').width;
+      x += ww + gap;
       index++;
     }
   }
