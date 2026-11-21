@@ -336,10 +336,11 @@ export function animationKeys(kind: AnimKind, body: Body, o: AnimOptions): PoseK
         'Lower leg R': { rotation: -fwd * 1.5 },
         'Upper leg L': { rotation: fwd * 1.45 },
         'Lower leg L': { rotation: -fwd * 1.45 },
-        'Upper arm R': { rotation: fwd * 0.5 },
-        'Lower arm R': { rotation: fwd * 0.7 },
-        'Upper arm L': { rotation: fwd * 0.45 },
-        'Lower arm L': { rotation: fwd * 0.7 }
+        // the hands rest on the thighs
+        'Upper arm R': { rotation: -fwd * 0.12 },
+        'Lower arm R': { rotation: fwd * 0.55 },
+        'Upper arm L': { rotation: -fwd * 0.08 },
+        'Lower arm L': { rotation: fwd * 0.5 }
       };
       const lean: PoseValues = { ...pose, Hip: { y: thigh * 0.5 }, Spine: { rotation: -fwd * 0.3 } };
       put(at, withHip({}), 'inout');
