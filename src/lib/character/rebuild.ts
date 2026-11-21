@@ -5,6 +5,7 @@ import { worldMatrices } from '$lib/rig/bones';
 import { BASE_TURN, SIDE, turnAt, turnedBones } from '$lib/rig/turn';
 import { BONES, BONE_PARENT, FACE_ROLES, PART_BONE, bindParts, faceStyleOf, lookOf, type BoneName, type HairStyle } from './model';
 import { boneSpots, buildView, modelOf, type CharacterModel } from './views';
+import { identityOf } from './wardrobe';
 import { faceAt, type FaceState } from './anim';
 
 // a turnable character drawn again from its model: one keyframe of its body at the angle the keyframe
@@ -122,6 +123,7 @@ export function deriveModel(info: CharacterInfo, rig: Layer): CharacterModel {
     sleeves: 'short',
     glasses: 'none',
     hat: 'none',
-    tweaks: {}
+    tweaks: {},
+    identity: identityOf(null)
   };
 }

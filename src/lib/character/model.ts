@@ -1,6 +1,7 @@
 import type { Anchor, Bone, CharacterColors, CharacterInfo, CharacterLook, Item, Layer, PathData, TurnRig, Vec } from '$lib/core/types';
 import { project, SIDE } from '$lib/rig/turn';
 import { boneSpots, buildView, headOf, modelFrom } from './views';
+import { identityOf, type Identity } from './wardrobe';
 import { makeGroupItem, makePathItem } from '$lib/core/items';
 import { defaultStyle, solid } from '$lib/core/style';
 import { mixHex } from '$lib/core/color';
@@ -13,7 +14,26 @@ import { makeLayer } from '$lib/editor/editor';
 // are capsules round at the joints, so a bent elbow or knee never opens a gap. the face sits on the
 // head bone, its parts keep the same number of anchors in every expression, so a change of mood morphs
 
-export type HairStyle = 'short' | 'long' | 'bun' | 'bald' | 'spiky' | 'curly' | 'ponytail' | 'sidepart' | 'buzz' | 'afro';
+export type HairStyle =
+  | 'short'
+  | 'long'
+  | 'bun'
+  | 'bald'
+  | 'spiky'
+  | 'curly'
+  | 'ponytail'
+  | 'sidepart'
+  | 'buzz'
+  | 'afro'
+  | 'pixie'
+  | 'middlepart'
+  | 'undercut'
+  | 'quiff'
+  | 'wavy'
+  | 'medium'
+  | 'bob'
+  | 'longwavy'
+  | 'straight';
 export type Build = 'slim' | 'regular' | 'broad';
 
 export interface CharacterOptions {
@@ -43,6 +63,8 @@ export interface CharacterOptions {
   sleeves?: 'short' | 'long';
   glasses?: 'none' | 'round' | 'square';
   hat?: 'none' | 'cap' | 'beanie';
+  // body type, face details, clothes, shoes and extras, see wardrobe.ts
+  identity?: Partial<Identity>;
 }
 
 export const DEFAULT_COLORS: CharacterColors = {
@@ -136,7 +158,51 @@ export const PART_BONE: Record<string, BoneName> = {
   glassR: 'Head',
   glassBridge: 'Head',
   hat: 'Head',
-  hatBrim: 'Head'
+  hatBrim: 'Head',
+  cuffL: 'Lower arm L',
+  cuffR: 'Lower arm R',
+  watch: 'Lower arm L',
+  shortsL: 'Upper leg L',
+  shortsR: 'Upper leg R',
+  pantCuffL: 'Lower leg L',
+  pantCuffR: 'Lower leg R',
+  bootL: 'Lower leg L',
+  bootR: 'Lower leg R',
+  soleL: 'Foot L',
+  soleR: 'Foot R',
+  stripeL: 'Foot L',
+  stripeR: 'Foot R',
+  strap0L: 'Foot L',
+  strap1L: 'Foot L',
+  strap0R: 'Foot R',
+  strap1R: 'Foot R',
+  skirt: 'Hip',
+  hemBand: 'Chest',
+  neckline: 'Chest',
+  collarL: 'Chest',
+  collarR: 'Chest',
+  placket: 'Chest',
+  jacketInner: 'Chest',
+  pocket: 'Chest',
+  strings: 'Chest',
+  bustLine: 'Chest',
+  necklace: 'Chest',
+  bagStrap: 'Chest',
+  bagStrapBack: 'Chest',
+  packStrapL: 'Chest',
+  packStrapR: 'Chest',
+  hood: 'Chest',
+  bag: 'Hip',
+  backpack: 'Chest',
+  pupilL: 'Head',
+  pupilR: 'Head',
+  freckles: 'Head',
+  blushL: 'Head',
+  blushR: 'Head',
+  beard: 'Head',
+  mustache: 'Head',
+  earringL: 'Head',
+  earringR: 'Head'
 };
 
 export const PART_LABELS: Record<string, string> = {
@@ -174,7 +240,51 @@ export const PART_LABELS: Record<string, string> = {
   glassR: 'Glasses, near',
   glassBridge: 'Glasses bridge',
   hat: 'Hat',
-  hatBrim: 'Hat brim'
+  hatBrim: 'Hat brim',
+  cuffL: 'Cuff, far',
+  cuffR: 'Cuff, near',
+  watch: 'Watch',
+  shortsL: 'Shorts, far',
+  shortsR: 'Shorts, near',
+  pantCuffL: 'Trouser cuff, far',
+  pantCuffR: 'Trouser cuff, near',
+  bootL: 'Boot, far',
+  bootR: 'Boot, near',
+  soleL: 'Sole, far',
+  soleR: 'Sole, near',
+  stripeL: 'Shoe stripe, far',
+  stripeR: 'Shoe stripe, near',
+  strap0L: 'Sandal strap',
+  strap1L: 'Sandal strap',
+  strap0R: 'Sandal strap',
+  strap1R: 'Sandal strap',
+  skirt: 'Skirt',
+  hemBand: 'Hem band',
+  neckline: 'Neckline',
+  collarL: 'Collar, far',
+  collarR: 'Collar, near',
+  placket: 'Button line',
+  jacketInner: 'Shirt under the jacket',
+  pocket: 'Pocket',
+  strings: 'Hood strings',
+  bustLine: 'Chest line',
+  necklace: 'Necklace',
+  bagStrap: 'Bag strap',
+  bagStrapBack: 'Bag strap, back',
+  packStrapL: 'Backpack strap, far',
+  packStrapR: 'Backpack strap, near',
+  hood: 'Hood',
+  bag: 'Bag',
+  backpack: 'Backpack',
+  pupilL: 'Pupil, far',
+  pupilR: 'Pupil, near',
+  freckles: 'Freckles',
+  blushL: 'Blush, far',
+  blushR: 'Blush, near',
+  beard: 'Beard',
+  mustache: 'Mustache',
+  earringL: 'Earring, far',
+  earringR: 'Earring, near'
 };
 
 export const FACE_ROLES = ['eyeL', 'eyeR', 'browL', 'browR', 'nose', 'mouth'];
@@ -434,17 +544,26 @@ export const NOSE_SHAPES: { id: NoseShape; label: string }[] = [
   { id: 'button', label: 'Button' },
   { id: 'wedge', label: 'Wedge' }
 ];
-export const HAIR_STYLES: { id: HairStyle; label: string }[] = [
-  { id: 'short', label: 'Short' },
-  { id: 'buzz', label: 'Buzz cut' },
-  { id: 'sidepart', label: 'Side part' },
-  { id: 'spiky', label: 'Spiky' },
-  { id: 'curly', label: 'Curly' },
-  { id: 'afro', label: 'Afro' },
-  { id: 'long', label: 'Long' },
-  { id: 'ponytail', label: 'Ponytail' },
-  { id: 'bun', label: 'Bun' },
-  { id: 'bald', label: 'None' }
+export const HAIR_STYLES: { id: HairStyle; label: string; length: 'short' | 'medium' | 'long' }[] = [
+  { id: 'short', label: 'Short', length: 'short' },
+  { id: 'buzz', label: 'Buzz cut', length: 'short' },
+  { id: 'pixie', label: 'Pixie', length: 'short' },
+  { id: 'sidepart', label: 'Side part', length: 'short' },
+  { id: 'middlepart', label: 'Middle part', length: 'medium' },
+  { id: 'undercut', label: 'Undercut', length: 'short' },
+  { id: 'quiff', label: 'Quiff', length: 'short' },
+  { id: 'spiky', label: 'Spiky', length: 'short' },
+  { id: 'curly', label: 'Curls', length: 'short' },
+  { id: 'wavy', label: 'Waves', length: 'medium' },
+  { id: 'afro', label: 'Afro', length: 'medium' },
+  { id: 'medium', label: 'Medium length', length: 'medium' },
+  { id: 'bob', label: 'Bob', length: 'medium' },
+  { id: 'long', label: 'Long', length: 'long' },
+  { id: 'longwavy', label: 'Long waves', length: 'long' },
+  { id: 'straight', label: 'Long straight', length: 'long' },
+  { id: 'ponytail', label: 'Ponytail', length: 'long' },
+  { id: 'bun', label: 'Bun', length: 'medium' },
+  { id: 'bald', label: 'None', length: 'short' }
 ];
 
 // how the face of a character is drawn: the shapes and where they sit, in head units
@@ -838,6 +957,7 @@ export interface BuiltCharacter {
 // laid out in the room, so the character can be seen and turned from every side, see views.ts
 export function buildCharacter(o: CharacterOptions): BuiltCharacter {
   const m = modelFrom(o, { sleeves: o.sleeves ?? 'short', glasses: o.glasses ?? 'none', hat: o.hat ?? 'none' });
+  if (o.identity) m.identity = identityOf(o.identity, m.sleeves);
   const pivot = { x: m.x, ground: m.ground, facing: m.facing };
   const folderColor = '#c99c7c';
   const spots = boneSpots(m);
