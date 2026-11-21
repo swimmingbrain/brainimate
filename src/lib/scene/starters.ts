@@ -1,5 +1,5 @@
 import type { Item, Layer, PathData, Vec } from '$lib/core/types';
-import { makeGroupItem, makePathItem } from '$lib/core/items';
+import { makeGroupItem, makePathItem, makeTextItem } from '$lib/core/items';
 import { defaultStyle, solid } from '$lib/core/style';
 import { ellipsePath, rectPath } from '$lib/core/shapes';
 import { COMIC_SCENE_LAYERS } from '$lib/core/comic';
@@ -11,7 +11,7 @@ import { seeded, shadeOf, wobble } from '$lib/character/model';
 // background and the furniture on the midground, every piece its own object to move, recolor or take
 // in a hand. drawn for a 1080 by 1920 stage and scaled to the stage of the document
 
-export type StarterId = 'living' | 'office' | 'kitchen' | 'shop' | 'street' | 'bedroom' | 'storage';
+export type StarterId = 'living' | 'office' | 'kitchen' | 'shop' | 'street' | 'bedroom' | 'storage' | 'train' | 'trainwindow';
 
 export const STARTERS: { id: StarterId; label: string }[] = [
   { id: 'living', label: 'Living room' },
@@ -20,7 +20,9 @@ export const STARTERS: { id: StarterId; label: string }[] = [
   { id: 'shop', label: 'Shop' },
   { id: 'street', label: 'Street' },
   { id: 'bedroom', label: 'Bedroom' },
-  { id: 'storage', label: 'Storage room' }
+  { id: 'storage', label: 'Storage room' },
+  { id: 'train', label: 'Night train, inside' },
+  { id: 'trainwindow', label: 'Night train, window' }
 ];
 
 const INK = '#1d1b19';
@@ -45,8 +47,14 @@ const C = {
 };
 
 // the kit the places are drawn with
-class Kit {
+export class Kit {
   private rnd: () => number;
+  get sxv(): number {
+    return this.sx;
+  }
+  get syv(): number {
+    return this.sy;
+  }
   constructor(
     private sx: number,
     private sy: number,
@@ -327,7 +335,89 @@ function storage(k: Kit): { back: Item[]; mid: Item[] } {
   };
 }
 
-const DRAW: Record<StarterId, (k: Kit) => { back: Item[]; mid: Item[] }> = { living, office, kitchen, shop, street, bedroom, storage };
+
+// a regional train at night: cold dim light, rain on black windows, worn seats facing each other
+const T = { wall: '#3c4447', wallLow: '#2d3436', ceiling: '#5d6260', light: '#d8d6bd', night: '#0f1319', rain: '#5d6f80', seat: '#34465a', seatDark: '#26333f', pole: '#b89a4a', floor: '#22272b', sign: '#141414', amber: '#f0a23a' };
+
+function rainStreaks(k: Kit, x: number, y: number, w: number, h: number, seed: number): Item[] {
+  const out: Item[] = [];
+  for (let i = 0; i < 14; i++) {
+    const px = x + ((i * 97 + seed * 31) % w);
+    const py = y + ((i * 53 + seed * 17) % (h - 120));
+    const len = 50 + ((i * 29) % 70);
+    out.push(k.stroke('Rain', [{ x: px, y: py }, { x: px - 10, y: py + len }], 2.2));
+  }
+  for (const it of out) {
+    it.opacity = 0.55;
+    if (it.type === 'path') it.style = { ...it.style, stroke: solid(T.rain) };
+  }
+  return out;
+}
+
+// the board over the door, its text an item of its own that a story can change
+export function trainDisplay(k: Kit, text: string, x = 300, y = 210, w = 480, h = 92): Item {
+  const label = makeTextItem(text, 'JetBrains Mono', 44 * k.sxv, defaultStyle(solid(T.amber), null, 0), [1, 0, 0, 1, (x + 24) * k.sxv, (y + 22) * k.syv], (w - 48) * k.sxv);
+  label.name = 'Display text';
+  label.weight = 700;
+  label.align = 'center';
+  return k.group('Display', [k.rect('Display case', x - 12, y - 12, w + 24, h + 24, '#2a2d2f'), k.rect('Display', x, y, w, h, T.sign, 0), label]);
+}
+
+function train(k: Kit): { back: Item[]; mid: Item[] } {
+  const winTop = 470;
+  const winBottom = 1060;
+  const back: Item[] = [
+    k.rect('Wall', -40, -40, 1160, 2040, T.wall, 0),
+    k.rect('Ceiling', -40, -40, 1160, 330, T.ceiling, 0),
+    k.rect('Light strip', 120, 120, 840, 34, T.light, 4),
+    k.rect('Ceiling edge', -40, 290, 1160, 26, T.wallLow, 6),
+    k.group('Loudspeaker', [k.ellipse('Speaker', 860, 205, 52, 30, '#4a4e4f'), k.stroke('Grille', [{ x: 828, y: 205 }, { x: 892, y: 205 }], 3), k.stroke('Grille', [{ x: 836, y: 192 }, { x: 884, y: 192 }], 3), k.stroke('Grille', [{ x: 836, y: 218 }, { x: 884, y: 218 }], 3)]),
+    trainDisplay(k, '23:48'),
+    k.rect('Window band', -40, winTop - 30, 1160, winBottom - winTop + 60, T.wallLow, 0)
+  ];
+  for (const [x0, x1] of [[-20, 330], [380, 700], [750, 1100]]) {
+    back.push(k.group('Window', [k.rect('Glass', x0, winTop, x1 - x0, winBottom - winTop, T.night, 6, 26), ...rainStreaks(k, x0 + 20, winTop + 20, x1 - x0 - 40, winBottom - winTop - 40, x0), k.rect('Reflection', x0 + 30, winTop + 30, 40, winBottom - winTop - 60, '#2a3340', 0, 12)]));
+  }
+  back.push(k.rect('Lower wall', -40, winBottom + 30, 1160, 600, T.wallLow, 0), k.rect('Floor', -40, 1640, 1160, 400, T.floor, 0), k.stroke('Floor line', [{ x: -40, y: 1640 }, { x: 1120, y: 1640 }], 6));
+  const seat = (x: number, w: number, flip: boolean): Item =>
+    k.group('Seat', [
+      k.rect('Backrest', x, 1080, w, 380, T.seat, 6, 28),
+      k.rect('Backrest shadow', flip ? x : x + w * 0.7, 1090, w * 0.3, 360, T.seatDark, 0, 20),
+      k.rect('Headrest', x + 20, 1060, w - 40, 70, '#9ea7a6', 5, 18),
+      k.rect('Cushion', x - 20, 1420, w + 40, 90, T.seat, 6, 24),
+      k.rect('Base', x + 20, 1500, w - 40, 140, T.seatDark, 5, 8)
+    ]);
+  const mid: Item[] = [
+    seat(40, 420, false),
+    seat(620, 420, true),
+    k.group('Pole', [k.stroke('Pole', [{ x: 540, y: 300 }, { x: 540, y: 1640 }], 16), k.ellipse('Foot', 540, 1640, 40, 12, T.pole, 4)]),
+    k.stroke('Handrail', [{ x: -40, y: 360 }, { x: 1120, y: 360 }], 10)
+  ];
+  return { back, mid };
+}
+
+// close at the window: the night outside fills the picture, a story puts fog and signs behind the glass
+function trainwindow(k: Kit): { back: Item[]; mid: Item[] } {
+  return {
+    back: [
+      k.rect('Night', -40, -40, 1160, 2040, T.night, 0),
+      k.ellipse('Moon glow', 760, 420, 200, 200, '#1b2330', 0),
+      k.poly('Far trees', [{ x: -40, y: 1300 }, { x: 80, y: 1180 }, { x: 160, y: 1250 }, { x: 260, y: 1120 }, { x: 380, y: 1240 }, { x: 520, y: 1150 }, { x: 640, y: 1260 }, { x: 780, y: 1160 }, { x: 900, y: 1240 }, { x: 1120, y: 1140 }, { x: 1120, y: 2000 }, { x: -40, y: 2000 }], '#0b0e12', 0)
+    ],
+    mid: [
+      k.rect('Frame top', -40, -40, 1160, 260, T.wall, 0),
+      k.rect('Frame bottom', -40, 1640, 1160, 400, T.wall, 0),
+      k.rect('Frame left', -40, -40, 140, 2040, T.wallLow, 0),
+      k.rect('Frame right', 980, -40, 140, 2040, T.wallLow, 0),
+      k.rect('Glass edge', 100, 220, 880, 1420, null, 10, 40),
+      ...rainStreaks(k, 130, 260, 820, 1340, 3),
+      ...rainStreaks(k, 130, 900, 820, 700, 11),
+      k.rect('Sill', 60, 1620, 960, 50, '#4b5254', 6, 6)
+    ]
+  };
+}
+
+const DRAW: Record<StarterId, (k: Kit) => { back: Item[]; mid: Item[] }> = { living, office, kitchen, shop, street, bedroom, storage, train, trainwindow };
 
 // the layers of a place for a stage of width by height: the comic layers, the background a little
 // further back for the camera

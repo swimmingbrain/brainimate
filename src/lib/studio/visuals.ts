@@ -1,5 +1,5 @@
 import type { Anchor, Item, PathData, Vec } from '$lib/core/types';
-import { makeGroupItem, makePathItem } from '$lib/core/items';
+import { makeGroupItem, makePathItem, makeTextItem } from '$lib/core/items';
 import { defaultStyle, solid } from '$lib/core/style';
 import { ellipsePath, rectPath } from '$lib/core/shapes';
 import { translate } from '$lib/core/mat';
@@ -90,6 +90,17 @@ const L = (name: string, pts: [number, number][], width = line) => shape(name, p
 // a flat cel shadow on the right side of a box
 const shade = (name: string, x: number, y: number, w: number, h: number, fill: string) => shape(name, rectPath(x + w * 0.7, y, w * 0.3, h, 0), shadeOf(fill), 0);
 
+// a text on a visual, top left at x, y, wrapping at width
+const Tx = (text: string, x: number, y: number, size: number, color: string, width: number, weight = 400, font = 'Inter', align: 'left' | 'center' | 'right' = 'left'): Item => {
+  const t = makeTextItem(text, font, size, defaultStyle(solid(color), null, 0), [1, 0, 0, 1, x, y], width);
+  t.weight = weight;
+  t.align = align;
+  t.lineHeight = 1.15;
+  return t;
+};
+// a phone held upright, its screen content inside
+const phone = (screen: Item[]): Item[] => [R('Body', -140, -240, 280, 480, '#1d1b19', 30), ...screen, R('Notch', -40, -232, 80, 14, '#1d1b19', 7), shape('Bezel', rectPath(-140, -240, 280, 480, 30), null)];
+
 interface Def {
   id: string;
   label: string;
@@ -103,6 +114,11 @@ const DEFS: Def[] = [
   { id: 'phone', label: 'Phone', category: 'objects', draw: () => [R('Phone', -45, -85, 90, 170, C.char, 14), R('Screen', -36, -70, 72, 130, C.sky, 6), E('Button', 0, 72, 7, 7, C.light, 3)] },
   { id: 'door', label: 'Door', category: 'objects', draw: () => [R('Frame', -120, -270, 240, 540, C.brown), R('Door', -100, -250, 200, 500, C.rust, 4), R('Panel', -70, -210, 140, 170, shadeOf(C.rust), 4), R('Panel low', -70, 20, 140, 170, shadeOf(C.rust), 4), E('Knob', 66, 0, 13, 13, C.yellow, 4)] },
   { id: 'keys', label: 'Keys', category: 'objects', draw: () => [E('Ring', 0, -40, 34, 34, null, 8), R('Key', -12, -12, 24, 100, C.yellow, 6), R('Bit', 10, 56, 22, 14, C.yellow, 2), R('Tag', -70, -30, 44, 60, C.red, 8)] },
+  { id: 'phone-map', label: 'Phone: map, no results', category: 'objects', draw: () => phone([R('Map', -125, -170, 250, 380, '#2b3138', 0), L('Road', [[-125, 40], [125, -60]], 10), L('Road', [[-40, -170], [10, 210]], 8), L('Road', [[-125, 150], [125, 120]], 6), R('Search', -110, -205, 220, 34, '#e9e6df', 10), Tx('Eichenfeld', -98, -200, 20, '#3a3734', 196), R('Panel', -110, 120, 220, 70, '#e9e6df', 10), Tx('Keine Ergebnisse', -100, 140, 20, '#97503f', 200, 700)]) },
+  { id: 'phone-news', label: 'Phone: old newspaper article', category: 'objects', draw: () => phone([R('Page', -125, -210, 250, 420, '#e8e1cf', 0), Tx('ARCHIV · 1986', -110, -195, 15, '#7d7a76', 220, 700), Tx('Schweres Zugunglück bei Eichenfeld', -110, -168, 26, '#1d1b19', 220, 700, 'Lora'), R('Photo', -110, -60, 220, 110, '#5f5b55', 0), L('Track', [[-110, 40], [110, -20]], 6), Tx('Dorf wird aufgegeben, die Strecke stillgelegt.', -110, 62, 17, '#3a3734', 220, 400, 'Lora'), R('Line', -110, 130, 200, 6, '#b5b2ac', 0), R('Line', -110, 146, 210, 6, '#b5b2ac', 0), R('Line', -110, 162, 170, 6, '#b5b2ac', 0)]) },
+  { id: 'phone-message', label: 'Phone: message from unknown', category: 'objects', draw: () => phone([R('Chat', -125, -210, 250, 420, '#15191f', 0), R('Header', -125, -210, 250, 56, '#232a33', 0), Tx('Unbekannt', -60, -196, 20, '#e9e6df', 150, 700), E('Avatar', -92, -182, 18, 18, '#5b6b82', 3), R('Bubble', -112, -110, 200, 170, '#e9e6df', 16), Tx('Tom, steig nicht aus. Lina ist nicht die, für die du sie hältst.', -100, -98, 21, '#1d1b19', 176, 400), Tx('00:16', 40, 66, 14, '#7d7a76', 50)]) },
+  { id: 'station-sign', label: 'Old station sign', category: 'buildings', draw: () => [R('Post', -190, -40, 22, 260, '#3d3b39', 4), R('Post', 168, -40, 22, 260, '#3d3b39', 4), R('Board', -230, -110, 460, 120, '#d7c48e', 6), shape('Rust', blob([[-230, -60], [-170, -110], [-120, -90], [-150, -20], [-230, 10]], 0.3), '#8a5a3a', 0), shape('Rust', blob([[150, -110], [230, -110], [230, -30], [190, -50]], 0.3), '#8a5a3a', 0), shape('Edge', rectPath(-230, -110, 460, 120, 6), null), Tx('EICHENFELD', -210, -92, 64, '#1d1b19', 420, 400, 'Bebas Neue', 'center')] },
+  { id: 'fog', label: 'Fog bank', category: 'nature', draw: () => [E('Fog', -160, 20, 260, 90, '#b9bfc2', 0), E('Fog', 120, -10, 280, 110, '#c6cbcd', 0), E('Fog', 0, 60, 320, 80, '#aeb4b7', 0)].map((f) => ({ ...f, opacity: 0.35 })) },
   { id: 'cup', label: 'Coffee cup', category: 'objects', draw: () => [P('Cup', [[-50, -50], [50, -50], [40, 60], [-40, 60]], C.paper), E('Handle', 62, 0, 22, 28, null, 7), E('Coffee', 0, -50, 50, 9, C.brown, 4), L('Steam', [[-10, -70], [-20, -95], [-8, -120]], 4)] },
   { id: 'book', label: 'Book', category: 'objects', draw: () => [R('Cover', -70, -90, 140, 180, C.red, 6), R('Pages', -60, -80, 120, 160, C.cream, 2), R('Spine', -70, -90, 18, 180, shadeOf(C.red), 4)] },
   { id: 'money', label: 'Money', category: 'objects', draw: () => [R('Note', -95, -50, 190, 100, C.sage, 6), E('Coin', 0, 0, 32, 32, C.green, 4), R('Note 2', -85, -40, 30, 18, C.green, 3)] },

@@ -3,7 +3,8 @@ import type { Doc } from '$lib/core/types';
 import { addToast, dialog, dirty, frame } from '$lib/stores/app';
 import { editor, makeDoc, makeLayer, LAYER_COLORS } from './editor';
 import { COMIC_SCENE_LAYERS } from '$lib/core/comic';
-import { characterFolders, defaultCharacter, DEFAULT_COLORS } from '$lib/character/model';
+import { characterFolders } from '$lib/character/model';
+import { castOptions } from '$lib/studio/cast';
 import { libraryEntry, loadLibrary, placeOffset } from '$lib/character/library';
 import { createCharacter, insertPackage } from './character';
 import { FORMATS, type Format } from '$lib/studio/formats';
@@ -81,10 +82,10 @@ export async function startVideo(formatId: string, templateId: string | null, ta
   if (template?.cast) {
     const W = editor.doc.width;
     const H = editor.doc.height;
-    if (speakers.main1 === 'Main character 1') speakers.main1 = createCharacter({ ...defaultCharacter(W, H), name: 'Tom', x: W * 0.3, facing: 1 }) ?? speakers.main1;
+    if (speakers.main1 === 'Main character 1') speakers.main1 = createCharacter(castOptions('tom', W, H, W * 0.3, 1)) ?? speakers.main1;
     if (speakers.main2 === 'Main character 2')
       speakers.main2 =
-        createCharacter({ ...defaultCharacter(W, H), name: 'Lina', x: W * 0.7, facing: -1, hair: 'long', seed: 11, colors: { ...DEFAULT_COLORS, hair: '#6b4a32', shirt: '#a8433a', pants: '#2b3348' } }) ?? speakers.main2;
+        createCharacter(castOptions('lina', W, H, W * 0.7, -1)) ?? speakers.main2;
   }
   const p = numberLines(newProduction(format, template, target, speakers));
   editor.commit('New video', (draft) => {

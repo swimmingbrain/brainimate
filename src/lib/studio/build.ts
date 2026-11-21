@@ -311,7 +311,7 @@ function buildPov(doc: Doc, p: Production, spans: ReturnType<typeof sceneStarts>
           if (h) items.splice(items.length - 3, 0, h);
         }
         if (phoneFrom !== null && f >= phoneFrom) {
-          const h = heldItem('phone', { x: W / 2, y: H * 0.7 }, 2.2, 'pov.phone');
+          const h = heldItem(pov.item && pov.item.startsWith('phone') ? pov.item : 'phone', { x: W / 2, y: H * 0.7 }, pov.item && pov.item.startsWith('phone-') ? 1.25 : 2.2, 'pov.phone');
           if (h) items.splice(items.length - 6, 0, h);
         }
         const k = keyAt(hands, start + f);
