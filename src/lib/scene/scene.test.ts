@@ -50,6 +50,15 @@ describe('ready made places', () => {
     editor.undo();
     expect(editor.doc.layers).toHaveLength(8);
   });
+
+  it('replace the empty comic layers a new project starts with', async () => {
+    const { addComicSceneLayers } = await import('$lib/editor/layers');
+    addComicSceneLayers();
+    expect(editor.doc.layers).toHaveLength(5);
+    insertStarter('bedroom');
+    expect(editor.doc.layers).toHaveLength(5);
+    expect(editor.doc.layers[0].keyframes[0].items.length).toBeGreaterThan(0);
+  });
 });
 
 describe('the scene library', () => {

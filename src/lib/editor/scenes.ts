@@ -2,12 +2,17 @@ import { get } from 'svelte/store';
 import type { Doc, Layer } from '$lib/core/types';
 import { activeLayer, addToast, dialog, dirty } from '$lib/stores/app';
 import { editor, makeDoc } from './editor';
-import { isUntouched } from './layers';
 import { packScene, storeScene, unpackScene, type ScenePackage, type SceneMeta } from '$lib/scene/library';
 import { starterLayers, STARTERS, type StarterId } from '$lib/scene/starters';
 
 // scenes in the editor: the open one kept in the library, a kept or a ready made one put under what is
 // there, or opened as a project of its own
+
+// nothing drawn, no skeleton, no camera, no sound: the empty layers of a new project, the comic ones too
+export function isEmptyDoc(doc: Doc): boolean {
+  if ((doc.audio ?? []).length > 0) return false;
+  return doc.layers.every((l) => (l.type === 'normal' || l.type === 'folder' || l.type === 'guide') && !l.character && l.bones.length === 0 && l.keyframes.every((k) => k.items.length === 0));
+}
 
 export async function saveScene(name: string): Promise<SceneMeta | null> {
   if (editor.editStack.length > 0) {
@@ -35,7 +40,7 @@ export function insertScene(pkg: ScenePackage): boolean {
   const doc = editor.doc;
   const out = unpackScene(pkg, doc.width, doc.height);
   // a fresh document takes the scene as it is, nothing of the empty layer stays
-  const fresh = isUntouched(doc.layers);
+  const fresh = isEmptyDoc(doc);
   editor.commit(`Insert scene: ${pkg.name}`, (draft) => {
     if (fresh) draft.layers = [];
     addLayers(draft, out.layers);
@@ -78,7 +83,7 @@ export function insertStarter(id: StarterId): boolean {
   if (editor.editStack.length > 0) return false;
   const doc = editor.doc;
   const layers = starterLayers(id, doc.width, doc.height);
-  const fresh = isUntouched(doc.layers);
+  const fresh = isEmptyDoc(doc);
   const label = STARTERS.find((s) => s.id === id)?.label ?? 'Scene';
   editor.commit(`Scene: ${label}`, (draft) => {
     if (fresh) draft.layers = [];

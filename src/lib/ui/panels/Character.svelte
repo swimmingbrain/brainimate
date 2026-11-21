@@ -186,6 +186,7 @@
   let creating = $state(false);
   let form = $state(defaultCharacter(1080, 1920));
   let heightShare = $state(50);
+  let placeShare = $state(50);
   let colorOpen = $state<keyof CharacterColors | null>(null);
   let anim = $state<{ kind: AnimKind; repeat: number; speed: number; mirror: boolean; distance: number; direction: number; back: boolean }>({
     kind: 'walk',
@@ -212,13 +213,16 @@
   function startCreate() {
     form = { ...defaultCharacter(editor.doc.width, editor.doc.height), name: `Character ${all.length + 1}`, seed: Math.floor(Math.random() * 1000) };
     heightShare = Math.round((form.height / editor.doc.height) * 100);
+    // a second character stands beside the first one
+    placeShare = all.length === 0 ? 50 : all.length % 2 ? 75 : 25;
+    form = { ...form, facing: placeShare > 50 ? -1 : 1 };
     creating = true;
   }
 
   function create() {
     const doc = editor.doc;
     const height = Math.round((doc.height * heightShare) / 100);
-    const id = createCharacter({ ...form, height, x: form.x, ground: Math.round(doc.height * 0.86) });
+    const id = createCharacter({ ...form, height, x: Math.round((doc.width * placeShare) / 100), ground: Math.round(doc.height * 0.86) });
     if (id) {
       creating = false;
       addToast(`${form.name} is on the stage, the skeleton and the body are in the timeline`, 'success', 3000);
@@ -344,6 +348,9 @@
     </Field>
     <Field label="Height" hint="Share of the stage height">
       <Slider value={heightShare} min={15} max={95} step={1} precision={0} unit="%" label="Character height" onchange={(v) => (heightShare = v)} />
+    </Field>
+    <Field label="Stands at" hint="Share of the stage width from the left">
+      <Slider value={placeShare} min={0} max={100} step={1} precision={0} unit="%" label="Where it stands" onchange={(v) => (placeShare = v)} />
     </Field>
     <Field label="Build">
       <SelectField value={form.build} options={BUILDS} label="Build" onchange={(v) => (form = { ...form, build: v as Build })} />

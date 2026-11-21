@@ -77,12 +77,18 @@ The welcome screen opens three examples to look into: a rigged character that wa
 ### Characters, faces, voice and the library
 
 - A character creator for the graphic novel look: build, head, hair, colors, outline and how much the lines wobble, every part a flat fill with a cel shadow and a hand drawn outline
-- A skeleton of seventeen bones, parts bound rigidly and round at the joints, dragged by a finger with ik, the upper arms and legs pinned so a pulled hand bends the elbow only
+- A skeleton of twenty three bones with a thumb, an index finger and the other fingers on each hand, parts bound rigidly and round at the joints, dragged by a finger with ik, the upper arms and legs pinned so a pulled hand bends the elbow only
 - Animations as pose keyframes: idle, walk, run, jump, wave, point, sit, turn around, reach and grab, with repeat, speed, distance, direction, mirror and going back, stopped at the playhead
 - Faces with seven moods, three mouth shapes, blinks and talking, every part morphs from one to the next
 - Sounds on the timeline, played with it and put into the video as aac, lip sync from how loud a voice is
 - Objects taken into a hand at the playhead and put down later
 - A character library in the browser: save, rename, copy, delete, insert into any project, a file to move characters between devices. See [docs/CHARAKTERE.md](docs/CHARAKTERE.md)
+- A look for every character, also later: ten hairstyles, eye shapes with size, height and spacing, brow styles, an optional nose (off for new characters) with shape, size and place, mouth width; ten moods and nine mouths
+- Hand poses: relaxed, open, fist, pointing, grabbing, holding a product, the fingers close round what a hand takes
+- Walks and runs with planted feet, two bone ik legs, a hip that drops and bobs, arms that swing a little late; standing shifts the weight between the legs
+- Characters together: look at, point at, wave to, shake hands, hand an object over, hug, reactions, a cast list that folds the others in the timeline, groups that move together
+- Moves for product videos: walk into the picture, toward the camera, take a product, hold it to the camera, point at an object, turn, leave; moves of your own saved by bone name for any character
+- A scene library: seven ready made places in the comic style (living room, office, kitchen, shop with products to take, street, bedroom, storage room), whole scenes kept in the browser, inserted into a project or opened as one, scene files. See [docs/FIGUREN-UND-SZENEN.md](docs/FIGUREN-UND-SZENEN.md)
 
 ### Customization
 

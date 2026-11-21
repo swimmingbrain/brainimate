@@ -434,7 +434,16 @@ export function giveItem(a: string, b: string, itemId?: string): boolean {
     const giverArm = armRotations(m.wa, held.side, point, m.t);
     const takerArm = armRotations(m.wb, 'R', point, m.t);
     if (!giverArm || !takerArm) return;
-    const give = poseMove(draft, a, m.t, dur, hold, { [`Upper arm ${held.side}`]: giverArm.upper, [`Lower arm ${held.side}`]: giverArm.lower }, true);
+    // the empty hand goes down to rest afterwards
+    const give = poseMove(
+      draft,
+      a,
+      m.t,
+      dur,
+      hold,
+      { [`Upper arm ${held.side}`]: giverArm.upper, [`Lower arm ${held.side}`]: giverArm.lower },
+      { [`Upper arm ${held.side}`]: 0, [`Lower arm ${held.side}`]: 0, [`Hand ${held.side}`]: 0 }
+    );
     const take = poseMove(draft, b, m.t, dur, hold, { 'Upper arm R': takerArm.upper, 'Lower arm R': takerArm.lower }, holdInFront(m.wb.facing, 'R'));
     hand(draft, b, 'R', 'grab', m.t + 2);
     const swap = give.arrive + Math.round(hold / 2);
@@ -603,7 +612,8 @@ export function applyTemplate(a: string, template: Template): boolean {
           at,
           Math.round(fps * 0.4),
           Math.round(fps * 1.6),
-          { [`Upper arm ${held}`]: fwd * 1.3, [`Lower arm ${held}`]: fwd * 0.45, [`Hand ${held}`]: -fwd * 0.2, Head: fwd * 0.06, Chest: -fwd * 0.04 },
+          // up beside the face and out a little, where the camera sees it best from the side
+          { [`Upper arm ${held}`]: fwd * 1.75, [`Lower arm ${held}`]: fwd * 0.4, [`Hand ${held}`]: -fwd * 0.35, Head: fwd * 0.08, Chest: -fwd * 0.05 },
           holdInFront(w.facing, held)
         );
         break;

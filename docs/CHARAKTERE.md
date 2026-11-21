@@ -8,7 +8,7 @@ Ein Charakter ist ein **Ordner** in der Timeline mit zwei Ebenen:
 
 | Ebene | Inhalt |
 |-------|--------|
-| *Name* skeleton | Das Skelett mit 17 Knochen: Hip, Spine, Chest, Neck, Head, je Seite Upper arm, Lower arm, Hand, Upper leg, Lower leg, Foot |
+| *Name* skeleton | Das Skelett mit 23 Knochen: Hip, Spine, Chest, Neck, Head, je Seite Upper arm, Lower arm, Hand, Fingers, Index, Thumb, Upper leg, Lower leg, Foot (Figuren aus P3: 17 ohne Finger) |
 | *Name* body | Die Körperteile und das Gesicht |
 
 Jedes Körperteil ist fest (rigid) an seinen Knochen gebunden. Arme und Beine sind an den Gelenken rund, ein gebeugter Ellbogen oder ein gebeugtes Knie reißt deshalb nie auf. „L“ ist die ferne Seite hinter dem Körper, „R“ die nahe.
@@ -151,3 +151,5 @@ Datenmodell:
 - Das Dokument hat optional `audio`.
 
 Ältere Dateien bleiben unverändert lesbar.
+
+> Neu in P4a: Look (Frisur, Augen, Brauen, Nase optional), Finger und Hand-Posen, Gehen ohne rutschende Füße, mehrere Figuren mit Interaktionen, Bewegungs-Vorlagen und die Szenen-Bibliothek: siehe [FIGUREN-UND-SZENEN.md](FIGUREN-UND-SZENEN.md).
