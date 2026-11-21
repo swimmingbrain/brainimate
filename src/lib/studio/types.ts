@@ -27,6 +27,10 @@ export interface ScriptLine {
   scene: string | null;
   // the recording of the line, an audio clip id: its real length decides the timing
   clip?: string | null;
+  // a number that stays with the line, recordings made outside carry it in their file name
+  no?: number;
+  // how it is said, an audio tag for a voice generator: excited, whispers, laughs
+  emotion?: string;
   certainty?: Certainty;
   // the source it rests on
   source?: string | null;

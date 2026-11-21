@@ -14,6 +14,7 @@ import type { Production, ScriptLine, Voice } from '$lib/studio/types';
 import { addGeneratedClip, clipFrames, decodeAsset, importAudio, setClipTrack } from '$lib/io/audio';
 import { musicSamples, sfxSamples, wavDataUrl, type Mood, type Sfx } from '$lib/studio/sounds';
 import { pickFiles } from './importer';
+import { matchFiles, numberLines } from '$lib/studio/voiceover';
 
 // the studio in the editor: the production of the open document, changed in undo steps like everything
 // else, a new video from a format, the storyboard laid onto the timeline, sounds, voices and subtitles
@@ -37,7 +38,7 @@ export function updateProduction(label: string, change: (p: Production) => Produ
   editor.commit(
     label,
     (draft) => {
-      draft.production = change(JSON.parse(JSON.stringify(draft.production)) as Production);
+      draft.production = numberLines(change(JSON.parse(JSON.stringify(draft.production)) as Production));
     },
     key
   );
@@ -85,7 +86,7 @@ export async function startVideo(formatId: string, templateId: string | null, ta
       speakers.main2 =
         createCharacter({ ...defaultCharacter(W, H), name: 'Lina', x: W * 0.7, facing: -1, hair: 'long', seed: 11, colors: { ...DEFAULT_COLORS, hair: '#6b4a32', shirt: '#a8433a', pants: '#2b3348' } }) ?? speakers.main2;
   }
-  const p = newProduction(format, template, target, speakers);
+  const p = numberLines(newProduction(format, template, target, speakers));
   editor.commit('New video', (draft) => {
     draft.production = p;
     draft.name = p.title;
@@ -99,7 +100,7 @@ export async function startVideo(formatId: string, templateId: string | null, ta
 export function addProduction(formatId: string, target = 60) {
   const format = formatOf(formatId);
   if (!format) return;
-  const p = newProduction(format, null, target);
+  const p = numberLines(newProduction(format, null, target));
   editor.commit('Add production', (draft) => {
     draft.production = p;
   });
@@ -189,8 +190,11 @@ export async function linkClip(lineId: string, clipId: string | null) {
   editor.commit('Link recording', (draft) => {
     const prod = JSON.parse(JSON.stringify(draft.production)) as Production;
     const l = prod.lines.find((x) => x.id === lineId);
+    const old = l?.clip ?? null;
     if (l) l.clip = clipId;
     draft.production = prod;
+    // a recording replaced by a new one leaves nothing behind: its clip and, unused, its file go
+    if (old && old !== clipId && !prod.lines.some((x) => x.clip === old)) dropClip(draft, old);
     const c = clipId ? draft.audio?.find((x) => x.id === clipId) : null;
     if (c) {
       if (frames) c.frames = frames;
@@ -198,6 +202,66 @@ export async function linkClip(lineId: string, clipId: string | null) {
       c.speaker = line.speaker;
     }
   });
+}
+
+// a clip off the timeline and its sound file out of the project when no other clip plays it
+function dropClip(draft: Doc, clipId: string) {
+  const gone = draft.audio?.find((c) => c.id === clipId);
+  draft.audio = (draft.audio ?? []).filter((c) => c.id !== clipId);
+  if (gone && !draft.audio.some((c) => c.asset === gone.asset)) delete draft.assets[gone.asset];
+}
+
+// the recording of a line taken away, clip and file included
+export function removeRecording(lineId: string) {
+  const line = production()?.lines.find((l) => l.id === lineId);
+  if (!line?.clip) return;
+  const clipId = line.clip;
+  editor.commit('Remove recording', (draft) => {
+    const prod = JSON.parse(JSON.stringify(draft.production)) as Production;
+    for (const l of prod.lines) if (l.clip === clipId) l.clip = null;
+    draft.production = prod;
+    dropClip(draft, clipId);
+  });
+}
+
+export interface ImportResult {
+  linked: { name: string; line: string }[];
+  // imported but without a line, for the person to choose: the clip id and the file name
+  open: { clip: string; name: string }[];
+  failed: string[];
+}
+
+// recordings made outside, several at once: each one goes onto the timeline and finds its line by the
+// number in its file name (Z03_Tom.mp3); a line that had a recording gets the new one. with forLine a
+// single file goes to that line whatever its name
+export async function importRecordings(files: File[], forLine: string | null = null): Promise<ImportResult> {
+  const out: ImportResult = { linked: [], open: [], failed: [] };
+  const p = production();
+  if (!p) return out;
+  const matches = forLine ? files.map((f) => ({ name: f.name, line: p.lines.find((l) => l.id === forLine) ?? null })) : matchFiles(files.map((f) => f.name), p);
+  for (const [i, file] of files.entries()) {
+    const clip = await importAudio(file);
+    if (!clip) {
+      out.failed.push(file.name);
+      continue;
+    }
+    const line = matches[i].line;
+    if (line) {
+      await linkClip(line.id, clip.id);
+      out.linked.push({ name: file.name, line: line.id });
+    } else {
+      setClipTrack(clip.id, 'dialogue');
+      out.open.push({ clip: clip.id, name: file.name });
+    }
+  }
+  return out;
+}
+
+// pick recordings from the files of the device and bring them in
+export async function pickRecordings(forLine: string | null = null): Promise<ImportResult | null> {
+  const files = await pickFiles('audio/*,.mp3,.m4a,.wav,.aac,.ogg', forLine === null);
+  if (files.length === 0) return null;
+  return importRecordings(files, forLine);
 }
 
 // the scenes as long as their speech needs; only the lengths change, the words stay as written
@@ -264,11 +328,8 @@ export async function recordLine(line: ScriptLine): Promise<boolean> {
   const files = await pickFiles('audio/*,.mp3,.m4a,.wav,.aac,.ogg', false);
   if (!files[0]) return false;
   frame.set(lineStart(line));
-  const clip = await importAudio(files[0]);
-  if (!clip) return false;
-  setClipTrack(clip.id, line.speaker === 'narrator' ? 'narration' : 'dialogue', line.speaker);
-  await linkClip(line.id, clip.id);
-  return true;
+  const r = await importRecordings([files[0]], line.id);
+  return r.linked.length > 0;
 }
 
 export async function addSoundEffect(kind: Sfx) {

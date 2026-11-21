@@ -16,6 +16,9 @@
   import { clipSeconds } from '$lib/studio/build';
   import { ANIMATIONS } from '$lib/character/anim';
   import { thumbnail } from '$lib/io/render';
+  import { EMOTIONS, briefFor, fileNameFor, generatorText, lineCode, scriptOrder, speakerSheet } from '$lib/studio/voiceover';
+  import { copyText } from '../copytext';
+  import type { ImportResult } from '$lib/editor/studio';
   import { SFX, MOODS } from '$lib/studio/sounds';
   import { CATEGORIES, VISUALS, type VisualCategory } from '$lib/studio/visuals';
   import { addFormat, customFormats, deleteVideo, keepVideo, loadFormats, loadVideos, videoDoc, videos } from '$lib/studio/library';
@@ -32,6 +35,8 @@
     fitScenes,
     formatOf,
     linkClip,
+    pickRecordings,
+    removeRecording,
     nudgeClip,
     setPace,
     previewLine,
@@ -50,10 +55,11 @@
   // the studio: the video this project is, from the idea to the export. a format gives the structure, the
   // script says who says what, the storyboard lays the scenes onto the timeline
 
-  type Tab = 'videos' | 'script' | 'board' | 'sound' | 'subs' | 'visuals' | 'sources';
+  type Tab = 'videos' | 'script' | 'voice' | 'board' | 'sound' | 'subs' | 'visuals' | 'sources';
   const TABS: { id: Tab; label: string }[] = [
     { id: 'videos', label: 'Videos' },
     { id: 'script', label: 'Script' },
+    { id: 'voice', label: 'Voice-over' },
     { id: 'board', label: 'Storyboard' },
     { id: 'sound', label: 'Sound' },
     { id: 'subs', label: 'Subtitles' },
@@ -190,6 +196,44 @@
   }
 
   let openScene = $state<string | null>(null);
+  let voiceFilter = $state<string>('');
+  let lastImport = $state<ImportResult | null>(null);
+  let buildAfter = $state(true);
+  const ordered = $derived(p ? scriptOrder(p) : []);
+  const voiceGroups = $derived.by(() => {
+    const ids = [...new Set(ordered.map((l) => l.speaker))];
+    return ids.map((id) => ({ id, label: nameOf(id), lines: ordered.filter((l) => l.speaker === id) }));
+  });
+  const recorded = $derived(ordered.filter((l) => l.clip && clips.some((c) => c.id === l.clip)).length);
+  const clipOf = (id: string | null | undefined) => (id ? clips.find((c) => c.id === id) : undefined);
+
+  async function copyOut(text: string, what: string) {
+    addToast((await copyText(text)) ? `${what} copied` : 'Copying did not work, select the text and copy it by hand', 'success', 1500);
+  }
+  async function importVoice(forLine: string | null = null) {
+    busy = true;
+    try {
+      const r = await pickRecordings(forLine);
+      if (!r) return;
+      lastImport = r;
+      if (buildAfter && r.linked.length) {
+        fitScenes(false);
+        await build();
+      }
+      addToast(`${r.linked.length} recording${r.linked.length === 1 ? '' : 's'} assigned${r.open.length ? `, ${r.open.length} without a line` : ''}${r.failed.length ? `, ${r.failed.length} unreadable` : ''}`, r.open.length || r.failed.length ? 'info' : 'success', 3000);
+    } finally {
+      busy = false;
+    }
+  }
+  async function assignOpen(clipId: string, lineId: string) {
+    if (!lineId) return;
+    await linkClip(lineId, clipId);
+    if (lastImport) lastImport = { ...lastImport, open: lastImport.open.filter((o) => o.clip !== clipId) };
+    if (buildAfter) {
+      fitScenes(false);
+      await build();
+    }
+  }
   let thumbs = $state<Record<string, string>>({});
   const clipSecs = $derived.by(() => {
     void $docVersion;
@@ -367,6 +411,59 @@
       <button class="btn" onclick={() => up('Add part', (q) => ({ ...q, beats: normalizeShares([...q.beats, { id: newId(), name: 'New part', hint: '', share: 1 / q.beats.length }]) }))}>+ Part</button>
     </div>
     <p class="note">Words per part: what fits its share of the length at a calm pace. ▶ reads a line with the voice of the device to hear the timing, 🎙 adds a recording of it where it is said.</p>
+  {:else if tab === 'voice'}
+    <p class="note">1 · Copy a line &nbsp; 2 · Generate it in ElevenLabs &nbsp; 3 · Download it and name it as shown (Z03_Tom.mp3) &nbsp; 4 · Import all files here: the numbers find their lines and the timeline is built.</p>
+    <div class="buttons">
+      <button class="btn primary" disabled={busy} onclick={() => importVoice()}>Import recordings</button>
+      <a class="btn link" href="https://elevenlabs.io/app/speech-synthesis/text-to-speech" target="_blank" rel="noopener noreferrer">Open ElevenLabs ↗</a>
+    </div>
+    <Field label="Build the timeline after importing"><ToggleField value={buildAfter} label="Build the timeline after importing" onchange={(v) => (buildAfter = v)} /></Field>
+    <p class="note"><b>{recorded} of {ordered.length}</b> lines recorded.</p>
+    {#if lastImport && lastImport.open.length}
+      <div class="clip">
+        <b>Files without a line</b>
+        {#each lastImport.open as o (o.clip)}
+          <div class="two">
+            <span class="fname">{o.name}</span>
+            <SelectField value="" options={[{ value: '', label: 'Choose the line…' }, ...ordered.map((l) => ({ value: l.id, label: `${lineCode(l.no)} ${nameOf(l.speaker)}: ${l.text.slice(0, 30)}` }))]} label="Line for {o.name}" onchange={(v) => assignOpen(o.clip, v)} />
+          </div>
+        {/each}
+      </div>
+    {/if}
+    {#if lastImport && lastImport.failed.length}<p class="check warn">⚠ Not readable as sound: {lastImport.failed.join(', ')}</p>{/if}
+    <div class="grid">
+      <button class="pill" class:on={voiceFilter === ''} onclick={() => (voiceFilter = '')}>All</button>
+      {#each voiceGroups as g (g.id)}<button class="pill" class:on={voiceFilter === g.id} onclick={() => (voiceFilter = g.id)}>{g.label} ({g.lines.length})</button>{/each}
+    </div>
+    {#each voiceGroups.filter((g) => !voiceFilter || g.id === voiceFilter) as g (g.id)}
+      {@const v = voiceOf(g.id)}
+      {@const brief = v.style || briefFor(g.id, g.label)}
+      <div class="clip">
+        <div class="vhead"><b>{g.label}</b><button class="btn small" onclick={() => copyOut(speakerSheet(g.lines, g.label), `All lines of ${g.label}`)}>Copy all lines</button></div>
+        <input class="text" placeholder="ElevenLabs voice name, the same in every video" value={v.provider === 'elevenlabs' ? v.voiceId : ''} aria-label="{g.label} ElevenLabs voice" onchange={(e) => setVoice(g.id, { provider: 'elevenlabs', voiceId: (e.currentTarget as HTMLInputElement).value.trim() })} />
+        <div class="two">
+          <textarea class="area small" rows="2" aria-label="{g.label} voice description" value={brief} onchange={(e) => setVoice(g.id, { style: (e.currentTarget as HTMLTextAreaElement).value })}></textarea>
+          <button class="btn small" onclick={() => copyOut(brief, 'Voice description')}>Copy description</button>
+        </div>
+        {#each g.lines as l (l.id)}
+          {@const c = clipOf(l.clip)}
+          <div class="vline" class:done={!!c}>
+            <div class="vtop">
+              <span class="code">{lineCode(l.no)}</span>
+              <SelectField value={l.emotion ?? ''} options={EMOTIONS.map((e) => ({ value: e.id, label: e.label }))} label="Emotion of {lineCode(l.no)}" onchange={(val) => up('Emotion', (q) => ({ ...q, lines: q.lines.map((x) => (x.id === l.id ? { ...x, emotion: val || undefined } : x)) }))} />
+              <button class="btn small primary" aria-label="Copy {lineCode(l.no)}" onclick={() => copyOut(generatorText(l), lineCode(l.no))}>Copy</button>
+            </div>
+            <p class="vtext">{generatorText(l)}</p>
+            <div class="vtop">
+              <span class="fname">{c ? `✓ ${((c.frames ?? 0) / editor.doc.fps).toFixed(1)} s` : '○ no recording'} · {fileNameFor(l, g.label)}</span>
+              <button class="btn small" disabled={busy} aria-label="{c ? 'Replace' : 'Import'} recording of {lineCode(l.no)}" onclick={() => importVoice(l.id)}>{c ? 'Replace' : 'Import'}</button>
+              {#if c}<button class="icon" aria-label="Remove recording of {lineCode(l.no)}" onclick={() => removeRecording(l.id)}>✕</button>{/if}
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/each}
+    <p class="note">Emotions go in front of the text as ElevenLabs audio tags. They work with Eleven v3 and v4; the ones marked “test it” are not in the ElevenLabs examples. Line numbers stay when lines move, so a recording can be replaced at any time.</p>
   {:else if tab === 'board'}
     <div class="buttons">
       <button class="btn primary" onclick={build}>Build the timeline</button>
@@ -951,5 +1048,56 @@
     margin: 8px 0;
     transform: scale(1.3);
     transform-origin: left center;
+  }
+  .vhead,
+  .vtop {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 2px 8px;
+  }
+  .vhead b {
+    flex: 1;
+  }
+  .vtop :global(.select) {
+    flex: 1;
+    min-height: 36px;
+  }
+  .vline {
+    margin: 6px 8px;
+    padding: 4px 0;
+    border-top: 1px solid var(--border);
+  }
+  .vline.done .code {
+    background: var(--accent);
+    color: #111;
+  }
+  .code {
+    padding: 4px 6px;
+    font: 600 12px var(--font-mono, monospace);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .vtext {
+    padding: 2px 10px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-primary, inherit);
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .fname {
+    flex: 1;
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+  }
+  .area.small {
+    font-size: 11px;
+  }
+  .btn.link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
   }
 </style>
