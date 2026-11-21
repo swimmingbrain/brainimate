@@ -37,24 +37,31 @@ export function lineSeconds(text: string): number {
 // a new production from a format and maybe a template, the lengths of the scenes from the target
 export function newProduction(format: Format, template: FormatTemplate | null, target: number, speakers: Record<string, string> = {}): Production {
   const beats = beatsOf(format, newId);
+  const who = (id: string) => speakers[id] ?? id;
   const scenes: Scene[] = (template?.scenes ?? beats.map((b, i) => ({ beat: i, name: b.name, place: '', camera: 'still' as const, action: '' }))).map((s) => ({
     id: newId(),
     name: s.name,
     beat: beats[Math.min(s.beat, beats.length - 1)].id,
-    duration: 4,
+    duration: 4 * ('weight' in s && s.weight ? s.weight : 1),
     place: s.place,
-    cast: [],
+    cast: 'cast' in s && s.cast ? s.cast.map(who) : [],
     action: s.action,
     camera: s.camera,
-    transition: 'cut',
-    note: ''
+    transition: ('transition' in s && s.transition) || 'cut',
+    note: '',
+    ...('subject' in s && s.subject ? { subject: who(s.subject) } : {}),
+    ...('partner' in s && s.partner ? { partner: who(s.partner) } : {}),
+    ...('pov' in s && s.pov ? { pov: { ...s.pov, actor: who(s.pov.actor) } } : {}),
+    ...('moves' in s && s.moves ? { moves: s.moves.map((m) => ({ ...m, actor: who(m.actor) })) } : {}),
+    ...('slow' in s && s.slow ? { slow: true } : {}),
+    ...('mood' in s && s.mood ? { mood: s.mood } : {})
   }));
   const lines: ScriptLine[] = (template?.lines ?? []).map((l) => ({
     id: newId(),
     beat: beats[Math.min(l.beat, beats.length - 1)].id,
-    speaker: speakers[l.speaker] ?? l.speaker,
+    speaker: who(l.speaker),
     text: l.text,
-    scene: null,
+    scene: l.scene !== undefined && scenes[l.scene] ? scenes[l.scene].id : null,
     certainty: l.certainty ?? format.certainty
   }));
   const p: Production = {
@@ -85,6 +92,92 @@ function structuredCloneSafe<T>(v: T): T {
 
 export function totalSeconds(p: Production): number {
   return p.scenes.reduce((n, s) => n + s.duration, 0);
+}
+
+// ---------------------------------------------------------------- pace: how long the words take
+
+// the pace of a production in words a second, the pause after a line and the extra time a scene gets
+export function paceOf(p: Production): number {
+  return Math.max(1, Math.min(5, p.pace ?? WORDS_PER_SECOND));
+}
+
+export function pauseOf(p: Production): number {
+  return Math.max(0, Math.min(3, p.pause ?? 0.3));
+}
+
+export function breathingOf(p: Production): number {
+  return Math.max(0, Math.min(5, p.breathing ?? 0.5));
+}
+
+// seconds of every linked recording by clip id, the real length beats every estimate
+export type ClipSeconds = Record<string, number>;
+
+// how long a line takes to say: its recording when it has one, else its words at the pace and the
+// speed of its voice, the pause after it included
+export function speechSeconds(p: Production, line: ScriptLine, clips: ClipSeconds = {}): number {
+  const n = words(line.text);
+  if (line.clip && clips[line.clip]) return clips[line.clip] + pauseOf(p);
+  if (n === 0) return 0;
+  const rate = Math.max(0.5, Math.min(2, p.voices.find((v) => v.speaker === line.speaker)?.rate ?? 1));
+  return n / (paceOf(p) * rate) + pauseOf(p);
+}
+
+// a shot or a move takes time to be seen: a camera move, a first person action, the moves of the cast
+export function extraSeconds(scene: Scene): number {
+  const moving = ['pov-walk', 'pov-run', 'pov-look', 'pov-interact', 'tracking', 'reveal', 'whip', 'push-in', 'dramatic'].includes(scene.camera) ? 0.8 : 0;
+  const action = scene.pov && scene.pov.action !== 'none' ? 1.2 : 0;
+  const moves = (scene.moves ?? []).length * 0.6;
+  return moving + action + moves;
+}
+
+export interface SceneTiming {
+  scene: Scene;
+  // seconds of speech in it, what it should last at least, what it lasts
+  speech: number;
+  recommended: number;
+  duration: number;
+  state: 'short' | 'ok' | 'long';
+}
+
+// what every scene needs: its speech, the breathing room, the time its shots and moves take. a scene
+// without words keeps a short look of its own
+export function sceneTimings(p: Production, clips: ClipSeconds = {}): SceneTiming[] {
+  return p.scenes.map((scene) => {
+    const lines = p.lines.filter((l) => sceneOf(p, l)?.id === scene.id);
+    const speech = lines.reduce((n, l) => n + speechSeconds(p, l, clips), 0);
+    const base = speech > 0 ? speech + breathingOf(p) : 2;
+    const recommended = Math.round(Math.max(1, base + extraSeconds(scene)) * 4) / 4;
+    const state = scene.duration + 0.05 < speech ? 'short' : scene.duration > recommended * 1.8 + 1 ? 'long' : 'ok';
+    return { scene, speech, recommended, duration: scene.duration, state };
+  });
+}
+
+export interface LengthCheck {
+  target: number;
+  // seconds the words take, the recommended length, whether the words fit at all
+  speech: number;
+  recommended: number;
+  fits: boolean;
+  // about how many words too many or left over
+  words: number;
+}
+
+// whether the script fits the usual lengths: the words alone and with the room the scenes need
+export function lengthChecks(p: Production, clips: ClipSeconds = {}, targets = [60, 90, 120]): LengthCheck[] {
+  const t = sceneTimings(p, clips);
+  const speech = t.reduce((n, x) => n + x.speech, 0);
+  const recommended = t.reduce((n, x) => n + x.recommended, 0);
+  return targets.map((target) => ({ target, speech, recommended, fits: recommended <= target + 0.5, words: Math.round((target - recommended) * paceOf(p)) }));
+}
+
+// the scenes as long as their speech needs: only the lengths change, never a word. a scene longer than
+// it needs keeps its length unless shrink is asked for
+export function fitScenesToSpeech(p: Production, clips: ClipSeconds = {}, shrink = false): Production {
+  const t = sceneTimings(p, clips);
+  return {
+    ...p,
+    scenes: p.scenes.map((s, i) => ({ ...s, duration: shrink ? t[i].recommended : Math.max(s.duration, t[i].recommended) }))
+  };
 }
 
 // the scenes stretched to a length: every beat gets its share, inside a beat the scenes share it equally
@@ -137,29 +230,32 @@ export function sceneStarts(p: Production, fps: number): { scene: Scene; start: 
 
 // subtitles from the script: the lines of a scene one after the other across it, each line split into
 // short pieces that read well on a phone, a piece as long as its words take
-export function cuesFrom(p: Production, fps: number, maxWords = 6): Cue[] {
+export function cuesFrom(p: Production, fps: number, maxWords = 6, clips: ClipSeconds = {}): Cue[] {
   const out: Cue[] = [];
+  const pause = pauseOf(p);
   for (const { scene, start, end } of sceneStarts(p, fps)) {
     const lines = p.lines.filter((l) => sceneOf(p, l)?.id === scene.id && words(l.text) > 0);
     if (lines.length === 0) continue;
-    const pieces: { text: string; speaker: string; certainty?: ScriptLine['certainty']; weight: number }[] = [];
-    for (const l of lines) {
-      const ws = l.text.trim().split(/\s+/);
-      for (let i = 0; i < ws.length; i += maxWords) {
-        const text = ws.slice(i, i + maxWords).join(' ');
-        pieces.push({ text, speaker: l.speaker, certainty: l.certainty, weight: words(text) + 0.6 });
-      }
-    }
-    const need = pieces.reduce((n, x) => n + x.weight / WORDS_PER_SECOND, 0) * fps;
+    // every line as long as it is spoken, its pieces share that by their words
+    const need = lines.reduce((n, l) => n + speechSeconds(p, l, clips), 0) * fps;
     const room = end - start;
-    // as fast as speech, slower only when the scene has room to spare
+    // as fast as speech, slower never: a scene with time to spare keeps a pause at its end
     const k = need > room ? room / need : 1;
     let t = start;
-    for (const x of pieces) {
-      const len = Math.max(Math.round(fps * 0.5), Math.round((x.weight / WORDS_PER_SECOND) * fps * k));
-      const e = Math.min(end, t + len);
-      if (e > t) out.push({ id: newId(), start: t, end: e, text: x.text, speaker: x.speaker, ...(x.certainty ? { certainty: x.certainty } : {}) });
-      t = e;
+    for (const l of lines) {
+      const ws = l.text.trim().split(/\s+/);
+      const total = speechSeconds(p, l, clips) * fps * k;
+      const spoken = Math.max(1, total - pause * fps * k);
+      const n = words(l.text) || 1;
+      let at = t;
+      for (let i = 0; i < ws.length; i += maxWords) {
+        const text = ws.slice(i, i + maxWords).join(' ');
+        const len = Math.max(Math.round(fps * 0.5), Math.round((spoken * Math.max(1, words(text))) / n));
+        const e = Math.min(end, at + len);
+        if (e > at) out.push({ id: newId(), start: at, end: e, text, speaker: l.speaker, line: l.id, ...(l.certainty ? { certainty: l.certainty } : {}) });
+        at = e;
+      }
+      t = Math.min(end, Math.max(at, Math.round(t + total)));
     }
   }
   return out;
@@ -192,6 +288,11 @@ export function checks(p: Production, sources: Source[] = p.sources): Check[] {
     const may = wordBudget(p, b);
     if (have > may * 1.15 && have > 3) out.push({ level: 'warning', text: `${b.name}: ${have} words, about ${may} fit` });
   }
+  const timings = sceneTimings(p);
+  const short = timings.filter((x) => x.state === 'short');
+  if (short.length) out.push({ level: 'warning', text: `${short.length} scene${short.length > 1 ? 's are' : ' is'} shorter than the words in ${short.length > 1 ? 'them' : 'it'}: ${short.map((x) => x.scene.name).slice(0, 3).join(', ')}` });
+  const speech = timings.reduce((n, x) => n + x.speech, 0);
+  if (p.target && speech > p.target) out.push({ level: 'warning', text: `The words alone take about ${speech.toFixed(0)} s, more than the ${p.target} s aimed at` });
   const total = totalSeconds(p);
   if (p.target && Math.abs(total - p.target) > 1) out.push({ level: 'info', text: `The scenes last ${total.toFixed(1)} s, the target is ${p.target} s` });
   return out;

@@ -102,6 +102,7 @@ export async function importAudio(file: File): Promise<AudioClip | null> {
     const probe = { assets: { [asset.id]: asset } };
     const buffer = await decodeAsset(probe, asset.id);
     frames = clipFrames(buffer.duration, editor.doc.fps);
+    clip.frames = frames;
   } catch {
     addToast(`${file.name} could not be read as a sound`, 'error');
     return null;
@@ -115,7 +116,7 @@ export async function importAudio(file: File): Promise<AudioClip | null> {
   return clip;
 }
 
-export function setClip(id: string, patch: Partial<Pick<AudioClip, 'start' | 'volume' | 'name'>>, key?: string) {
+export function setClip(id: string, patch: Partial<Pick<AudioClip, 'start' | 'volume' | 'name' | 'rate'>>, key?: string) {
   editor.commit(
     'Sound',
     (draft) => {
@@ -123,6 +124,7 @@ export function setClip(id: string, patch: Partial<Pick<AudioClip, 'start' | 'vo
       if (!clip) return;
       if (patch.start !== undefined) clip.start = Math.max(0, Math.round(patch.start));
       if (patch.volume !== undefined) clip.volume = Math.max(0, Math.min(1, patch.volume));
+      if (patch.rate !== undefined) clip.rate = clipRate({ rate: patch.rate });
       if (patch.name !== undefined && patch.name.trim()) clip.name = patch.name.trim().slice(0, 80);
     },
     key
@@ -169,14 +171,17 @@ async function startAll() {
       continue;
     }
     if (!get(playing)) return;
-    const offset = at - clip.start / doc.fps;
+    const speed = clipRate(clip);
+    // seconds into the recording: a faster clip gets through more of it in the same time
+    const offset = (at - clip.start / doc.fps) * speed;
     if (offset >= buffer.duration) continue;
     const src = c.createBufferSource();
     src.buffer = buffer;
+    src.playbackRate.value = speed;
     const gain = c.createGain();
     gain.gain.value = clipGain(doc, clip);
     src.connect(gain).connect(c.destination);
-    const when = c.currentTime + Math.max(0, -offset);
+    const when = c.currentTime + Math.max(0, -offset / speed);
     src.start(when, Math.max(0, offset));
     nodes.push(src);
   }
@@ -202,11 +207,24 @@ export function installAudio(): () => void {
 }
 
 // the sounds of the export range mixed into one buffer at 48 kHz, null when there is nothing to hear
+// how fast a clip plays, a recording of a slow speaker can go a little faster. the pitch moves with it,
+// so it stays within a small range
+export function clipRate(clip: Pick<AudioClip, 'rate'>): number {
+  return Math.max(0.8, Math.min(1.25, clip.rate ?? 1));
+}
+
+// how long a clip lasts on the timeline in frames, null when it was never read
+export function clipLength(clip: Pick<AudioClip, 'frames' | 'rate'>): number | null {
+  return clip.frames ? Math.max(1, Math.round(clip.frames / clipRate(clip))) : null;
+}
+
 // how loud a clip plays: its own volume times the volume of its track in a production, nothing when muted
 export function clipGain(doc: Doc, clip: AudioClip): number {
   const mix = clip.track ? doc.production?.tracks?.[clip.track] : undefined;
-  if (!mix) return clip.volume;
-  return mix.muted ? 0 : clip.volume * mix.volume;
+  // the loudness set for the voice of its speaker
+  const voice = clip.speaker ? (doc.production?.voices.find((v) => v.speaker === clip.speaker)?.volume ?? 1) : 1;
+  if (!mix) return clip.volume * voice;
+  return mix.muted ? 0 : clip.volume * mix.volume * voice;
 }
 
 // a sound made in the browser added as an asset and a clip on a track, a generated effect or a music bed
@@ -216,6 +234,7 @@ export async function addGeneratedClip(dataUrl: string, name: string, start: num
   let frames = 1;
   try {
     frames = clipFrames((await decodeAsset({ assets: { [asset.id]: asset } }, asset.id)).duration, editor.doc.fps);
+    clip.frames = frames;
   } catch {
     // a sound the browser cannot read back still goes in, the timeline just does not grow for it
   }
@@ -254,14 +273,16 @@ export async function mixAudio(doc: Doc, from: number, to: number): Promise<Audi
     } catch {
       continue;
     }
-    const offset = (from - clip.start) / doc.fps;
+    const speed = clipRate(clip);
+    const offset = ((from - clip.start) / doc.fps) * speed;
     if (offset >= buffer.duration || clip.start > to) continue;
     const src = off.createBufferSource();
     src.buffer = buffer;
+    src.playbackRate.value = speed;
     const gain = off.createGain();
     gain.gain.value = clipGain(doc, clip);
     src.connect(gain).connect(off.destination);
-    src.start(Math.max(0, -offset), Math.max(0, offset));
+    src.start(Math.max(0, -offset / speed), Math.max(0, offset));
     any = true;
   }
   if (!any) return null;

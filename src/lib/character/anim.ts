@@ -10,7 +10,7 @@ import { gaitPose, legRig, weightShift } from './gait';
 // a single move goes pose to pose with eases. every value is a change from the rest pose like any
 // pose keyframe, the hip carries the move through the scene
 
-export type AnimKind = 'idle' | 'walk' | 'run' | 'jump' | 'wave' | 'point' | 'sit' | 'turn' | 'reach';
+export type AnimKind = 'idle' | 'walk' | 'run' | 'jump' | 'wave' | 'point' | 'sit' | 'turn' | 'reach' | 'stand' | 'fall' | 'dodge' | 'gesture' | 'look' | 'nod' | 'shrug' | 'startle' | 'talk';
 
 export const ANIMATIONS: { kind: AnimKind; label: string; seconds: number; cycle: boolean }[] = [
   { kind: 'idle', label: 'Idle, standing', seconds: 3, cycle: true },
@@ -21,7 +21,17 @@ export const ANIMATIONS: { kind: AnimKind; label: string; seconds: number; cycle
   { kind: 'point', label: 'Point', seconds: 1.5, cycle: false },
   { kind: 'sit', label: 'Sit down', seconds: 1, cycle: false },
   { kind: 'turn', label: 'Turn around', seconds: 0.4, cycle: false },
-  { kind: 'reach', label: 'Reach and grab', seconds: 0.8, cycle: false }
+  { kind: 'reach', label: 'Reach and grab', seconds: 0.8, cycle: false },
+  // the moves of P6 for telling a story: they start from the pose the character has and end at rest
+  { kind: 'stand', label: 'Stand up', seconds: 1, cycle: false },
+  { kind: 'fall', label: 'Fall (and get up)', seconds: 0.9, cycle: false },
+  { kind: 'dodge', label: 'Dodge', seconds: 0.7, cycle: false },
+  { kind: 'gesture', label: 'Explain with the hands', seconds: 1.6, cycle: false },
+  { kind: 'look', label: 'Look around', seconds: 2, cycle: false },
+  { kind: 'nod', label: 'Nod', seconds: 0.8, cycle: false },
+  { kind: 'shrug', label: 'Shrug', seconds: 1, cycle: false },
+  { kind: 'startle', label: 'Startled step back', seconds: 0.8, cycle: false },
+  { kind: 'talk', label: 'Talk (small gestures)', seconds: 2, cycle: false }
 ];
 
 export interface AnimOptions {
@@ -364,6 +374,156 @@ export function animationKeys(kind: AnimKind, body: Body, o: AnimOptions): PoseK
         put(end, withHip(pose), 'inout');
         put(end + frames(info.seconds), withHip({}), null);
       }
+      return keys;
+    }
+    case 'stand': {
+      // from sitting or crouching back up: the body leans over the feet, then rises
+      const thigh = boneLength(body, 'Upper leg R');
+      const low = (start.y ?? 0) > thigh * 0.3;
+      const base = low ? start.y - thigh * 0.92 : 0;
+      const up = (p: PoseValues, y: number): PoseValues => ({ ...p, Hip: { x: start.x, y, sx: start.sx ?? 1, scale: start.scale ?? 1 } });
+      const lean: PoseValues = {
+        Spine: { rotation: -fwd * 0.35 },
+        Chest: { rotation: -fwd * 0.08 },
+        'Upper leg R': { rotation: fwd * 0.8 },
+        'Lower leg R': { rotation: -fwd * 0.9 },
+        'Upper leg L': { rotation: fwd * 0.75 },
+        'Lower leg L': { rotation: -fwd * 0.85 },
+        'Upper arm R': { rotation: fwd * 0.6 },
+        'Upper arm L': { rotation: fwd * 0.5 }
+      };
+      put(at, up({}, start.y), 'inout');
+      put(at + frames(0.45), up(lean, base + thigh * 0.45), 'out');
+      put(at + frames(1), up({}, base), null);
+      return keys;
+    }
+    case 'fall': {
+      // a stumble back, the hip down to the floor, the legs come up, with back it gets up again
+      const thigh = boneLength(body, 'Upper leg R');
+      const d = o.distance || -fwd * u * 0.15;
+      const stumble: PoseValues = {
+        Spine: { rotation: fwd * 0.3 },
+        Head: { rotation: -fwd * 0.2 },
+        'Upper arm R': { rotation: fwd * 2.2 },
+        'Upper arm L': { rotation: fwd * 2.4 },
+        'Upper leg R': { rotation: fwd * 0.4 },
+        'Lower leg R': { rotation: -fwd * 0.3 }
+      };
+      const down: PoseValues = {
+        Hip: { y: thigh * 1.5 },
+        Spine: { rotation: fwd * 0.55 },
+        Head: { rotation: -fwd * 0.25 },
+        'Upper leg R': { rotation: fwd * 1.3 },
+        'Lower leg R': { rotation: -fwd * 0.6 },
+        'Upper leg L': { rotation: fwd * 1.1 },
+        'Lower leg L': { rotation: -fwd * 0.8 },
+        'Upper arm R': { rotation: -fwd * 0.6 },
+        'Lower arm R': { rotation: fwd * 0.3 },
+        'Upper arm L': { rotation: -fwd * 0.7 }
+      };
+      put(at, withHip({}), 'out');
+      put(at + frames(0.3), withHip(stumble, d * 0.5), 'in');
+      put(at + frames(0.6), withHip(down, d), 'out');
+      put(at + frames(0.9), withHip({ ...down, Spine: { rotation: fwd * 0.45 } }, d), null);
+      if (o.back) {
+        const end = at + frames(0.9) + Math.round(Math.max(0.4, hold) * fps);
+        keys[keys.length - 1].ease = 'inout';
+        const kneel: PoseValues = { ...down, Hip: { y: thigh * 0.8 }, Spine: { rotation: -fwd * 0.35 }, 'Upper leg R': { rotation: fwd * 1.2 }, 'Lower leg R': { rotation: -fwd * 1.6 } };
+        put(end, withHip(down, d), 'inout');
+        put(end + frames(0.5), withHip(kneel, d), 'inout');
+        put(end + frames(1.1), withHip({}, d), null);
+      }
+      return keys;
+    }
+    case 'dodge': {
+      // the body ducks and leans away, a quick step aside, then back up
+      const d = o.distance || -fwd * u * 0.12;
+      const duck: PoseValues = {
+        Hip: { y: 0.1 * u },
+        Spine: { rotation: fwd * 0.4 },
+        Head: { rotation: fwd * 0.15 },
+        'Upper leg R': { rotation: fwd * 0.6 },
+        'Lower leg R': { rotation: -fwd * 1 },
+        'Upper leg L': { rotation: fwd * 0.4 },
+        'Lower leg L': { rotation: -fwd * 0.8 },
+        'Upper arm R': { rotation: fwd * 1.9 },
+        'Lower arm R': { rotation: fwd * 1.4 },
+        'Upper arm L': { rotation: fwd * 1.7 },
+        'Lower arm L': { rotation: fwd * 1.4 }
+      };
+      put(at, withHip({}), 'out');
+      put(at + frames(0.2), withHip(duck, d), 'inout');
+      put(at + frames(0.45), withHip(duck, d), 'inout');
+      put(at + frames(0.7), withHip({}, d), null);
+      return keys;
+    }
+    case 'gesture':
+    case 'talk': {
+      // the hands open and turn while explaining, talk is calmer and longer
+      const big = kind === 'gesture' ? 1 : 0.5;
+      const total = frames(info.seconds) + Math.round(hold * fps);
+      const a: PoseValues = { 'Upper arm R': { rotation: fwd * 0.7 * big }, 'Lower arm R': { rotation: fwd * 1.5 }, 'Hand R': { rotation: -fwd * 0.3 }, Head: { rotation: fwd * 0.04 } };
+      const b: PoseValues = { 'Upper arm R': { rotation: fwd * 0.45 * big }, 'Lower arm R': { rotation: fwd * 1.1 }, 'Upper arm L': { rotation: fwd * 0.5 * big }, 'Lower arm L': { rotation: fwd * 1.3 }, Head: { rotation: -fwd * 0.03 }, Chest: { rotation: -fwd * 0.03 } };
+      const step = frames(kind === 'gesture' ? 0.4 : 0.55);
+      put(at, withHip({}), 'inout');
+      let f2 = at + step;
+      for (let i = 0; f2 < at + total - step; i++, f2 += step) put(f2, withHip(i % 2 ? b : a), 'inout');
+      put(Math.max(f2, at + step * 2), withHip({}), null);
+      return keys;
+    }
+    case 'look': {
+      // the head and the chest turn one way, the other way, then back ahead
+      const side = (r: number): PoseValues => ({ Head: { rotation: fwd * r }, Chest: { rotation: fwd * r * 0.3 } });
+      put(at, withHip({}), 'inout');
+      put(at + frames(0.4), withHip(side(0.28)), 'inout');
+      put(at + frames(0.9), withHip(side(0.28)), 'inout');
+      put(at + frames(1.3), withHip(side(-0.3)), 'inout');
+      put(at + frames(1.7), withHip(side(-0.3)), 'inout');
+      put(at + frames(2), withHip({}), null);
+      return keys;
+    }
+    case 'nod': {
+      const down: PoseValues = { Head: { rotation: fwd * 0.22 } };
+      put(at, withHip({}), 'inout');
+      put(at + frames(0.2), withHip(down), 'inout');
+      put(at + frames(0.4), withHip({}), 'inout');
+      put(at + frames(0.6), withHip(down), 'inout');
+      put(at + frames(0.8), withHip({}), null);
+      return keys;
+    }
+    case 'shrug': {
+      const pose: PoseValues = {
+        Chest: { y: -0.02 * u },
+        Head: { rotation: -fwd * 0.08 },
+        'Upper arm R': { rotation: fwd * 0.35 },
+        'Lower arm R': { rotation: fwd * 1.8 },
+        'Hand R': { rotation: -fwd * 0.5 },
+        'Upper arm L': { rotation: fwd * 0.3 },
+        'Lower arm L': { rotation: fwd * 1.7 },
+        'Hand L': { rotation: -fwd * 0.5 }
+      };
+      put(at, withHip({}), 'inout');
+      put(at + frames(0.3), withHip(pose), 'inout');
+      put(at + frames(0.6) + Math.round(hold * fps), withHip(pose), 'inout');
+      put(at + frames(1) + Math.round(hold * fps), withHip({}), null);
+      return keys;
+    }
+    case 'startle': {
+      // a jolt back, the hands up, then it settles
+      const d = o.distance || -fwd * u * 0.08;
+      const jolt: PoseValues = {
+        Hip: { y: -0.02 * u },
+        Spine: { rotation: fwd * 0.18 },
+        Head: { rotation: -fwd * 0.12 },
+        'Upper arm R': { rotation: fwd * 1.2 },
+        'Lower arm R': { rotation: fwd * 1.6 },
+        'Upper arm L': { rotation: fwd * 1.1 },
+        'Lower arm L': { rotation: fwd * 1.6 }
+      };
+      put(at, withHip({}), 'out');
+      put(at + frames(0.15), withHip(jolt, d), 'inout');
+      put(at + frames(0.5), withHip({ ...jolt, Spine: { rotation: fwd * 0.08 } }, d), 'inout');
+      put(at + frames(0.8), withHip({}, d), null);
       return keys;
     }
     default:

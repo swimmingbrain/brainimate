@@ -101,6 +101,8 @@ const DEFS: Def[] = [
   // objects
   { id: 'box', label: 'Box', category: 'objects', draw: () => [R('Box', -80, -60, 160, 120, C.ochre, 4), shade('Shadow', -80, -60, 160, 120, C.ochre), L('Tape', [[0, -60], [0, -20]], 4), R('Outline', -80, -60, 160, 120, 'transparent', 4)].slice(0, 3) },
   { id: 'phone', label: 'Phone', category: 'objects', draw: () => [R('Phone', -45, -85, 90, 170, C.char, 14), R('Screen', -36, -70, 72, 130, C.sky, 6), E('Button', 0, 72, 7, 7, C.light, 3)] },
+  { id: 'door', label: 'Door', category: 'objects', draw: () => [R('Frame', -120, -270, 240, 540, C.brown), R('Door', -100, -250, 200, 500, C.rust, 4), R('Panel', -70, -210, 140, 170, shadeOf(C.rust), 4), R('Panel low', -70, 20, 140, 170, shadeOf(C.rust), 4), E('Knob', 66, 0, 13, 13, C.yellow, 4)] },
+  { id: 'keys', label: 'Keys', category: 'objects', draw: () => [E('Ring', 0, -40, 34, 34, null, 8), R('Key', -12, -12, 24, 100, C.yellow, 6), R('Bit', 10, 56, 22, 14, C.yellow, 2), R('Tag', -70, -30, 44, 60, C.red, 8)] },
   { id: 'cup', label: 'Coffee cup', category: 'objects', draw: () => [P('Cup', [[-50, -50], [50, -50], [40, 60], [-40, 60]], C.paper), E('Handle', 62, 0, 22, 28, null, 7), E('Coffee', 0, -50, 50, 9, C.brown, 4), L('Steam', [[-10, -70], [-20, -95], [-8, -120]], 4)] },
   { id: 'book', label: 'Book', category: 'objects', draw: () => [R('Cover', -70, -90, 140, 180, C.red, 6), R('Pages', -60, -80, 120, 160, C.cream, 2), R('Spine', -70, -90, 18, 180, shadeOf(C.red), 4)] },
   { id: 'money', label: 'Money', category: 'objects', draw: () => [R('Note', -95, -50, 190, 100, C.sage, 6), E('Coin', 0, 0, 32, 32, C.green, 4), R('Note 2', -85, -40, 30, 18, C.green, 3)] },
