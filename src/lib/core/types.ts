@@ -288,6 +288,9 @@ export interface AudioClip {
   start: number;
   // 0 to 1
   volume: number;
+  // the track it plays on and who speaks in it, a production mixes by track
+  track?: 'narration' | 'dialogue' | 'music' | 'sfx';
+  speaker?: string;
 }
 
 export interface Symbol {
@@ -321,6 +324,8 @@ export interface Doc {
   guides: Guides;
   // sounds played with the timeline and put into the video
   audio?: AudioClip[];
+  // the video this document is made for: format, script, scenes, sources, subtitles, see studio/types.ts
+  production?: import('$lib/studio/types').Production;
 }
 
 export interface Guides {

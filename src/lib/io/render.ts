@@ -1,3 +1,4 @@
+import { drawSubtitles } from '$lib/render/subtitles';
 import type { Doc, Mat, TextItem } from '$lib/core/types';
 import { setLibrary } from '$lib/render/frame';
 import { loadImages } from '$lib/render/renderer';
@@ -83,6 +84,8 @@ export function frameCanvas(
       ctx.fillRect(0, 0, width, height);
     }
     renderCameraFrame(ctx, doc, { frame, base, transparent });
+    // the subtitles of a production burnt in over the picture
+    drawSubtitles(ctx, doc, frame, base);
   };
   return { canvas, ctx, width, height, draw };
 }

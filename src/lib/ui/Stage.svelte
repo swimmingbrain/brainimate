@@ -48,6 +48,7 @@
   import { GestureTracker, pinchView, type GestureAction, type GesturePoint } from '$lib/editor/gestures';
   import { gestureOptions, penSeen, touchUi, withModifiers } from '$lib/editor/touch';
   import { previewScaleFor, showingCamera } from '$lib/editor/camera';
+  import { drawSubtitles } from '$lib/render/subtitles';
   import { renderCameraFrame } from '$lib/render/camera';
   import { context as surfaceContext, sized as sizedSurface, type Surface } from '$lib/render/surface';
 
@@ -216,6 +217,7 @@
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(previewSurface, base[4], base[5], w, h);
     }
+    drawSubtitles(ctx, doc, editor.frame, base);
     ctx.restore();
   }
 

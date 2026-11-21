@@ -174,7 +174,7 @@ async function startAll() {
     const src = c.createBufferSource();
     src.buffer = buffer;
     const gain = c.createGain();
-    gain.gain.value = clip.volume;
+    gain.gain.value = clipGain(doc, clip);
     src.connect(gain).connect(c.destination);
     const when = c.currentTime + Math.max(0, -offset);
     src.start(when, Math.max(0, offset));
@@ -202,8 +202,43 @@ export function installAudio(): () => void {
 }
 
 // the sounds of the export range mixed into one buffer at 48 kHz, null when there is nothing to hear
+// how loud a clip plays: its own volume times the volume of its track in a production, nothing when muted
+export function clipGain(doc: Doc, clip: AudioClip): number {
+  const mix = clip.track ? doc.production?.tracks?.[clip.track] : undefined;
+  if (!mix) return clip.volume;
+  return mix.muted ? 0 : clip.volume * mix.volume;
+}
+
+// a sound made in the browser added as an asset and a clip on a track, a generated effect or a music bed
+export async function addGeneratedClip(dataUrl: string, name: string, start: number, track: NonNullable<AudioClip['track']>, speaker?: string): Promise<string> {
+  const asset = makeAsset('audio', name, dataUrl);
+  const clip: AudioClip = { id: newId(), asset: asset.id, name, start: Math.max(0, start), volume: 1, track, ...(speaker ? { speaker } : {}) };
+  let frames = 1;
+  try {
+    frames = clipFrames((await decodeAsset({ assets: { [asset.id]: asset } }, asset.id)).duration, editor.doc.fps);
+  } catch {
+    // a sound the browser cannot read back still goes in, the timeline just does not grow for it
+  }
+  editor.commit(`Sound: ${name}`, (draft) => {
+    draft.assets[asset.id] = asset;
+    draft.audio = [...(draft.audio ?? []), clip];
+    for (const l of draft.layers) if (l.type !== 'folder') l.length = Math.max(l.length, clip.start + frames);
+  });
+  return clip.id;
+}
+
+// the track and the speaker of a clip
+export function setClipTrack(id: string, track: NonNullable<AudioClip['track']>, speaker?: string) {
+  editor.commit('Sound track', (draft) => {
+    const clip = draft.audio?.find((c) => c.id === id);
+    if (!clip) return;
+    clip.track = track;
+    if (speaker !== undefined) clip.speaker = speaker || undefined;
+  });
+}
+
 export async function mixAudio(doc: Doc, from: number, to: number): Promise<AudioBuffer | null> {
-  const clips = (doc.audio ?? []).filter((c) => c.volume > 0);
+  const clips = (doc.audio ?? []).filter((c) => clipGain(doc, c) > 0);
   if (clips.length === 0) return null;
   const O = (globalThis as { OfflineAudioContext?: typeof OfflineAudioContext; webkitOfflineAudioContext?: typeof OfflineAudioContext })
     .OfflineAudioContext ?? (globalThis as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
@@ -224,7 +259,7 @@ export async function mixAudio(doc: Doc, from: number, to: number): Promise<Audi
     const src = off.createBufferSource();
     src.buffer = buffer;
     const gain = off.createGain();
-    gain.gain.value = clip.volume;
+    gain.gain.value = clipGain(doc, clip);
     src.connect(gain).connect(off.destination);
     src.start(Math.max(0, -offset), Math.max(0, offset));
     any = true;
