@@ -62,7 +62,8 @@ export function newProduction(format: Format, template: FormatTemplate | null, t
     speaker: who(l.speaker),
     text: l.text,
     scene: l.scene !== undefined && scenes[l.scene] ? scenes[l.scene].id : null,
-    certainty: l.certainty ?? format.certainty
+    certainty: l.certainty ?? format.certainty,
+    ...(l.emotion ? { emotion: l.emotion } : {})
   }));
   const p: Production = {
     version: 1,

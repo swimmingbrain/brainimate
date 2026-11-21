@@ -11,7 +11,7 @@ export interface FormatTemplate {
   // the scenes it starts with: beat index, name, place, camera, action
   scenes: ({ beat: number; name: string; place: string; camera: CameraMove; action: string } & TemplateShot)[];
   // the lines it starts with: beat index, who speaks, what, and the scene it is heard in
-  lines: { beat: number; speaker: string; text: string; certainty?: Certainty; scene?: number }[];
+  lines: { beat: number; speaker: string; text: string; certainty?: Certainty; scene?: number; emotion?: string }[];
   // it needs two characters: without main characters in the library two are made for it
   cast?: boolean;
 }
@@ -61,6 +61,31 @@ export const FORMATS: Format[] = [
     lengths: [30, 45, 60, 90],
     certainty: 'fiction',
     templates: [
+      {
+        id: 'el-fridge',
+        label: 'ElevenLabs test B: the fridge says no',
+        title: 'Der Kühlschrank sagt Nein',
+        description: 'Comedy: Toms neuer Kühlschrank hat eine eigene Meinung – und Lina macht es nur schlimmer.',
+        cast: true,
+        scenes: [
+          { beat: 0, name: 'Locked', place: 'kitchen', camera: 'push-in', action: 'Tom pulls at the fridge door, it does not open', weight: 1, subject: 'main1', moves: [{ actor: 'main1', kind: 'reach', at: 0.2 }] },
+          { beat: 1, name: 'Lina comes in', place: 'kitchen', camera: 'reveal', action: 'Lina comes over and looks at the display', weight: 1.2, transition: 'cut', subject: 'main2', moves: [{ actor: 'main2', kind: 'look', at: 0.05 }] },
+          { beat: 2, name: 'Negotiation', place: 'kitchen', camera: 'over-shoulder', action: 'Tom argues with the fridge', weight: 1.3, transition: 'cut', subject: 'main2', partner: 'main1', moves: [{ actor: 'main1', kind: 'gesture', at: 0.1 }] },
+          { beat: 2, name: 'Escalation', place: 'kitchen', camera: 'handheld', action: 'The fridge orders salad for him', weight: 1.2, transition: 'cut', subject: 'main1', mood: 'action', moves: [{ actor: 'main1', kind: 'startle', at: 0.4 }] },
+          { beat: 3, name: 'Punchline', place: 'kitchen', camera: 'scare', action: 'The fridge sides with Lina', weight: 1, transition: 'cut', subject: 'main1', moves: [{ actor: 'main2', kind: 'shrug', at: 0.5 }] }
+        ],
+        lines: [
+          { beat: 0, speaker: 'main1', text: 'Mach auf. Mach. Auf.', scene: 0, emotion: 'angry' },
+          { beat: 1, speaker: 'main2', text: 'Warum streitest du mit dem Kühlschrank?', scene: 1, emotion: 'curious' },
+          { beat: 1, speaker: 'main1', text: 'Er sagt, ich hatte heute schon genug Käse.', scene: 1, emotion: 'sighs' },
+          { beat: 2, speaker: 'main2', text: 'Und? Hattest du?', scene: 2, emotion: 'mischievously' },
+          { beat: 2, speaker: 'main1', text: 'Das ist nicht der Punkt! Ich bin ein freier Mensch.', scene: 2, emotion: 'shouting' },
+          { beat: 2, speaker: N, text: 'Der Kühlschrank bestellte daraufhin selbstständig drei Kilo Salat.', scene: 3 },
+          { beat: 2, speaker: 'main1', text: 'Er bestellt mir Salat. Lina, er bestellt mir Salat!', scene: 3, emotion: 'excited' },
+          { beat: 3, speaker: 'main2', text: 'Ich mag ihn.', scene: 4, emotion: 'laughs' },
+          { beat: 3, speaker: N, text: 'Seitdem öffnet er sich nur noch für Lina.', scene: 4, emotion: 'sarcastic' }
+        ]
+      },
       {
         id: 'lie-tax',
         label: 'Every lie costs 500 euros',
@@ -133,6 +158,31 @@ export const FORMATS: Format[] = [
     lengths: [45, 60, 90, 120],
     certainty: 'fact',
     templates: [
+      {
+        id: 'el-octopus',
+        label: 'ElevenLabs test A: three hearts',
+        title: 'Drei Herzen, blaues Blut',
+        description: 'Wissensvideo: Warum ein Oktopus drei Herzen, blaues Blut und mitdenkende Arme hat. Quellen bitte unter Sources eintragen.',
+        cast: true,
+        scenes: [
+          { beat: 0, name: 'The question', place: 'living', camera: 'reveal', action: 'Lina surprises Tom with a fact', weight: 1, subject: 'main2', moves: [{ actor: 'main2', kind: 'gesture', at: 0.1 }, { actor: 'main1', kind: 'shrug', at: 0.6 }] },
+          { beat: 1, name: 'Three hearts', place: 'office', camera: 'push-in', action: 'The narrator explains the hearts', weight: 1.2, transition: 'cut', subject: 'main2', moves: [{ actor: 'main2', kind: 'point', at: 0.3 }] },
+          { beat: 2, name: 'Blue blood', place: 'office', camera: 'closeup', action: 'Lina laughs about blue blood', weight: 1.2, transition: 'cut', subject: 'main2', moves: [{ actor: 'main2', kind: 'nod', at: 0.6 }] },
+          { beat: 2, name: 'Thinking arms', place: 'office', camera: 'over-shoulder', action: 'Tom cannot believe it', weight: 1.2, transition: 'cut', subject: 'main2', partner: 'main1', mood: 'surprise', moves: [{ actor: 'main1', kind: 'startle', at: 0.5 }] },
+          { beat: 3, name: 'Takeaway', place: 'living', camera: 'pull', action: 'Both sum it up', weight: 1, transition: 'black', moves: [{ actor: 'main1', kind: 'shrug', at: 0.5 }] }
+        ],
+        lines: [
+          { beat: 0, speaker: 'main2', text: 'Tom, wusstest du, dass ein Oktopus drei Herzen hat?', scene: 0, emotion: 'curious', certainty: 'fact' },
+          { beat: 0, speaker: 'main1', text: 'Klar. Und ich habe drei Gehirne.', scene: 0, emotion: 'sarcastic', certainty: 'fiction' },
+          { beat: 1, speaker: N, text: 'Kein Witz: Zwei Herzen pumpen das Blut durch die Kiemen, das dritte versorgt den restlichen Körper.', scene: 1, certainty: 'fact' },
+          { beat: 2, speaker: N, text: 'Und sein Blut ist blau. Statt Eisen transportiert ein kupferhaltiger Stoff namens Hämocyanin den Sauerstoff.', scene: 2, emotion: 'excited', certainty: 'fact' },
+          { beat: 2, speaker: 'main2', text: 'Blaues Blut. Also echter Adel.', scene: 2, emotion: 'laughs', certainty: 'fiction' },
+          { beat: 2, speaker: N, text: 'Noch verrückter: Ein großer Teil seiner Nervenzellen sitzt nicht im Kopf, sondern in den Armen.', scene: 3, certainty: 'fact' },
+          { beat: 2, speaker: 'main1', text: 'Moment … seine Arme denken mit?', scene: 3, emotion: 'whispers', certainty: 'fiction' },
+          { beat: 3, speaker: 'main2', text: 'Drei Herzen, blaues Blut und Arme, die mitdenken.', scene: 4, emotion: 'excited', certainty: 'fiction' },
+          { beat: 3, speaker: 'main1', text: 'Und ich schaffe es morgens nicht mal, Kaffee zu kochen.', scene: 4, emotion: 'sighs', certainty: 'fiction' }
+        ]
+      },
       {
         id: 'why',
         label: 'Why …? (one question)',
@@ -219,6 +269,29 @@ export const FORMATS: Format[] = [
     lengths: [60, 90, 120],
     certainty: 'fiction',
     templates: [
+      {
+        id: 'el-message',
+        label: 'ElevenLabs test C: the voice message',
+        title: 'Die Sprachnachricht',
+        description: 'Storytelling: Lina bekommt eine Sprachnachricht – von sich selbst. Mit Ego-Perspektive, Musik und Geräuschen.',
+        cast: true,
+        scenes: [
+          { beat: 0, name: 'Night walk', place: 'street', camera: 'pov-walk', action: 'Through Lina\'s eyes, walking home at night', weight: 1.2, cast: ['main2'], pov: { actor: 'main2', look: 'around', action: 'none', at: 0.5, item: '', hands: true } },
+          { beat: 1, name: 'The message', place: 'street', camera: 'pov-interact', action: 'Lina looks at her phone', weight: 1.2, transition: 'cut', cast: ['main2'], pov: { actor: 'main2', look: 'down', action: 'phone', at: 0.2, item: '', hands: true } },
+          { beat: 2, name: 'Her own voice', place: 'living', camera: 'dramatic', action: 'Lina listens, frozen', weight: 1.3, transition: 'black', cast: ['main2'], subject: 'main2', mood: 'emotion', moves: [{ actor: 'main2', kind: 'look', at: 0.3 }] },
+          { beat: 2, name: 'Knock', place: 'living', camera: 'scare', action: 'Someone knocks at the door', weight: 1, transition: 'cut', cast: ['main2'], subject: 'main2', moves: [{ actor: 'main2', kind: 'startle', at: 0.2 }] },
+          { beat: 3, name: 'Tom', place: 'living', camera: 'reveal', action: 'It is only Tom – or is it?', weight: 1.2, transition: 'cut', subject: 'main1', moves: [{ actor: 'main1', kind: 'wave', at: 0.2 }] }
+        ],
+        lines: [
+          { beat: 0, speaker: N, text: 'Es war kurz nach Mitternacht, als Lina nach Hause ging.', scene: 0, emotion: 'whispers' },
+          { beat: 1, speaker: N, text: 'Dann vibrierte ihr Handy. Eine Sprachnachricht. Von einer unbekannten Nummer.', scene: 1 },
+          { beat: 2, speaker: 'main2', text: 'Das … das ist meine Stimme.', scene: 2, emotion: 'whispers' },
+          { beat: 2, speaker: 'main2', text: 'Lina, hör zu. Mach heute Nacht niemandem die Tür auf.', scene: 2, emotion: 'nervous' },
+          { beat: 2, speaker: N, text: 'Im selben Moment klopfte es.', scene: 3 },
+          { beat: 3, speaker: 'main1', text: 'Lina? Ich bin’s, Tom. Machst du auf?', scene: 4, emotion: 'curious' },
+          { beat: 3, speaker: N, text: 'Nur dass Tom in dieser Nacht gar nicht in der Stadt war.', scene: 4, emotion: 'whispers' }
+        ]
+      },
       {
         id: 'note',
         label: 'The strange note',
