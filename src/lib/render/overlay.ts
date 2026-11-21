@@ -200,7 +200,8 @@ function drawRig(ctx: CanvasRenderingContext2D, v: View, tool: string) {
   const rig = editor.rig();
   if (!rig) return;
   if (tool === 'bind') drawBindings(ctx, v);
-  const bones = layers.filter((l) => l.type === 'rig' && isLayerShown(layers, l)).flatMap((l) => l.bones);
+  const shown = new Set(layers.filter((l) => l.type === 'rig' && isLayerShown(layers, l)).flatMap((l) => l.bones.map((b) => b.id)));
+  const bones = rig.bones.filter((b) => shown.has(b.id));
   if (bones.length === 0) return;
   drawBones(ctx, {
     bones,

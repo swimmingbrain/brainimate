@@ -85,9 +85,11 @@ function poseJointAt(e: ToolEvent): { joint: Joint; layerId: string } | null {
   const rig = editor.rig();
   if (!rig) return null;
   const layers = editor.currentLayers().filter((l) => l.type === 'rig' && canEditRig(l));
-  const bones = layers.flatMap((l) => l.bones);
+  // the bones as they stand at this frame, a turned character has them where its angle puts them
+  const ids = new Set(layers.flatMap((l) => l.bones.map((b) => b.id)));
+  const bones = rig.bones.filter((b) => ids.has(b.id));
   const joint = hitJoint(jointsOf(bones, rig.world), e, (JOINT_TOLERANCE * pointerFactor(e.pointerType)) / e.zoom);
-  const layer = joint ? layers.find((l) => l.bones.includes(joint.bone)) : null;
+  const layer = joint ? layers.find((l) => l.bones.some((b) => b.id === joint.bone.id)) : null;
   return joint && layer ? { joint, layerId: layer.id } : null;
 }
 
@@ -407,7 +409,7 @@ export function createSelectTool(id: ToolId): Tool {
     if (!action || !start) return;
     switch (action.kind) {
       case 'pose': {
-        const bones = timelineBones(editor.currentLayers());
+        const bones = editor.rig()?.bones ?? timelineBones(editor.currentLayers());
         const { joint, effector, local } = action;
         const snap = e.shift ? STEP : 0;
         let pose: Pose;

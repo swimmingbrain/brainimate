@@ -107,8 +107,16 @@ export function unpackCharacter(pkg: CharacterPackage, dx = 0, dy = 0, name?: st
       k.pose = pose;
       for (const item of k.items) fixItem(item, true);
     }
+    if (l.turnRig) {
+      // the room of a turnable rig: its bones by their new ids, the spot it turns about moved along
+      const bonesIn: NonNullable<Layer['turnRig']>['bones'] = {};
+      for (const [id, spot] of Object.entries(l.turnRig.bones)) bonesIn[bone(id)] = spot;
+      l.turnRig = { ...l.turnRig, x: l.turnRig.x + dx, ground: l.turnRig.ground + dy, bones: bonesIn };
+    }
     if (l.character) {
       const look = l.character.look;
+      const model = l.character.model as { x?: number; ground?: number } | undefined;
+      if (model && typeof model.x === 'number' && typeof model.ground === 'number') l.character = { ...l.character, model: { ...model, x: model.x + dx, ground: model.ground + dy } };
       l.character = {
         ...l.character,
         face: { ...l.character.face, x: l.character.face.x + dx, y: l.character.face.y + dy },

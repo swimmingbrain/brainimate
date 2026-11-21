@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Panel from '../Panel.svelte';
   import Field from '../Field.svelte';
+  import Turnaround from './Turnaround.svelte';
   import NumberField from '../NumberField.svelte';
   import SelectField from '../SelectField.svelte';
   import ToggleField from '../ToggleField.svelte';
@@ -361,6 +362,9 @@
     <Field label="Hair">
       <SelectField value={form.hair} options={HAIR} label="Hair" onchange={(v) => (form = { ...form, hair: v as HairStyle })} />
     </Field>
+    <Field label="Seen from" hint="The view it starts in, it can turn later">
+      <SelectField value={String(form.view ?? 12)} options={[{ value: '90', label: 'Front' }, { value: '50', label: '3/4' }, { value: '12', label: 'Side' }, { value: '-90', label: 'Back' }]} label="Start view" onchange={(v) => (form = { ...form, view: Number(v) })} />
+    </Field>
     <Field label="Looks">
       <SelectField value={String(form.facing)} options={FACING} label="Where it looks" onchange={(v) => (form = { ...form, facing: v === '-1' ? -1 : 1 })} />
     </Field>
@@ -480,6 +484,8 @@
       <button class="btn" onclick={() => autoBlink(picked!.id, blinkSeconds)}>Add blinks</button>
       <button class="btn" onclick={() => talk(picked!.id, talkSeconds)}>Talk</button>
     </div>
+
+    <Turnaround id={picked.id} />
 
     {#if look?.style}
       {@const st = look.style}

@@ -112,6 +112,16 @@ function scaleLayers(layers: Layer[], k: number, dx: number, dy: number) {
         key.camera = { ...key.camera, x: key.camera.x * k + dx, y: key.camera.y * k + dy };
       }
     }
+    if (l.turnRig) {
+      const bones: NonNullable<Layer['turnRig']>['bones'] = {};
+      const sc = (p: [number, number, number]): [number, number, number] => [p[0] * k, p[1] * k, p[2] * k];
+      for (const [id, spot] of Object.entries(l.turnRig.bones)) bones[id] = { from: sc(spot.from), to: sc(spot.to) };
+      l.turnRig = { ...l.turnRig, x: l.turnRig.x * k + dx, ground: l.turnRig.ground * k + dy, bones };
+    }
+    if (l.character?.model) {
+      const m = l.character.model as { x: number; ground: number; height: number; outline: number };
+      l.character = { ...l.character, model: { ...m, x: m.x * k + dx, ground: m.ground * k + dy, height: m.height * k, outline: m.outline * k } };
+    }
     if (l.character) {
       const f = l.character.face;
       l.character = { ...l.character, face: { ...f, x: f.x * k + dx, y: f.y * k + dy, r: f.r * k } };

@@ -153,3 +153,5 @@ Datenmodell:
 Ältere Dateien bleiben unverändert lesbar.
 
 > Neu in P4a: Look (Frisur, Augen, Brauen, Nase optional), Finger und Hand-Posen, Gehen ohne rutschende Füße, mehrere Figuren mit Interaktionen, Bewegungs-Vorlagen und die Szenen-Bibliothek: siehe [FIGUREN-UND-SZENEN.md](FIGUREN-UND-SZENEN.md).
+
+> Neu in P4b: Ansichten von vorn, schräg, seitlich und hinten, flüssiges Drehen und der Turnaround-Editor: siehe [ANSICHTEN.md](ANSICHTEN.md).

@@ -194,6 +194,27 @@ export interface Keyframe {
   camera?: CameraKey;
   // the body layer of a character: the mood and the mouth its face shows from here on
   face?: { emotion: string; mouth: string };
+  // the body layer of a turnable character: the angle it is seen from here on, in degrees, the body
+  // and the head apart. 90 faces the camera, 0 looks to the side it was made looking to, -90 shows the back
+  turn?: Turn;
+}
+
+export interface Turn {
+  body: number;
+  head: number;
+}
+
+// a point of a turnable character in the room: forward to where it looks, across to its near side,
+// up from the floor, in stage pixels
+export type Point3 = [number, number, number];
+
+// what a rig needs to stand at any angle: every bone from where to where in the room, the spot on the
+// floor it turns about and the way it looked when made
+export interface TurnRig {
+  x: number;
+  ground: number;
+  facing: 1 | -1;
+  bones: Record<string, { from: Point3; to: Point3 }>;
 }
 
 export interface Layer {
@@ -215,6 +236,8 @@ export interface Layer {
   length: number;
   // rig layers only
   bones: Bone[];
+  // the rig of a turnable character, its bones stand where the angle of its body layer puts them
+  turnRig?: TurnRig;
   // how far the layer follows the camera: 1 like the camera, less is further back and moves slower,
   // more is in front and moves faster, 0 stays put on the screen. a folder hands it to its layers
   parallax?: number;
@@ -240,6 +263,8 @@ export interface CharacterInfo {
   // how the face is drawn and the hair, characters made before these existed have neither
   style?: CharacterFaceStyle;
   look?: CharacterLook;
+  // everything a turnable character is drawn from at any angle, see character/views.ts
+  model?: Record<string, unknown>;
 }
 
 // see FaceStyle in character/model, kept loose here so the core types know nothing of the drawing

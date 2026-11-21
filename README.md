@@ -89,6 +89,7 @@ The welcome screen opens three examples to look into: a rigged character that wa
 - Characters together: look at, point at, wave to, shake hands, hand an object over, hug, reactions, a cast list that folds the others in the timeline, groups that move together
 - Moves for product videos: walk into the picture, toward the camera, take a product, hold it to the camera, point at an object, turn, leave; moves of your own saved by bone name for any character
 - A scene library: seven ready made places in the comic style (living room, office, kitchen, shop with products to take, street, bedroom, storage room), whole scenes kept in the browser, inserted into a project or opened as one, scene files. See [docs/FIGUREN-UND-SZENEN.md](docs/FIGUREN-UND-SZENEN.md)
+- Characters seen and turned from every side: front, 3/4, side, back 3/4 and back from one body laid out in the room, so face, hair, clothes, colors and proportions match; smooth turns, the head turned apart (look at the camera, over the shoulder), walks from the front and the back, toward and away from the camera; a turnaround editor with clothes, glasses, hats, proportions and fine tuning per view; older characters made turnable. See [docs/ANSICHTEN.md](docs/ANSICHTEN.md)
 
 ### Customization
 

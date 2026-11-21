@@ -6,6 +6,7 @@ import { rectPath } from '$lib/core/shapes';
 import { defaultStyle, solid } from '$lib/core/style';
 import { rigFor } from '$lib/rig/bones';
 import { poseAt, resolveItems } from '$lib/render/frame';
+import { turnAt } from '$lib/rig/turn';
 import { characterLayers, defaultCharacter } from '$lib/character/model';
 import { faceAt } from '$lib/character/anim';
 import { editor } from './editor';
@@ -38,7 +39,9 @@ const looksRight = (id: string, at: number) => {
   const parts = characterLayers(editor.doc.layers, id)!;
   const hip = parts.rig!.bones.find((b) => b.name === 'Hip')!;
   const sx = poseAt(parts.rig!, at)[hip.id]?.sx ?? 1;
-  return parts.folder.character!.face.facing * Math.sign(sx) > 0;
+  // a turnable character turns by its angle, one from before by mirroring
+  const angle = turnAt(parts.body, at)?.body ?? 0;
+  return parts.folder.character!.face.facing * Math.sign(sx) * Math.sign(Math.cos((angle * Math.PI) / 180)) > 0;
 };
 
 function product(x: number, y: number): string {
