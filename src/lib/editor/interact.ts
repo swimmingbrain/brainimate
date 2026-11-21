@@ -10,6 +10,8 @@ import { solveChain } from '$lib/rig/ik';
 import { characterLayers, characterFolders, type Emotion, type HandPose } from '$lib/character/model';
 import { addToast, selection } from '$lib/stores/app';
 import { editor } from './editor';
+import { SIDE } from '$lib/rig/turn';
+import { turnDraft } from './turn';
 import { animateDraft, bodyIn, faceDraft, handKeys, holdFrom, reach, shownTransform } from './character';
 
 // characters doing things with each other and with what is in the scene: turning to and looking at one
@@ -33,6 +35,9 @@ interface Where {
   bone: (name: string) => string | null;
   // the bones as they stand at the frame
   bones: import('$lib/core/types').Bone[];
+  // the angle a turnable character is seen from, and the way it looked when it was made
+  angle?: number;
+  made: number;
 }
 
 function where(draft: Doc, id: string, at: number): Where | null {
@@ -58,7 +63,9 @@ function where(draft: Doc, id: string, at: number): Where | null {
     height: body.height,
     world,
     bone,
-    bones: body.bones
+    bones: body.bones,
+    angle: body.angle,
+    made: parts.folder.character!.face.facing
   };
 }
 
@@ -69,7 +76,16 @@ function fpsOf(draft: Doc) {
 // a character turns to x if it looks away from it. the frame it is done
 function turnTo(draft: Doc, id: string, x: number, at: number): number {
   const w = where(draft, id, at);
-  if (!w || Math.abs(x - w.hip.x) < 1 || Math.sign(x - w.hip.x) === w.look) return at;
+  if (!w || Math.abs(x - w.hip.x) < 1) return at;
+  if (w.angle !== undefined) {
+    // a turnable character seen from the front or the back, or looking away, turns to its side view
+    const square = Math.abs(Math.cos((w.angle * Math.PI) / 180)) < 0.35;
+    const dir = Math.sign(x - w.hip.x);
+    if (!square && dir === w.look) return at;
+    const side = dir === w.made ? SIDE : 180 - SIDE;
+    return turnDraft(draft, id, { body: side, head: side }, Math.round(fpsOf(draft) * 0.35), at);
+  }
+  if (Math.sign(x - w.hip.x) === w.look) return at;
   return animateDraft(draft, id, { kind: 'turn', repeat: 0, speed: 1, mirror: false, distance: 0, back: false }, at) ?? at;
 }
 
@@ -513,15 +529,19 @@ export function react(a: string, kind: Reaction): boolean {
 
 // ---------------------------------------------------------------- templates for product videos
 
-export type Template = 'enter' | 'leave' | 'toward' | 'take' | 'present' | 'pointObject' | 'turn' | 'walkTo';
+export type Template = 'enter' | 'leave' | 'toward' | 'away' | 'take' | 'present' | 'pointObject' | 'turn' | 'walkTo' | 'turnCamera' | 'lookCamera' | 'shoulder';
 
-export const TEMPLATES: { id: Template; label: string; hint: string; needsItem?: boolean }[] = [
+export const TEMPLATES: { id: Template; label: string; hint: string; needsItem?: boolean; turnable?: boolean }[] = [
   { id: 'enter', label: 'Walk into the picture', hint: 'Comes in from the side it looks away from' },
   { id: 'toward', label: 'Walk toward the camera', hint: 'Gets bigger and comes down the screen' },
   { id: 'take', label: 'Take the product', hint: 'Walks to the picked object and takes it', needsItem: true },
   { id: 'present', label: 'Hold it to the camera', hint: 'Shows what the hand holds' },
   { id: 'pointObject', label: 'Point at the object', hint: 'Points at the picked object', needsItem: true },
   { id: 'turn', label: 'Turn around', hint: 'Faces the other way' },
+  { id: 'turnCamera', label: 'Turn to the camera', hint: 'The whole body turns to face the viewer', turnable: true },
+  { id: 'lookCamera', label: 'Look at the camera', hint: 'Only the head turns to the viewer', turnable: true },
+  { id: 'shoulder', label: 'Look over the shoulder', hint: 'Turns its back and looks back over the shoulder', turnable: true },
+  { id: 'away', label: 'Walk away from the camera', hint: 'Turns its back, gets smaller and goes up the screen', turnable: true },
   { id: 'leave', label: 'Leave the picture', hint: 'Walks out on the side it looks to' }
 ];
 
@@ -535,6 +555,10 @@ export function applyTemplate(a: string, template: Template): boolean {
   const needs = TEMPLATES.find((t) => t.id === template)?.needsItem;
   if (needs && !item) {
     addToast('Pick the object on the stage first', 'info');
+    return false;
+  }
+  if (TEMPLATES.find((t) => t.id === template)?.turnable && !characterLayers(editor.doc.layers, a)?.rig?.turnRig) {
+    addToast('This character was made before characters could turn: use Make turnable first', 'info');
     return false;
   }
   if (template === 'present' && !heldBy(a)) {
@@ -563,23 +587,43 @@ export function applyTemplate(a: string, template: Template): boolean {
         walkDraft(draft, a, offStage(draft, w, w.look), at);
         break;
       case 'turn':
-        animateDraft(draft, a, { kind: 'turn', repeat: 0, speed: 1, mirror: false, distance: 0, back: false }, at);
+        if (w.angle !== undefined) {
+          const to = 180 - w.angle;
+          turnDraft(draft, a, { body: to, head: to }, Math.round(fps * 0.4), at);
+        } else animateDraft(draft, a, { kind: 'turn', repeat: 0, speed: 1, mirror: false, distance: 0, back: false }, at);
         break;
-      case 'toward': {
-        // walking on the spot while it grows and comes down the screen: the camera sees it come closer
+      case 'turnCamera':
+        turnDraft(draft, a, { body: 90, head: 90 }, Math.round(fps * 0.4), at);
+        break;
+      case 'lookCamera':
+        turnDraft(draft, a, { head: 90 }, Math.round(fps * 0.25), at);
+        break;
+      case 'shoulder': {
+        const side = w.look === w.made ? SIDE : 180 - SIDE;
+        turnDraft(draft, a, { body: -90, head: side }, Math.round(fps * 0.4), at);
+        break;
+      }
+      case 'toward':
+      case 'away': {
+        // walking on the spot while it grows and comes down the screen: the camera sees it come closer.
+        // away it shows its back, gets smaller and goes up the screen
+        const toward = template === 'toward';
+        let from = at;
+        if (w.angle !== undefined) from = turnDraft(draft, a, toward ? { body: 90, head: 90 } : { body: -90, head: -90 }, Math.round(fps * 0.35), at);
+        else if (!toward) return;
         const seconds = 2.5;
         const cycles = Math.max(1, Math.round(seconds));
-        const end = animateDraft(draft, a, { kind: 'walk', repeat: cycles, speed: 1, mirror: false, distance: 0, back: false }, at);
+        const end = animateDraft(draft, a, { kind: 'walk', repeat: cycles, speed: 1, mirror: false, distance: 0, back: false }, from);
         if (end === null) return;
-        const grow = 1.35;
+        const grow = toward ? 1.35 : 0.7;
         // the feet are below the hip by about half the height, they go down as it grows
         const feet = w.height * 0.47;
         for (const k of w.rig.keyframes) {
-          if (k.frame <= at || k.frame > end) continue;
-          const t = (k.frame - at) / (end - at);
+          if (k.frame <= from || k.frame > end) continue;
+          const t = (k.frame - from) / (end - from);
           const s = 1 + (grow - 1) * t;
           const p = k.pose[hipId] ?? { rotation: 0, x: 0, y: 0, scale: 1 };
-          k.pose[hipId] = { ...p, scale: (p.scale ?? 1) * s, y: p.y + feet * (1 - s) + w.height * 0.12 * t };
+          k.pose[hipId] = { ...p, scale: (p.scale ?? 1) * s, y: p.y + feet * (1 - s) + w.height * (toward ? 0.12 : -0.12) * t };
         }
         const last = w.rig.keyframes.find((k) => k.frame === end)!;
         const keepHip = { ...last.pose[hipId] };

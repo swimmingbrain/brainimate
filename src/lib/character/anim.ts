@@ -61,6 +61,8 @@ export interface Body {
   // the pose where the animation starts, the hip keeps its place from there
   start: Pose;
   id: (name: BoneName) => string | null;
+  // the angle a turnable character is seen from, 90 faces the camera
+  angle?: number;
 }
 
 const L_TO_R: Record<string, BoneName> = {
@@ -133,6 +135,36 @@ function idlePose(phase: number, f: number, u: number): PoseValues {
   };
 }
 
+// a walk seen from the front or the back: a leg lifts while the other one carries, the hip sways over
+// the leg that carries and bobs, the arms swing a little. the upper leg moves up along the hip bone, which
+// points up, so the lifted leg tucks under the body drawn in front of it
+export function frontGait(body: Body, phase: number, run: boolean): PoseValues {
+  const u = body.height;
+  const s = Math.sin(2 * Math.PI * phase);
+  const lift = (run ? 0.09 : 0.045) * u;
+  const liftR = Math.max(0, s);
+  const liftL = Math.max(0, -s);
+  const bob = (run ? 0.025 : 0.01) * u;
+  const swing = run ? 0.25 : 0.1;
+  const elbow = run ? 1.3 : 0.2;
+  // the side of the screen the near arm is on: the left from the front, the right from behind
+  const near = Math.sign(-body.facing * Math.sin(((body.angle ?? 90) * Math.PI) / 180)) || -1;
+  return {
+    Hip: { x: -0.012 * u * s, y: -bob * Math.abs(s) + (run ? 0.02 * u : 0) },
+    Spine: { rotation: 0.03 * s },
+    Head: { rotation: -0.02 * s },
+    'Upper leg R': { x: lift * liftR, rotation: 0.05 * liftR },
+    'Lower leg R': { rotation: -0.03 * liftR },
+    'Upper leg L': { x: lift * liftL, rotation: -0.05 * liftL },
+    'Lower leg L': { rotation: 0.03 * liftL },
+    'Upper arm R': { rotation: swing * s * 0.5 },
+    // the forearms bend in toward the belly
+    'Lower arm R': { rotation: elbow * (1 + 0.3 * liftL) * 0.6 * near },
+    'Upper arm L': { rotation: -swing * s * 0.5 },
+    'Lower arm L': { rotation: elbow * (1 + 0.3 * liftR) * 0.6 * -near }
+  };
+}
+
 // the keyframes of an animation, the hip's place carried on from the start pose
 export function animationKeys(kind: AnimKind, body: Body, o: AnimOptions): PoseKey[] {
   const fps = Math.max(1, o.fps);
@@ -160,6 +192,18 @@ export function animationKeys(kind: AnimKind, body: Body, o: AnimOptions): PoseK
     const legs = legRig(body);
     // walking, running and standing are worked out every other frame, the feet stay planted between
     // keys; a wave and a body without legs at eight keys a cycle
+    // seen from the front or the back the legs lift in turn instead of swinging
+    const square = body.angle !== undefined && Math.abs(Math.sin((body.angle * Math.PI) / 180)) > 0.75;
+    if (square && kind !== 'wave' && kind !== 'idle') {
+      const step = period >= 12 ? 2 : 1;
+      for (let t = 0; t <= total; t += step) {
+        const last = t + step > total;
+        const tt = last ? total : t;
+        put(at + tt, withHip(frontGait(body, tt / period, kind === 'run'), (o.distance * tt) / period), last ? null : 'linear');
+        if (last) break;
+      }
+      return dedupe(keys);
+    }
     if (legs && kind !== 'wave') {
       const step = period >= 12 ? 2 : 1;
       const sx = start.sx ?? 1;

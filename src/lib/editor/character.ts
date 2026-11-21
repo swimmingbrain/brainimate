@@ -9,7 +9,7 @@ import { insertKeyframe, layersLength, keyframeAt } from '$lib/anim/timeline';
 import { resolveItems } from '$lib/render/frame';
 import { poseAt } from '$lib/render/frame';
 import { rigFor, worldMatrices, type Pose } from '$lib/rig/bones';
-import { bonesAt } from '$lib/rig/turn';
+import { bodyAngleAt, bonesAt } from '$lib/rig/turn';
 import {
   BONES,
   FACE_ROLES,
@@ -285,6 +285,7 @@ export function bodyIn(layers: Layer[], folderId: string, at: number): (Body & {
   const rig = parts.rig;
   // a turned character has its bones where its angle at the frame puts them
   const bones = bonesAt(layers, rig, at);
+  const angle = rig.turnRig ? bodyAngleAt(layers, rig, at) : null;
   const byName = new Map(bones.map((b) => [b.name, b.id]));
   const rest = worldMatrices(bones, {});
   let top = Infinity;
@@ -299,7 +300,9 @@ export function bodyIn(layers: Layer[], folderId: string, at: number): (Body & {
   const height = Math.max(1, bottom - top);
   return {
     height,
-    facing: parts.folder.character!.face.facing,
+    // a character turned to its other side looks the other way on the screen, the moves follow
+    facing: (parts.folder.character!.face.facing * (angle !== null && Math.cos((angle * Math.PI) / 180) < -0.2 ? -1 : 1)) as 1 | -1,
+    angle: angle ?? undefined,
     bones,
     start: poseAt(rig, at),
     id: (name: BoneName) => byName.get(name) ?? null,

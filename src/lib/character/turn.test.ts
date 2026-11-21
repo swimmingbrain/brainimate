@@ -197,3 +197,101 @@ describe('turning in the editor', () => {
 });
 
 export type { Layer };
+
+describe('moves seen from every side', () => {
+  beforeEach(() => {
+    editor.newDoc(W, H, 24);
+    frame.set(0);
+  });
+
+  it('walks from the front by lifting the legs in turn, from the side with planted feet', async () => {
+    const { applyAnimation } = await import('$lib/editor/character');
+    const id = createCharacter(opts())!;
+    turnToView(id, 'front', 0);
+    applyAnimation(id, { kind: 'walk', repeat: 2, speed: 1, mirror: false, distance: 0, back: false });
+    const rig = characterLayers(editor.doc.layers, id)!.rig!;
+    const leg = rig.bones.find((b) => b.name === 'Upper leg R')!.id;
+    const lifts = rig.keyframes.map((k) => k.pose[leg]?.x ?? 0);
+    expect(Math.max(...lifts)).toBeGreaterThan(10);
+    // turned to the camera, the arms and legs keep their length
+    const at = rigFor(editor.doc.layers, 30)!;
+    expect(at.bones.find((b) => b.id === leg)!.length).toBeGreaterThan(100);
+  });
+
+  it('templates: turn to the camera, look at it, over the shoulder, walk away', async () => {
+    const { applyTemplate } = await import('$lib/editor/interact');
+    const id = createCharacter(opts())!;
+    const last = () => Math.max(...editor.doc.layers.map((l) => l.length)) - 1;
+    expect(applyTemplate(id, 'turnCamera')).toBe(true);
+    expect(turnHere(id, last())!.body).toBeCloseTo(FRONT);
+    frame.set(last());
+    expect(applyTemplate(id, 'shoulder')).toBe(true);
+    expect(turnHere(id, last())!.body).toBeCloseTo(BACK);
+    frame.set(last());
+    expect(applyTemplate(id, 'lookCamera')).toBe(true);
+    frame.set(last());
+    expect(applyTemplate(id, 'away')).toBe(true);
+    const rig = characterLayers(editor.doc.layers, id)!.rig!;
+    const hip = rig.bones.find((b) => b.name === 'Hip')!.id;
+    const { poseAt } = await import('$lib/render/frame');
+    expect(poseAt(rig, last())[hip].scale).toBeLessThan(0.8);
+    expect(turnHere(id, last())!.body).toBeCloseTo(BACK);
+  });
+
+  it('turns to its side view to walk or shake hands when it faces the camera', async () => {
+    const { handshake } = await import('$lib/editor/interact');
+    const a = createCharacter({ ...opts(), x: 250, height: 700 })!;
+    const b = createCharacter({ ...opts(), x: 850, height: 700, facing: -1 })!;
+    turnToView(a, 'front', 0);
+    expect(handshake(a, b)).toBe(true);
+    const end = Math.max(...editor.doc.layers.map((l) => l.length)) - 1;
+    expect(Math.cos((turnHere(a, end)!.body * Math.PI) / 180)).toBeGreaterThan(0.5);
+  });
+});
+
+describe('keeping turnable characters', () => {
+  beforeEach(() => {
+    editor.newDoc(W, H, 24);
+    frame.set(0);
+  });
+
+  it('pack, copy and move them with their room, the views still work after', async () => {
+    const { packCharacter, unpackCharacter } = await import('./pack');
+    const { duplicateCharacter } = await import('$lib/editor/character');
+    const id = createCharacter(opts())!;
+    turnToView(id, 'front', 0);
+    const pkg = JSON.parse(JSON.stringify(packCharacter(editor.doc, id)!));
+    const out = unpackCharacter(pkg, 100, 0);
+    const rig = out.layers.find((l) => l.type === 'rig')!;
+    expect(Object.keys(rig.turnRig!.bones).sort()).toEqual(rig.bones.map((b) => b.id).sort());
+    expect(rig.turnRig!.x).toBeCloseTo(editor.doc.layers.find((l) => l.type === 'rig')!.turnRig!.x + 100);
+    // the copied rig stands at the front view 100 px further right
+    const a = turnedBones(rig.bones, rig.turnRig!, FRONT).find((b) => b.name === 'Hip')!;
+    const src = characterLayers(editor.doc.layers, id)!.rig!;
+    const b = turnedBones(src.bones, src.turnRig!, FRONT).find((x) => x.name === 'Hip')!;
+    expect(a.x).toBeCloseTo(b.x + 100);
+    const copy = duplicateCharacter(id)!;
+    expect(isTurnable(copy)).toBe(true);
+    expect(turnToCamera(copy, 4)).toBe(true);
+  });
+
+  it('come back from a saved scene and a saved document as they were', async () => {
+    const { packScene, unpackScene } = await import('$lib/scene/library');
+    const id = createCharacter(opts())!;
+    frame.set(4);
+    turnToView(id, 'three', 6);
+    const scene = JSON.parse(JSON.stringify(packScene(editor.doc, 'x')));
+    const back = unpackScene(scene);
+    const body = back.layers.find((l) => l.type === 'normal' && l.parent && l.keyframes.some((k) => k.turn))!;
+    expect(turnAt(body, 20)!.body).toBeCloseTo(50);
+    // a smaller stage fits the room too
+    const half = unpackScene(scene, W / 2, H / 2);
+    const rig = half.layers.find((l) => l.type === 'rig')!;
+    const full = editor.doc.layers.find((l) => l.type === 'rig')!;
+    expect(rig.turnRig!.bones[rig.bones[0].id].to[2]).toBeCloseTo(full.turnRig!.bones[full.bones[0].id].to[2] / 2, 3);
+    // a document saved as a project file and opened again keeps the turn
+    const { packDoc, parseBytes } = await import('$lib/io/project');
+    editor.loadDoc(parseBytes(packDoc(editor.doc)).doc);
+    expect(turnHere(id, 20)!.body).toBeCloseTo(50);
+  });
+});
