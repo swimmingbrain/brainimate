@@ -26,10 +26,19 @@ gifenc 1.0.3: GIF export
 MIT
 https://github.com/mattdesl/gifenc
 
-mediabunny 1.61.3: WebM and MP4 export, loaded with the export dialog
+mediabunny 1.66.2: WebM and MP4 export, loaded with the export dialog
 MPL-2.0
 https://github.com/Vanilagy/mediabunny
 It brings in @types/dom-webcodecs and @types/dom-mediacapture-transform, types only, MIT.
+
+@mediabunny/aac-encoder 1.66.2: the aac sound of a video export where the browser has no aac encoder,
+loaded only then
+MPL-2.0
+https://github.com/Vanilagy/mediabunny
+It holds the aac encoder of FFmpeg's libavcodec built to WebAssembly, LGPL-2.1-or-later,
+https://ffmpeg.org. The license texts come with the package in its licenses folder, the source
+of the build is in the mediabunny repository. The encoder is a file of its own the app loads, it
+can be swapped for another build of the same package.
 
 fflate 0.8.3: the zip of a project file, of an image sequence and of a sprite sheet
 MIT
@@ -89,3 +98,15 @@ https://github.com/itfoundry/Poppins
 Bebas Neue, from @fontsource/bebas-neue 5.3.0
 OFL-1.1, Copyright 2019 The Bebas Neue Project Authors
 https://github.com/dharmatype/Bebas-Neue
+
+Comic Neue, from @fontsource/comic-neue 5.3.0
+OFL-1.1, Copyright 2014 The Comic Neue Project Authors
+https://github.com/crozynski/comicneue
+
+Bangers, from @fontsource/bangers 5.3.0
+OFL-1.1, Copyright 2010 The Bangers Project Authors
+https://github.com/googlefonts/bangers
+
+Patrick Hand, from @fontsource/patrick-hand 5.3.0
+OFL-1.1, Copyright (c) 2010-2012 Patrick Wagesreiter
+https://fonts.google.com/specimen/Patrick+Hand

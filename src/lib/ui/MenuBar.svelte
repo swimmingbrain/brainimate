@@ -7,13 +7,15 @@
   import { historyState } from '$lib/editor/editor';
   import { alignToStage } from '$lib/editor/align';
   import { recentFiles } from '$lib/io/recent';
+  import { cameraView } from '$lib/editor/camera';
 
   const menus = $derived(
     buildMenus($preferences, $outlineMode, $workspace, {
       history: $historyState,
       hasSelection: $selection.size > 0,
       alignToStage: $alignToStage,
-      recent: $recentFiles
+      recent: $recentFiles,
+      cameraView: $cameraView
     })
   );
 

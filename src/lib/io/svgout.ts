@@ -11,6 +11,8 @@ import type { Box } from '$lib/core/bbox';
 import { MAX_NESTING, instanceSlices, isLayerShown, itemsAt, keyframeAt, setLibrary } from '$lib/render/frame';
 import { rigFor } from '$lib/rig/bones';
 import { posedList } from '$lib/rig/skin';
+import { activeCamera, cameraLayerMatrix } from '$lib/render/camera';
+import { fadeAmount, transitionAt } from '$lib/anim/camera';
 
 export interface SvgOptions {
   frame: number;
@@ -326,12 +328,28 @@ export function exportSvg(doc: Doc, opts: SvgOptions): string {
   if (opts.background !== false) {
     line(w, 1, `<rect${attrs([['width', num(doc.width)], ['height', num(doc.height)], ['fill', doc.bg]])}/>`);
   }
+  // the camera films the frame like the video shows it, each layer through its parallax
+  const layerMatrix = cameraLayerMatrix(doc, opts.frame);
   for (const layer of exportedLayers(doc.layers)) {
     const items = posedList(itemsAt(layer, opts.frame), rig);
     const offset = opts.frame - (keyframeAt(layer, opts.frame)?.frame ?? 0);
+    const parent = layerMatrix ? layerMatrix(layer) : identity();
     line(w, 1, `<g${attrs([['id', layerId(layer.name, used)], ['data-name', layer.name]])}>`);
-    for (const item of items) writeItem(w, item, doc, identity(), 2, null, offset);
+    for (const item of items) writeItem(w, item, doc, parent, 2, null, offset);
     line(w, 1, '</g>');
+  }
+  // a fade covers the frame with its color, the blends of a crossfade or a slide need the frames
+  // around it and stay out of a single picture
+  const cam = activeCamera(doc);
+  const fade = cam ? transitionAt(cam, opts.frame) : null;
+  if (fade && fade.transition.kind === 'fade') {
+    const rect: [string, string][] = [
+      ['width', num(doc.width)],
+      ['height', num(doc.height)],
+      ['fill', fade.transition.color],
+      ['fill-opacity', num(fadeAmount(fade.p))]
+    ];
+    line(w, 1, `<rect${attrs(rect)}/>`);
   }
   const nl = w.pretty ? '\n' : '';
   const head = attrs([

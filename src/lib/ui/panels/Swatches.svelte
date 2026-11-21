@@ -1,11 +1,13 @@
 <script lang="ts">
   import Panel from '../Panel.svelte';
   import Icon from '$lib/icons/Icon.svelte';
+  import ToggleField from '../ToggleField.svelte';
+  import { COMIC_PALETTE } from '$lib/core/comic';
   import { solid, paintColor } from '$lib/core/style';
   import { LAYER_COLORS, docVersion, editor } from '$lib/editor/editor';
   import { setPaint, shownPaint } from '$lib/editor/commands';
   import { addToast, colorTarget } from '$lib/stores/app';
-  import { rememberColor } from '$lib/stores/preferences';
+  import { preferences, rememberColor, setGroup } from '$lib/stores/preferences';
 
   const GRAYS = ['#000000', '#1f1f1f', '#3d3d3d', '#5c5c5c', '#7a7a7a', '#999999', '#b8b8b8', '#d6d6d6', '#ffffff'];
   // twelve hues around the wheel, a step of 30 degrees each
@@ -52,6 +54,18 @@
     });
   }
 
+  // the comic colors the document does not hold yet go into its own swatches, saved with it
+  function addComic() {
+    const missing = COMIC_PALETTE.map((c) => c.color).filter((c) => !swatches.includes(c));
+    if (missing.length === 0) {
+      addToast('The document holds the comic palette already');
+      return;
+    }
+    editor.commit('Add comic palette', (d) => {
+      d.swatches.push(...missing);
+    });
+  }
+
   function remove(index: number) {
     editor.commit('Remove swatch', (d) => {
       d.swatches.splice(index, 1);
@@ -69,6 +83,36 @@
 {/snippet}
 
 <Panel>
+  <h3 class="section with-action">
+    <span>Comic</span>
+    <span class="actions">
+      {#if $preferences.swatches.comic}
+        <button
+          class="add"
+          title="Add the comic palette to the document"
+          aria-label="Add the comic palette to the document"
+          onclick={addComic}>
+          <Icon name="plus" size={12} />
+        </button>
+      {/if}
+      <ToggleField
+        value={$preferences.swatches.comic}
+        label="Comic palette"
+        onchange={(v) => setGroup('swatches', { comic: v })} />
+    </span>
+  </h3>
+  {#if $preferences.swatches.comic}
+    <div class="chips comic">
+      {#each COMIC_PALETTE as c (c.color)}
+        <button
+          class="chip"
+          style="background: {c.color}"
+          title="{c.name}, {c.color.toUpperCase()}, shift click for the other chip"
+          aria-label={c.name}
+          onclick={(e) => apply(c.color, e)}></button>
+      {/each}
+    </div>
+  {/if}
   <h3 class="section">Default</h3>
   <div class="chips">
     {#each GRAYS as color (color)}
@@ -138,6 +182,18 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* bigger for a finger on a tablet */
+  .chips.comic .chip {
+    width: 24px;
+    height: 24px;
   }
 
   .add {

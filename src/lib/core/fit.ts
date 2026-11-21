@@ -20,7 +20,24 @@ export function fitCubics(points: Vec[], tolerance: number): Cubic[] {
     pts.map((p) => [p.x, p.y]),
     tol * tol
   );
-  return raw.map((c) => c.map(([x, y]) => ({ x, y })) as Cubic);
+  return raw.map((c) => tame(c.map(([x, y]) => ({ x, y })) as Cubic));
+}
+
+// with few points almost on a line fit-curve can shoot a handle far past the curve, a fast stroke
+// then grew a spike across the page. a handle longer than its piece of curve is never right, it is
+// cut back to that length, and a broken one makes the piece straight
+function tame(c: Cubic): Cubic {
+  const [a, h1, h2, b] = c;
+  const chord = Math.hypot(b.x - a.x, b.y - a.y);
+  const finite = c.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  if (!finite) return [{ ...a }, { ...a }, { ...b }, { ...b }];
+  const clamp = (from: Vec, h: Vec): Vec => {
+    const d = Math.hypot(h.x - from.x, h.y - from.y);
+    if (d <= chord || d === 0) return h;
+    const k = chord / d;
+    return { x: from.x + (h.x - from.x) * k, y: from.y + (h.y - from.y) * k };
+  };
+  return [a, clamp(a, h1), clamp(b, h2), b];
 }
 
 // an open chain of anchors, consecutive cubics share their end points

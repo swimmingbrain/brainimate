@@ -13,7 +13,8 @@
     allowGradient = true,
     onchange,
     onangle,
-    onclose
+    onclose,
+    swatches = []
   }: {
     paint: Paint | null;
     x: number;
@@ -22,6 +23,8 @@
     allowNone?: boolean;
     allowGradient?: boolean;
     onchange: (paint: Paint | null) => void;
+    // colors to pick with one tap under the picker, a palette
+    swatches?: { name: string; color: string }[];
     onangle?: (angle: number) => void;
     onclose: () => void;
   } = $props();
@@ -69,6 +72,18 @@
 <div class="popover" bind:this={el} style="left: {pos.left}px; top: {pos.top}px" role="dialog" aria-label={title}>
   <div class="head">{title}</div>
   <ColorPicker {paint} {onchange} {onangle} {allowNone} {allowGradient} />
+  {#if swatches.length > 0}
+    <div class="swatches">
+      {#each swatches as s (s.color)}
+        <button
+          class="swatch"
+          style="background: {s.color}"
+          title={s.name}
+          aria-label={s.name}
+          onclick={() => onchange({ type: 'solid', color: s.color, alpha: 1 })}></button>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -82,6 +97,21 @@
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 8px 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .swatch {
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
   }
 
   .head {

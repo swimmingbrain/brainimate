@@ -39,6 +39,8 @@ export function usedAssets(doc: Doc): Set<string> {
   for (const asset of Object.values(doc.assets)) {
     if (asset.type === 'font' && families.has(asset.name)) used.add(asset.id);
   }
+  // the sounds on the timeline
+  for (const clip of doc.audio ?? []) used.add(clip.asset);
   return used;
 }
 

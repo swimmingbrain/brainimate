@@ -55,6 +55,21 @@ export const BUILTIN_WORKSPACES: WorkspacePreset[] = [
     toolbarSide: 'left',
     rulers: false,
     showBones: true
+  },
+  // a vertical comic story: the stage gets the room, the swatches with the comic palette sit under
+  // the properties, the library holds the characters
+  {
+    id: 'comic',
+    name: 'Comic',
+    hidden: ['align'],
+    timeline: true,
+    topTab: 'properties',
+    bottomTab: 'swatches',
+    dockWidth: 260,
+    timelineHeight: 200,
+    toolbarSide: 'left',
+    rulers: false,
+    showBones: true
   }
 ];
 
@@ -143,8 +158,8 @@ export function deleteWorkspace(id: string) {
 
 // the dock holds two panel groups, one above the other. the rig sits below so its bones and the
 // properties of the picked one show together
-export const DOCK_TOP: DockTab[] = ['properties', 'transform', 'align'];
-export const DOCK_BOTTOM: DockTab[] = ['color', 'swatches', 'library', 'rig'];
+export const DOCK_TOP: DockTab[] = ['studio', 'properties', 'character', 'camera', 'transform', 'align'];
+export const DOCK_BOTTOM: DockTab[] = ['color', 'swatches', 'library', 'scenes', 'rig'];
 
 export const PANEL_LABELS: Record<DockTab, string> = {
   properties: 'Properties',
@@ -153,7 +168,11 @@ export const PANEL_LABELS: Record<DockTab, string> = {
   library: 'Library',
   align: 'Align',
   transform: 'Transform',
-  rig: 'Rig'
+  rig: 'Rig',
+  camera: 'Camera',
+  character: 'Character',
+  scenes: 'Scenes',
+  studio: 'Studio'
 };
 
 function setPanels(patch: Partial<Preferences['panels']>) {

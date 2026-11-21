@@ -1,3 +1,4 @@
+import { setCameraStage } from '$lib/anim/camera';
 import { get, writable } from 'svelte/store';
 import { produceWithPatches, type Patch } from 'immer';
 import type { Bone, Doc, GroupItem, Item, Layer, Mat } from '$lib/core/types';
@@ -231,6 +232,7 @@ class Editor {
     const size = get(stageSize);
     const d = this.doc;
     setLibrary(d.symbols);
+    setCameraStage(d.width, d.height);
     if (d.assets !== this.fontAssets) {
       this.fontAssets = d.assets;
       void registerAssetFonts(d.assets);
@@ -389,7 +391,7 @@ class Editor {
   // that takes drawings, which then becomes the active one
   drawTarget(): Layer | null {
     const layer = this.activeLayer();
-    if (layer?.type !== 'rig') return layer;
+    if (layer?.type !== 'rig' && layer?.type !== 'camera') return layer;
     const layers = this.currentLayers();
     const below = layers
       .slice(0, layers.indexOf(layer))
@@ -407,7 +409,7 @@ class Editor {
 
   // a layer the tools may pick from and change, a hidden or locked folder around it counts too
   isEditable(layer: Layer): boolean {
-    if (layer.type === 'folder' || layer.type === 'rig') return false;
+    if (layer.type === 'folder' || layer.type === 'rig' || layer.type === 'camera') return false;
     const layers = this.currentLayers();
     return isLayerShown(layers, layer) && !isLayerLocked(layers, layer);
   }
@@ -417,6 +419,7 @@ class Editor {
     if (!layer) return 'There is no layer to draw on';
     if (layer.type === 'folder') return 'Pick a layer, a folder holds no drawings';
     if (layer.type === 'rig') return 'Pick a layer, a rig layer holds bones';
+    if (layer.type === 'camera') return 'Pick a layer to draw on, the camera layer holds the camera';
     return `${layer.name} is locked or hidden`;
   }
 

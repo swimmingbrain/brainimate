@@ -18,6 +18,11 @@
   import { installSettings } from '$lib/editor/settings';
   import { installTooltips } from './tooltips';
   import { installAutosave } from '$lib/io/autosave';
+  import { installTouch, touchUi } from '$lib/editor/touch';
+  import { installAudio } from '$lib/io/audio';
+  import TouchBar from './TouchBar.svelte';
+  import TouchKeys from './TouchKeys.svelte';
+  import Icon from '$lib/icons/Icon.svelte';
 
   // what the stage keeps at the least when the dock or the timeline grow
   const MIN_STAGE_W = 320;
@@ -27,12 +32,25 @@
   let mainHeight = $state(0);
 
   const panels = $derived({ ...$preferences.panels, right: $preferences.toolbar.side === 'right' });
+
+  // on a tablet the panels can go away for a bigger stage: next to it in landscape, as a drawer over
+  // it in portrait, where they start closed
+  let windowWidth = $state(1280);
+  let drawer = $state(false);
+  const touch = $derived($touchUi);
+  const narrow = $derived(windowWidth <= 900);
+  const dockOpen = $derived(!touch || (narrow ? drawer : $preferences.touch.dock));
+
+  function toggleDock() {
+    if (narrow) drawer = !drawer;
+    else setGroup('touch', { dock: !$preferences.touch.dock });
+  }
+
   // the toolbar column sits left or right of the stage, the timeline row goes away when it is hidden
   const grid = $derived.by(() => {
     const tools = $preferences.toolbar.buttons === 'small' ? '28px' : 'var(--toolbar-h)';
-    const cols = panels.right
-      ? `minmax(0, 1fr) ${tools} 3px ${panels.dockWidth}px`
-      : `${tools} minmax(0, 1fr) 3px ${panels.dockWidth}px`;
+    const dock = dockOpen ? `3px ${panels.dockWidth}px` : '0px 0px';
+    const cols = panels.right ? `minmax(0, 1fr) ${tools} ${dock}` : `${tools} minmax(0, 1fr) ${dock}`;
     const rows = panels.timeline ? `minmax(0, 1fr) 3px ${panels.timelineHeight}px` : 'minmax(0, 1fr)';
     return `grid-template-columns: ${cols}; grid-template-rows: ${rows}`;
   });
@@ -56,11 +74,15 @@
     const offGuard = installUnloadGuard();
     const offSettings = installSettings();
     const offTips = installTooltips();
+    const offTouch = installTouch();
+    const offAudio = installAudio();
     void startup();
     return () => {
       off();
       offSettings();
       offTips();
+      offTouch();
+      offAudio();
       offAutosave();
       offGuard();
       setImportInput(null);
@@ -88,7 +110,7 @@
   }
 </script>
 
-<svelte:window {ondragover} {ondrop} />
+<svelte:window {ondragover} {ondrop} bind:innerWidth={windowWidth} />
 
 <div class="editor-app">
   <TopBar />
@@ -98,6 +120,8 @@
     class="main-area"
     class:right={panels.right}
     class:no-timeline={!panels.timeline}
+    class:touch
+    class:no-dock={!dockOpen}
     bind:clientWidth={mainWidth}
     bind:clientHeight={mainHeight}
     style={grid}>
@@ -108,14 +132,28 @@
     <section class="stage-area" data-panel="stage">
       <StageBar />
       <Stage />
+      {#if touch}
+        <TouchKeys />
+        <TouchBar {dockOpen} ontoggledock={toggleDock} />
+      {/if}
     </section>
 
     <div class="rz rz-v">
       <Resizer onresize={resizeDock} />
     </div>
 
-    <div class="dock-area" data-panel="dock">
-      <Dock />
+    <div class="dock-area" class:drawer={touch && narrow} data-panel="dock">
+      {#if touch && narrow}
+        <div class="drawer-head">
+          <span>Panels</span>
+          <button class="drawer-close" aria-label="Close the panels" title="Close" onclick={() => (drawer = false)}>
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+        <div class="drawer-body"><Dock /></div>
+      {:else}
+        <Dock />
+      {/if}
     </div>
 
     {#if panels.timeline}
@@ -171,6 +209,7 @@
   }
 
   .stage-area {
+    position: relative;
     grid-column: 2;
     grid-row: 1;
     display: flex;
@@ -228,6 +267,12 @@
     grid-row: 1;
   }
 
+  /* the panels put away on a tablet, the stage takes their room */
+  .main-area.no-dock .rz-v,
+  .main-area.no-dock .dock-area {
+    display: none;
+  }
+
   /* one column on a narrow window: tools, stage, timeline, then the panels. nothing is dropped and
      the side of the toolbar does not matter here */
   @media (max-width: 900px) {
@@ -274,5 +319,64 @@
     .main-area.right .toolbar-area {
       grid-column: 1;
     }
+
+    /* a tablet in portrait: tools on top, the stage takes what is left, a short timeline under it and
+       the panels as a drawer over the stage. the page never scrolls */
+    .main-area.touch {
+      grid-template-rows: var(--toolbar-h) minmax(0, 1fr) 190px !important;
+      overflow: hidden;
+    }
+
+    .main-area.touch.no-timeline {
+      grid-template-rows: var(--toolbar-h) minmax(0, 1fr) !important;
+    }
+
+    .main-area.touch .dock-area {
+      position: fixed;
+      right: 0;
+      top: calc(var(--topbar-h) + var(--menubar-h));
+      bottom: var(--statusbar-h);
+      width: min(340px, 88vw);
+      z-index: 40;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border);
+      box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
+    }
+  }
+
+  .dock-area.drawer {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .main-area.no-dock .dock-area.drawer {
+    display: none;
+  }
+
+  .drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 44px;
+    padding: 0 6px 0 12px;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .drawer-close {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+  }
+
+  .drawer-body {
+    flex: 1;
+    min-height: 0;
   }
 </style>

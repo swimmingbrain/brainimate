@@ -1,3 +1,7 @@
+import { createCharacter } from './character';
+import { editor } from './editor';
+import { defaultCharacter } from '$lib/character/model';
+import { addCamera, focusSelection, keyCamera, sceneDepth, toggleCameraView } from './camera';
 import { get } from 'svelte/store';
 import {
   anchorSelection,
@@ -23,6 +27,7 @@ import { TOOL_IDS, TOOL_INFO } from '$lib/tools/tool';
 import { selectTool } from '$lib/tools';
 import {
   addFolder,
+  addComicSceneLayers,
   addLayer,
   addRigLayer,
   arrangeSelection,
@@ -64,6 +69,7 @@ import {
   toggleOnion,
   toggleOutline,
   togglePasteboard,
+  toggleSafeZones,
   togglePlay,
   toggleRulers,
   toggleSmartGuides,
@@ -145,7 +151,7 @@ export function reportProblem() {
   window.open(`${REPO}/issues/new`, '_blank', 'noopener');
 }
 
-const PANELS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig'];
+const PANELS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig', 'camera', 'character', 'scenes', 'studio'];
 
 function toolCommands(): Command[] {
   return TOOL_IDS.map((id) => {
@@ -228,6 +234,7 @@ function build(): Command[] {
     { id: 'view.outline', label: 'Outline mode', group: 'View', keys: [], run: toggleOutline },
     { id: 'view.onion', label: 'Onion skin', group: 'View', keys: ['Alt+Shift+O'], run: toggleOnion },
     { id: 'view.pasteboard', label: 'Pasteboard', group: 'View', keys: [], run: togglePasteboard },
+    { id: 'view.safe-zones', label: 'Video safe zones', group: 'View', keys: [], run: toggleSafeZones },
 
     ...toolCommands(),
     { id: 'tool.ink', label: 'Ink bottle', group: 'Tools', keys: ['S'], run: () => bucketMode('stroke') },
@@ -262,7 +269,26 @@ function build(): Command[] {
     { id: 'timeline.fit', label: 'Fit the timeline', group: 'Timeline', keys: [], run: fitTimeline },
 
     { id: 'insert.layer', label: 'New layer', group: 'Insert', keys: [], run: addLayer },
+    { id: 'insert.camera', label: 'Camera', group: 'Insert', keys: [], run: () => void addCamera() },
+    {
+      id: 'insert.character',
+      label: 'Character',
+      group: 'Insert',
+      keys: [],
+      run: () => void createCharacter(defaultCharacter(editor.doc.width, editor.doc.height))
+    },
+    { id: 'view.camera', label: 'Camera view', group: 'View', keys: ['Shift+C'], run: toggleCameraView },
+    { id: 'camera.key', label: 'Camera keyframe', group: 'Camera', keys: [], run: keyCamera },
+    { id: 'camera.focus', label: 'Camera on the selection', group: 'Camera', keys: [], run: focusSelection },
+    { id: 'camera.depth', label: 'Scene depth for the comic layers', group: 'Camera', keys: [], run: sceneDepth },
     { id: 'insert.folder', label: 'New layer folder', group: 'Insert', keys: [], run: addFolder },
+    {
+      id: 'insert.comic-layers',
+      label: 'Comic scene layers',
+      group: 'Insert',
+      keys: [],
+      run: addComicSceneLayers
+    },
     { id: 'insert.rig-layer', label: 'New rig layer', group: 'Insert', keys: [], run: addRigLayer },
     { id: 'insert.symbol', label: 'New symbol', group: 'Insert', keys: [], run: newSymbol },
     {

@@ -1,6 +1,8 @@
+import { drawSubtitles } from '$lib/render/subtitles';
 import type { Doc, Mat, TextItem } from '$lib/core/types';
 import { setLibrary } from '$lib/render/frame';
-import { loadImages, renderLayers } from '$lib/render/renderer';
+import { loadImages } from '$lib/render/renderer';
+import { renderCameraFrame } from '$lib/render/camera';
 import { context, surface, type Surface, type SurfaceCtx } from '$lib/render/surface';
 import { loadFont } from '$lib/core/fonts';
 import { eachItem } from '$lib/core/library';
@@ -30,6 +32,15 @@ export function exportFrames(range: ExportRange, docFps: number, fps: number): n
   return out;
 }
 
+// safari on iphones and ipads draws nothing on a canvas of more pixels than this
+export const MAX_CANVAS_PIXELS = 16_777_216;
+
+// the largest export scale in quarter steps whose canvas every browser still draws, at most 4
+export function maxExportScale(doc: Pick<Doc, 'width' | 'height'>): number {
+  const fit = Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, doc.width * doc.height));
+  return Math.max(0.25, Math.min(4, Math.floor(fit * 4) / 4));
+}
+
 // the pixel size of the document at scale, video encoders want even sides
 export function scaledSize(doc: Pick<Doc, 'width' | 'height'>, scale: number, even = false) {
   let width = Math.max(1, Math.round(doc.width * scale));
@@ -46,7 +57,8 @@ export interface FrameCanvas {
   ctx: SurfaceCtx;
   width: number;
   height: number;
-  // draws frame of the main timeline, posed rigs included, guides and onion skins left out
+  // draws frame of the main timeline as the camera films it, posed rigs, parallax and transitions
+  // included, guides and onion skins left out
   draw(frame: number): void;
 }
 
@@ -71,7 +83,9 @@ export function frameCanvas(
       ctx.fillStyle = doc.bg;
       ctx.fillRect(0, 0, width, height);
     }
-    renderLayers(ctx, doc.layers, base, { frame, outline: false, assets: doc.assets, noGuides: true });
+    renderCameraFrame(ctx, doc, { frame, base, transparent });
+    // the subtitles of a production burnt in over the picture
+    drawSubtitles(ctx, doc, frame, base);
   };
   return { canvas, ctx, width, height, draw };
 }
@@ -117,7 +131,7 @@ export async function thumbnail(doc: Doc, frame = 0, w = 160, h = 90): Promise<s
   ctx.beginPath();
   ctx.rect(x, y, doc.width * k, doc.height * k);
   ctx.clip();
-  renderLayers(ctx, doc.layers, [k, 0, 0, k, x, y], { frame, outline: false, assets: doc.assets, noGuides: true });
+  renderCameraFrame(ctx, doc, { frame, base: [k, 0, 0, k, x, y], transparent: true });
   ctx.restore();
   return canvas.toDataURL('image/png');
 }

@@ -5,6 +5,7 @@ import { dirty } from '$lib/stores/app';
 import { preferences } from '$lib/stores/preferences';
 import { db } from './db';
 import { serialize } from './project';
+import type { Doc } from '$lib/core/types';
 
 // a copy of the document kept in the browser in case the tab goes away before a save
 export interface Snapshot {
@@ -47,6 +48,17 @@ export async function takeSnapshot(): Promise<Snapshot | null> {
   return snap;
 }
 
+// a snapshot packs every picture again. a document heavy with them waits a second longer per
+// megabyte, up to 20, so a tablet is not busy packing between every two strokes. going to the
+// background still writes at once
+export function autosaveDelay(seconds: number, assets: Doc['assets']): number {
+  let chars = 0;
+  for (const a of Object.values(assets)) chars += a.data.length;
+  // base64 holds 3 bytes in 4 characters
+  const mb = (chars * 0.75) / 1_000_000;
+  return Math.max(1, seconds) + Math.min(20, Math.floor(mb));
+}
+
 // the delay and the switch come from the preferences, in seconds
 function schedule() {
   if (timer) clearTimeout(timer);
@@ -57,7 +69,7 @@ function schedule() {
       timer = null;
       void takeSnapshot().catch(() => {});
     },
-    Math.max(1, g.autosaveDelay) * 1000
+    autosaveDelay(g.autosaveDelay, editor.doc.assets) * 1000
   );
 }
 

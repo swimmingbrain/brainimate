@@ -31,7 +31,7 @@
   import { onionFrames } from '$lib/render/onion';
   import { pause } from '$lib/anim/playback';
   import { drawOverlay as drawEditorOverlay } from '$lib/render/overlay';
-  import { currentTool, doubleClick, drawToolOverlay, pointerDown, pointerMove, pointerUp } from '$lib/tools';
+  import { currentTool, doubleClick, drawToolOverlay, keyDown, pointerDown, pointerMove, pointerUp } from '$lib/tools';
   import { coalescedEvents, makeEvent, type ToolEvent } from '$lib/tools/tool';
   import { pickForSelect, pickItem } from '$lib/tools/pick';
   import { stageMenu } from '$lib/editor/menus';
@@ -44,7 +44,13 @@
   import { textEditing } from '$lib/editor/text';
   import TextEditor from './TextEditor.svelte';
   import { importFiles } from '$lib/editor/importer';
-  import type { Mat } from '$lib/core/types';
+  import type { Mat, Vec } from '$lib/core/types';
+  import { GestureTracker, pinchView, type GestureAction, type GesturePoint } from '$lib/editor/gestures';
+  import { gestureOptions, penSeen, touchUi, withModifiers } from '$lib/editor/touch';
+  import { previewScaleFor, showingCamera } from '$lib/editor/camera';
+  import { drawSubtitles } from '$lib/render/subtitles';
+  import { renderCameraFrame } from '$lib/render/camera';
+  import { context as surfaceContext, sized as sizedSurface, type Surface } from '$lib/render/surface';
 
   const RULER = 20;
   // the tools that can grab a guide on the stage
@@ -138,10 +144,10 @@
     markDirty();
   }
 
-  // the ghosts around the playhead, none while playing so playback stays light
+  // the ghosts around the playhead, none while playing or while fingers zoom, so both stay light
   function onionFor(prefs: Preferences) {
     const t = prefs.timeline;
-    if (!t.onion || get(playing) || (t.onionBefore === 0 && t.onionAfter === 0)) return null;
+    if (!t.onion || get(playing) || gesturing || (t.onionBefore === 0 && t.onionAfter === 0)) return null;
     const layers = editor.currentLayers();
     const at = editor.frame;
     const ghosts = onionFrames(layers, at, t.onionBefore, t.onionAfter, t.onionKeyframes, editor.length());
@@ -176,7 +182,50 @@
     return { base: editor.base(), dim };
   }
 
+  // the camera view: the stage shows what the video shows, drawn by the same function as the export.
+  // while playing on a tablet it draws at half the pixels and is scaled up, the export never is
+  let previewSurface: Surface | null = null;
+
+  function drawCameraView(ctx: CanvasRenderingContext2D) {
+    const v = get(view);
+    const prefs = get(preferences);
+    const doc = editor.doc;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = shades[prefs.stage.shade];
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const base: Mat = [dpr * v.zoom, 0, 0, dpr * v.zoom, dpr * v.panX, dpr * v.panY];
+    const w = doc.width * base[0];
+    const h = doc.height * base[3];
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(base[4], base[5], w, h);
+    ctx.clip();
+    const k = previewScaleFor(prefs.stage.preview, get(touchUi), get(playing));
+    if (k >= 1) {
+      renderCameraFrame(ctx, doc, { frame: editor.frame, base, transparent: false });
+    } else {
+      const sw = Math.max(1, Math.ceil(w * k));
+      const sh = Math.max(1, Math.ceil(h * k));
+      previewSurface = sizedSurface(previewSurface, sw, sh);
+      const p = surfaceContext(previewSurface);
+      p.setTransform(1, 0, 0, 1, 0, 0);
+      p.clearRect(0, 0, sw, sh);
+      renderCameraFrame(p, doc, { frame: editor.frame, base: [base[0] * k, 0, 0, base[3] * k, 0, 0], transparent: false });
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(previewSurface, base[4], base[5], w, h);
+    }
+    drawSubtitles(ctx, doc, editor.frame, base);
+    ctx.restore();
+  }
+
   function drawContent(ctx: CanvasRenderingContext2D) {
+    if (get(showingCamera)) {
+      drawCameraView(ctx);
+      return;
+    }
     const v = get(view);
     const prefs = get(preferences);
     renderStage(
@@ -293,9 +342,10 @@
     ctx.stroke();
   }
 
-  // in the space of the timeline being edited, a symbol open in place has its own
+  // in the space of the timeline being edited, a symbol open in place has its own. the sticky keys of
+  // the touch bar count like held ones
   function toolEvent(e: PointerEvent | MouseEvent): ToolEvent {
-    return makeEvent(e, overlay!.getBoundingClientRect(), get(view), editor.base());
+    return withModifiers(makeEvent(e, overlay!.getBoundingClientRect(), get(view), editor.base()));
   }
 
   // guides and rulers stay in document space
@@ -343,6 +393,30 @@
 
   function onpointerdown(e: PointerEvent) {
     overlay?.setPointerCapture(e.pointerId);
+    if (isTouch(e)) {
+      touchDown(e);
+      return;
+    }
+    startTool(e);
+  }
+
+  // what a press does with the active tool, for the mouse at once and for fingers and the pencil when
+  // the gesture tracker says it is no pinch
+  // in the camera view the stage shows the video, only moving around and the camera tool work there
+  const CAMERA_VIEW_TOOLS = ['hand', 'zoom', 'camera'];
+  let blocked = false;
+  let blockedNoteAt = 0;
+
+  function startTool(e: PointerEvent) {
+    blocked = false;
+    if (get(showingCamera) && !get(playing) && !CAMERA_VIEW_TOOLS.includes(get(activeTool)) && e.button === 0 && !spaceHeld) {
+      blocked = true;
+      if (performance.now() - blockedNoteAt > 4000) {
+        blockedNoteAt = performance.now();
+        addToast('The camera view shows the video. Turn it off to draw, or move the camera with the camera tool', 'info', 3500);
+      }
+      return;
+    }
     // working on the stage stops playback and lets go of the frames picked in the timeline
     pause();
     if (e.button === 0) frameSelection.set(null);
@@ -374,6 +448,16 @@
   }
 
   function onpointermove(e: PointerEvent) {
+    if (isTouch(e)) {
+      lastTouch = performance.now();
+      run(tracker.move(point(e)));
+      return;
+    }
+    moveTool(e);
+  }
+
+  function moveTool(e: PointerEvent) {
+    if (blocked && e.buttons !== 0) return;
     if (panStart) {
       const start = panStart;
       view.update((v) => ({ ...v, panX: start.panX + e.clientX - start.x, panY: start.panY + e.clientY - start.y }));
@@ -400,6 +484,30 @@
 
   function onpointerup(e: PointerEvent) {
     if (overlay?.hasPointerCapture(e.pointerId)) overlay.releasePointerCapture(e.pointerId);
+    if (isTouch(e)) {
+      lastTouch = performance.now();
+      run(tracker.up(point(e)));
+      return;
+    }
+    endTool(e);
+  }
+
+  // the system took the pointer, a finger that slid off the screen or a gesture of ipados
+  function onpointercancel(e: PointerEvent) {
+    if (overlay?.hasPointerCapture(e.pointerId)) overlay.releasePointerCapture(e.pointerId);
+    if (isTouch(e)) {
+      lastTouch = performance.now();
+      run(tracker.cancel(point(e)));
+      return;
+    }
+    endTool(e);
+  }
+
+  function endTool(e: PointerEvent) {
+    if (blocked) {
+      blocked = false;
+      return;
+    }
     if (panStart) {
       panStart = null;
       panning = false;
@@ -420,9 +528,14 @@
   // a right click picks what is under the pointer when it is not selected yet, then the menu opens
   function oncontextmenu(e: MouseEvent) {
     e.preventDefault();
-    if (panStart) return;
+    // a long press opens the menu itself, safari may send its own event on top
+    if (panStart || touchedLately()) return;
+    openMenu(e, 'mouse');
+  }
+
+  function openMenu(e: MouseEvent, pointerType: string) {
     const ev = toolEvent(e);
-    const hit = pickForSelect(ev, ev.zoom, pointerFactor('mouse'));
+    const hit = pickForSelect(ev, ev.zoom, pointerFactor(pointerType));
     if (hit && !get(selection).has(hit.id)) select([hit.id]);
     const canBind = editor.currentLayers().some((l) => l.type === 'rig' && l.bones.length > 0);
     const items = stageMenu(get(preferences).shortcuts, get(selection).size > 0, canBind);
@@ -430,8 +543,138 @@
   }
 
   function ondblclick(e: MouseEvent) {
+    // the tracker finds double taps, the click the browser makes of them would come twice
+    if (touchedLately()) return;
     doubleClick(toolEvent(e));
     editor.markOverlay();
+  }
+
+  // fingers and the pencil: the tracker tells a stroke from a pinch, a tap and a long press, the stage
+  // carries out what it decides. the mouse never comes here
+  const tracker = new GestureTracker<PointerEvent>(() =>
+    gestureOptions(get(activeTool), get(preferences), get(penSeen))
+  );
+  let pinchFrom: View | null = null;
+  let gestureTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastTouch = -Infinity;
+  // a pinch is on, the onion skin waits until it ends
+  let gesturing = false;
+
+  function isTouch(e: PointerEvent): boolean {
+    return e.pointerType === 'touch' || e.pointerType === 'pen';
+  }
+
+  function touchedLately(): boolean {
+    return performance.now() - lastTouch < 800;
+  }
+
+  function point(e: PointerEvent): GesturePoint<PointerEvent> {
+    return {
+      id: e.pointerId,
+      kind: e.pointerType === 'pen' ? 'pen' : 'touch',
+      x: e.clientX,
+      y: e.clientY,
+      t: performance.now(),
+      data: e
+    };
+  }
+
+  function touchDown(e: PointerEvent) {
+    lastTouch = performance.now();
+    if (e.pointerType === 'pen') penSeen.set(true);
+    run(tracker.down(point(e)));
+  }
+
+  // stage pixels from the page ones the tracker keeps
+  function local(p: Vec): Vec {
+    const r = overlay!.getBoundingClientRect();
+    return { x: p.x - r.left, y: p.y - r.top };
+  }
+
+  // the tool lets go of what it started: escape drops a stroke or a drag, a tool without one ends it
+  function cancelTool(e: PointerEvent) {
+    if (panStart) {
+      panStart = null;
+      panning = false;
+      return;
+    }
+    if (guideState.drag) {
+      guideState.drag = null;
+      clearSnap();
+      guideCursor = null;
+      editor.markOverlay();
+      return;
+    }
+    const esc = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    keyDown(esc);
+    if (!esc.defaultPrevented) endTool(e);
+    editor.markAll();
+  }
+
+  function run(actions: GestureAction<PointerEvent>[]) {
+    for (const a of actions) {
+      switch (a.type) {
+        case 'tool-down':
+          startTool(a.data);
+          break;
+        case 'tool-move':
+          moveTool(a.data);
+          break;
+        case 'tool-up':
+          endTool(a.data);
+          break;
+        case 'tool-cancel':
+          cancelTool(a.data);
+          break;
+        case 'pan':
+          setAutoFit(false);
+          view.update((v) => ({ ...v, panX: v.panX + a.dx, panY: v.panY + a.dy }));
+          break;
+        case 'pinch-start':
+          pause();
+          setAutoFit(false);
+          pinchFrom = get(view);
+          gesturing = true;
+          break;
+        case 'pinch':
+          if (pinchFrom) view.set(pinchView(pinchFrom, local(a.a0), local(a.b0), local(a.a1), local(a.b1)));
+          break;
+        case 'pinch-end':
+          pinchFrom = null;
+          gesturing = false;
+          markDirty();
+          break;
+        case 'double-tap':
+          doubleClick(toolEvent(a.data));
+          editor.markOverlay();
+          break;
+        case 'long-press':
+          openMenu(a.data, a.data.pointerType);
+          break;
+        case 'multi-tap':
+          if (!get(preferences).touch.fingerTaps) break;
+          if (a.fingers === 2) fingerHistory('undo');
+          else if (a.fingers === 3) fingerHistory('redo');
+          break;
+      }
+    }
+    schedule();
+  }
+
+  // two fingers undo, three redo, a short note says what, there is no menu to look at
+  function fingerHistory(which: 'undo' | 'redo') {
+    const label = which === 'undo' ? editor.undo() : editor.redo();
+    if (label === null) addToast(which === 'undo' ? 'Nothing to undo' : 'Nothing to redo', 'info', 1200);
+    else addToast(`${which === 'undo' ? 'Undo' : 'Redo'}: ${label}`, 'info', 1200);
+  }
+
+  // the hold before a finger draws and the long press need a clock, the tracker asks for it
+  function schedule() {
+    if (gestureTimer) clearTimeout(gestureTimer);
+    gestureTimer = null;
+    const due = tracker.deadline();
+    if (due === null) return;
+    gestureTimer = setTimeout(() => run(tracker.tick(performance.now())), Math.max(0, due - performance.now()) + 1);
   }
 
   function onwheel(e: WheelEvent) {
@@ -526,7 +769,8 @@
       playing.subscribe(markDirty),
       activeTool.subscribe(() => editor.markOverlay()),
       anchorSelection.subscribe(() => editor.markOverlay()),
-      textEditing.subscribe(markDirty)
+      textEditing.subscribe(markDirty),
+      showingCamera.subscribe(markDirty)
     ];
     setImageLoaded(markDirty);
     setStageElement(host);
@@ -552,6 +796,7 @@
 
     return () => {
       cancelAnimationFrame(raf);
+      if (gestureTimer) clearTimeout(gestureTimer);
       observer.disconnect();
       canvas.removeEventListener('wheel', onwheel);
       for (const off of unsubscribe) off();
@@ -583,7 +828,7 @@
     {onpointerdown}
     {onpointermove}
     {onpointerup}
-    onpointercancel={onpointerup}
+    {onpointercancel}
     onpointerleave={() => {
       if (!panStart) hover.set(null);
       pointerAt = null;

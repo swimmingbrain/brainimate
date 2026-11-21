@@ -52,6 +52,9 @@ export interface Skin {
 interface ItemBase {
   id: string;
   name: string;
+  // the part of a character it is, like 'head', 'upperArmL', 'mouth' or 'prop', what the character tools
+  // look for. a plain drawing has none
+  role?: string;
   transform: Mat;
   visible: boolean;
   locked: boolean;
@@ -142,6 +145,40 @@ export interface BonePose {
   x: number;
   y: number;
   scale: number;
+  // a squash across the bone, -1 mirrors it: a character turns around on its root bone. 1 when missing
+  sx?: number;
+}
+
+// how a new shot starts on a camera keyframe. cut jumps, fade goes through a color, crossfade lets
+// the last picture of the shot before dissolve, zoom flies through it, slide pushes it aside and
+// camera moves there instead of cutting
+export type TransitionKind = 'cut' | 'fade' | 'crossfade' | 'zoom' | 'slide' | 'camera';
+
+export interface Transition {
+  kind: TransitionKind;
+  // frames it takes
+  duration: number;
+  // the color a fade goes through
+  color: string;
+  // where the new shot comes from in a slide
+  direction: 'left' | 'right' | 'up' | 'down';
+}
+
+// what the camera sees on a keyframe of the camera layer
+export interface CameraKey {
+  // the point of the stage in the middle of the picture
+  x: number;
+  y: number;
+  // 1 shows the whole stage, 2 half as much of it twice as big
+  zoom: number;
+  // radians, the picture turns the other way
+  rotation: number;
+  // a handheld camera, how far it shakes in pixels of the video
+  shake: number;
+  // the bob of walking, in pixels of the video
+  bob: number;
+  // a new shot starts here, null for a plain keyframe
+  transition: Transition | null;
 }
 
 export interface Keyframe {
@@ -153,12 +190,40 @@ export interface Keyframe {
   // ease is 'linear', 'in', 'out', 'inout' or 'cubic(x1,y1,x2,y2)'
   tween: null | { ease: string };
   label: string;
+  // camera layers only
+  camera?: CameraKey;
+  // the body layer of a character: the mood and the mouth its face shows from here on
+  face?: { emotion: string; mouth: string };
+  // the body layer of a turnable character: the angle it is seen from here on, in degrees, the body
+  // and the head apart. 90 faces the camera, 0 looks to the side it was made looking to, -90 shows the back
+  turn?: Turn;
+}
+
+export interface Turn {
+  body: number;
+  head: number;
+}
+
+// a point of a turnable character in the room: forward to where it looks, across to its near side,
+// up from the floor, in stage pixels
+export type Point3 = [number, number, number];
+
+// what a rig needs to stand at any angle: every bone from where to where in the room, the spot on the
+// floor it turns about and the way it looked when made
+export interface TurnRig {
+  x: number;
+  ground: number;
+  facing: 1 | -1;
+  bones: Record<string, { from: Point3; to: Point3 }>;
 }
 
 export interface Layer {
   id: string;
   name: string;
-  type: 'normal' | 'rig' | 'guide' | 'folder';
+  // a folder that holds a character: its rig layer and its body layer, see character/model.ts
+  character?: CharacterInfo;
+  // a camera layer holds what the video shows, there is one on the main timeline at most
+  type: 'normal' | 'rig' | 'guide' | 'folder' | 'camera';
   visible: boolean;
   locked: boolean;
   outline: boolean;
@@ -171,6 +236,68 @@ export interface Layer {
   length: number;
   // rig layers only
   bones: Bone[];
+  // the rig of a turnable character, its bones stand where the angle of its body layer puts them
+  turnRig?: TurnRig;
+  // how far the layer follows the camera: 1 like the camera, less is further back and moves slower,
+  // more is in front and moves faster, 0 stays put on the screen. a folder hands it to its layers
+  parallax?: number;
+}
+
+// the colors of a generated character, a recolor goes over its parts by their roles
+export interface CharacterColors {
+  skin: string;
+  hair: string;
+  shirt: string;
+  pants: string;
+  shoes: string;
+  outline: string;
+}
+
+export interface CharacterInfo {
+  // the same in every copy saved to the library or put into another scene
+  id: string;
+  name: string;
+  colors: CharacterColors;
+  // where the face sits at rest, the middle of the head, its radius and where it looks
+  face: { x: number; y: number; r: number; facing: 1 | -1 };
+  // how the face is drawn and the hair, characters made before these existed have neither
+  style?: CharacterFaceStyle;
+  look?: CharacterLook;
+  // everything a turnable character is drawn from at any angle, see character/views.ts
+  model?: Record<string, unknown>;
+  // who the character is: a few words about its personality, for writing its lines
+  personality?: string;
+  // the voice of the character in every project: pitch, speed, loudness and a generator voice
+  voice?: { pitch: number; rate: number; volume?: number; provider: string; voiceId: string; style?: string };
+}
+
+// see FaceStyle in character/model, kept loose here so the core types know nothing of the drawing
+export type CharacterFaceStyle = Record<string, string | number | boolean>;
+
+export interface CharacterLook {
+  hair: string;
+  outline: number;
+  wobble: number;
+  seed: number;
+  // the head at rest, its middle and radii, for redrawing the hair
+  head: { x: number; y: number; rx: number; ry: number };
+}
+
+// a sound on the timeline, from start on, the asset holds the file
+export interface AudioClip {
+  id: string;
+  asset: string;
+  name: string;
+  // the frame it starts on, 0 based
+  start: number;
+  // 0 to 1
+  volume: number;
+  // the track it plays on and who speaks in it, a production mixes by track
+  track?: 'narration' | 'dialogue' | 'music' | 'sfx';
+  speaker?: string;
+  // how fast it plays, 1 as recorded; its length in frames at that speed once read
+  rate?: number;
+  frames?: number;
 }
 
 export interface Symbol {
@@ -183,7 +310,7 @@ export interface Symbol {
 // data is a data url
 export interface Asset {
   id: string;
-  type: 'image' | 'font';
+  type: 'image' | 'font' | 'audio';
   name: string;
   data: string;
 }
@@ -202,6 +329,10 @@ export interface Doc {
   swatches: string[];
   // h holds the y of each horizontal guide, v the x of each vertical one
   guides: Guides;
+  // sounds played with the timeline and put into the video
+  audio?: AudioClip[];
+  // the video this document is made for: format, script, scenes, sources, subtitles, see studio/types.ts
+  production?: import('$lib/studio/types').Production;
 }
 
 export interface Guides {

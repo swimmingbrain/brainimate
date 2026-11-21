@@ -14,6 +14,7 @@ import { PALETTE } from '$lib/core/palette';
 import { newId } from '$lib/core/ids';
 import { isDraft } from 'immer';
 import { poseAt } from '$lib/render/frame';
+import { bonesAt, turnSource } from './turn';
 
 export type Pose = Record<string, BonePose>;
 
@@ -53,6 +54,12 @@ export function boneDepth(bones: Bone[], id: string): number {
 // translate(x + pose.x, y + pose.y) * rotate(rotation + pose.rotation) * scale(pose.scale)
 export function localMatrix(bone: Bone, p: BonePose = REST_POSE): Mat {
   const m = multiply(translate(bone.x + p.x, bone.y + p.y), rotate(bone.rotation + p.rotation));
+  // sx squashes across, in world x: a root bone with -1 mirrors the whole character to face the other way
+  const sx = p.sx ?? 1;
+  if (sx !== 1) {
+    const flipped = multiply(multiply(translate(bone.x + p.x, bone.y + p.y), scale(sx, 1)), rotate(bone.rotation + p.rotation));
+    return p.scale === 1 ? flipped : multiply(flipped, scale(p.scale));
+  }
   return p.scale === 1 ? m : multiply(m, scale(p.scale));
 }
 
@@ -279,8 +286,14 @@ let dragged: { override: PoseOverride; layers: Layer[]; frame: number; rig: Rig 
 
 // every rig layer of a timeline posed at frame, null when there are no bones
 export function rigFor(layers: Layer[], frame: number, override: PoseOverride | null = null): Rig | null {
-  const own = layers.filter((l) => l.type === 'rig' && l.bones.length > 0);
-  if (own.length === 0) return null;
+  const rigLayers = layers.filter((l) => l.type === 'rig' && l.bones.length > 0);
+  if (rigLayers.length === 0) return null;
+  // the body layers that turn a rig count too: a new angle there moves its bones
+  const own = [...rigLayers];
+  for (const l of rigLayers) {
+    const src = turnSource(layers, l);
+    if (src) own.push(src);
+  }
   const draft = own.some((l) => isDraft(l));
   if (!draft && override) {
     if (dragged && dragged.override === override && dragged.frame === frame && sameLayers(dragged.layers, own)) {
@@ -292,8 +305,8 @@ export function rigFor(layers: Layer[], frame: number, override: PoseOverride | 
   }
   const bones: Bone[] = [];
   const pose: Pose = {};
-  for (const l of own) {
-    bones.push(...l.bones);
+  for (const l of rigLayers) {
+    bones.push(...bonesAt(layers, l, frame));
     Object.assign(pose, override && override.layerId === l.id ? override.pose : resolvePose(l, frame));
   }
   const rig = makeRig(bones, pose);

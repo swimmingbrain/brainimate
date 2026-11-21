@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths';
   import Logo from '$lib/ui/Logo.svelte';
 </script>
 
@@ -13,7 +14,7 @@
 <div class="legal">
   <nav class="nav">
     <div class="nav-inner">
-      <a href="/" class="logo" data-sveltekit-reload>
+      <a href="{base}/" class="logo" data-sveltekit-reload>
         <span class="logo-mark"><Logo size={24} /></span>
         <span class="logo-name">brainIMATE</span>
       </a>
@@ -51,7 +52,7 @@
   </div>
 
   <footer class="footer">
-    <a href="/" data-sveltekit-reload>&larr; Back to brainIMATE</a>
+    <a href="{base}/" data-sveltekit-reload>&larr; Back to brainIMATE</a>
   </footer>
 </div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { assets } from '$app/paths';
   import Dialog from '../Dialog.svelte';
   import NewDocForm from '../NewDocForm.svelte';
   import Icon from '$lib/icons/Icon.svelte';
@@ -16,8 +17,8 @@
     { file: 'logo.brainimate', thumb: 'logo.png', name: 'Logo', note: 'Gradient text' }
   ];
 
-  function create(width: number, height: number, fps: number, bg: string) {
-    confirmDiscard(() => createDocument(width, height, fps, bg), 'Start a new document');
+  function create(width: number, height: number, fps: number, bg: string, comic: boolean) {
+    confirmDiscard(() => createDocument(width, height, fps, bg, comic), 'Start a new document');
   }
 
   // today only shows the time, older ones the day too
@@ -91,7 +92,7 @@
         <div class="example-row">
           {#each EXAMPLES as ex (ex.file)}
             <button class="example" onclick={() => openExample(ex.file)} title="Open the {ex.name} example">
-              <img class="example-thumb" src="/examples/{ex.thumb}" alt="" width="160" height="90" />
+              <img class="example-thumb" src="{assets}/examples/{ex.thumb}" alt="" width="160" height="90" />
               <span class="example-name">{ex.name}</span>
               <span class="example-note">{ex.note}</span>
             </button>

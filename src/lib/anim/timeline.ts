@@ -1,3 +1,4 @@
+import { turnAt } from '$lib/rig/turn';
 import type { Doc, Item, Keyframe, Layer } from '$lib/core/types';
 import { cloneItems } from '$lib/core/items';
 import { newId } from '$lib/core/ids';
@@ -14,6 +15,7 @@ import {
   tweenAt
 } from '$lib/render/frame';
 import { reverseEase } from './easing';
+import { cameraKeyAt, cameraStage } from './camera';
 
 // every function here changes the layer in place, the editor calls them on a draft inside one commit
 
@@ -86,17 +88,28 @@ export function insertKeyframe(layer: Layer, frame: number): Keyframe {
   const existing = layer.keyframes.find((k) => k.frame === frame);
   if (existing || !hasFrames(layer)) return existing ?? layer.keyframes[0];
   const spot = tweenAt(layer, frame);
-  return addKey(layer, {
+  const key: Keyframe = {
     frame,
     items: cloneItems(resolveItems(layer, frame)),
     pose: JSON.parse(JSON.stringify(poseAt(layer, frame))),
     tween: spot ? { ease: spot.key.tween!.ease } : null,
     label: ''
-  });
+  };
+  // the body of a turnable character keeps the angle it is seen from right there
+  const turn = turnAt(layer, frame);
+  if (turn) key.turn = turn;
+  // a camera keyframe holds where the camera is right there, a new shot it is not
+  if (layer.type === 'camera') {
+    const size = cameraStage();
+    key.camera = { ...cameraKeyAt(layer, frame, size.width, size.height), transition: null };
+  }
+  return addKey(layer, key);
 }
 
 // an empty keyframe, what came before stops showing there
 export function insertBlankKeyframe(layer: Layer, frame: number): Keyframe {
+  // a camera always looks somewhere, its blank keyframe holds the camera like a plain one
+  if (layer.type === 'camera') return insertKeyframe(layer, frame);
   const existing = layer.keyframes.find((k) => k.frame === frame);
   if (existing || !hasFrames(layer)) return existing ?? layer.keyframes[0];
   return addKey(layer, blankKeyframe(frame));

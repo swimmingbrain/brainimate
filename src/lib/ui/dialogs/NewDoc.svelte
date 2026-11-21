@@ -5,8 +5,8 @@
 
   let { onclose }: { onclose: () => void } = $props();
 
-  function create(width: number, height: number, fps: number, bg: string) {
-    confirmDiscard(() => createDocument(width, height, fps, bg), 'Start a new document');
+  function create(width: number, height: number, fps: number, bg: string, comic: boolean) {
+    confirmDiscard(() => createDocument(width, height, fps, bg, comic), 'Start a new document');
   }
 </script>
 

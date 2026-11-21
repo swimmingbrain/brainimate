@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths';
   import { page } from '$app/state';
   import Logo from '$lib/ui/Logo.svelte';
 
@@ -14,7 +15,7 @@
     <span class="error-icon"><Logo size={40} /></span>
     <h1>{page.status}</h1>
     <p>{missing ? 'There is no page at this address.' : page.error?.message}</p>
-    <a href="/" data-sveltekit-reload>&larr; Back to brainIMATE</a>
+    <a href="{base}/" data-sveltekit-reload>&larr; Back to brainIMATE</a>
   </div>
 </div>
 

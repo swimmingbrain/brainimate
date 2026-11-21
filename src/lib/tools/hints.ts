@@ -20,6 +20,7 @@ export const TOOL_HINTS: Record<ToolId, string> = {
   gradient: 'Drag across a selected shape to lay a gradient, drag its ends to move it',
   bone: 'Click to place a joint, each next click adds a bone. Escape ends the chain',
   bind: 'Click a bone, then click shapes to bind them to it or let them go',
+  camera: 'Drag the camera frame to move it, a corner to zoom, the knob to turn it. In the camera view drag the picture',
   zoom: 'Click to zoom in, Alt click to zoom out, drag around an area to fit it',
   hand: 'Drag to move the view. Space held does the same with any tool'
 };

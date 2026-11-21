@@ -60,6 +60,7 @@
   }
 
   function isEmpty(k: Keyframe, layer: Layer): boolean {
+    if (layer.type === 'camera') return false;
     return layer.type === 'rig' ? Object.keys(k.pose).length === 0 : k.items.length === 0;
   }
 
@@ -111,7 +112,8 @@
       const x0 = x(from);
       const x1 = x(to);
       const empty = isEmpty(k, layer);
-      const rig = layer.type === 'rig';
+      // the camera moves like a pose, it takes the same colors
+      const rig = layer.type === 'rig' || layer.type === 'camera';
       const tween = k.tween !== null;
       ctx.fillStyle = tween ? (rig ? c.pose : c.tween) : empty ? c.empty : c.hold;
       ctx.fillRect(x0, y + 1, x1 - x0, ROW_H - 2);

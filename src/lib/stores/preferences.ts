@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { TOOL_IDS, isToolId, type ToolId } from '$lib/tools/tool';
 
-export type DockTab = 'properties' | 'color' | 'swatches' | 'library' | 'align' | 'transform' | 'rig';
+export type DockTab = 'properties' | 'color' | 'swatches' | 'library' | 'align' | 'transform' | 'rig' | 'camera' | 'character' | 'scenes' | 'studio';
 
 export type PencilMode = 'smooth' | 'ink' | 'straighten';
 export type BrushMode = 'normal' | 'behind';
@@ -14,7 +14,7 @@ export type BindMode = 'auto' | 'smooth' | 'rigid';
 // the three greys of the theme the pasteboard can take
 export type PasteboardShade = 'deep' | 'surface' | 'elevated';
 
-export const DOCK_TABS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig'];
+export const DOCK_TABS: DockTab[] = ['properties', 'color', 'swatches', 'library', 'align', 'transform', 'rig', 'camera', 'character', 'scenes', 'studio'];
 export const SHADES: PasteboardShade[] = ['deep', 'surface', 'elevated'];
 
 // a saved brush or pencil: size is the brush size or the pencil stroke width, mode is the tool's own
@@ -81,6 +81,10 @@ export interface Preferences {
     wheel: 'scroll' | 'zoom';
     // bigger hit areas for every pointer, not only for pens and fingers
     tablet: boolean;
+    // on a 9 by 16 stage, shades what the buttons and captions of the video app cover
+    safeZones: boolean;
+    // how sharp the camera view draws: auto halves it while playing on a tablet
+    preview: 'auto' | 'full' | 'half';
   };
   drawing: {
     // 0 to 100, the pencil maps it to a fit tolerance
@@ -107,7 +111,18 @@ export interface Preferences {
   };
   // the pen and the path tools, sizes in screen pixels
   pen: { rubberBand: boolean; showAnchors: boolean; anchorSize: number; handleSize: number; hitTolerance: number };
-  pens: { brush: PenPreset[]; pencil: PenPreset[]; brushDefault: string; pencilDefault: string };
+  // comic: the comic presets were offered once, a preset deleted after that stays deleted
+  pens: { brush: PenPreset[]; pencil: PenPreset[]; brushDefault: string; pencilDefault: string; comic: boolean };
+  // comic shows the muted comic palette on top of the swatches panel
+  swatches: { comic: boolean };
+  // a tablet: ui auto shows the touch bar on a touch screen, fingers auto draws until the pencil is used,
+  // fingerTaps undoes with two fingers and redoes with three, dock shows the panels next to the stage
+  touch: {
+    ui: 'auto' | 'on' | 'off';
+    fingers: 'auto' | 'draw' | 'navigate';
+    fingerTaps: boolean;
+    dock: boolean;
+  };
   timeline: {
     fps: number;
     frameWidth: number;
@@ -170,22 +185,43 @@ export const MAX_DOCK = 520;
 export const MIN_TIMELINE = 90;
 export const MAX_TIMELINE = 600;
 
-export function defaultPenPresets(): Preferences['pens'] {
+// inked lines for a hand drawn graphic novel look: the pressure thins the ends and the low smoothing
+// keeps the small wobble of the hand, without a pen the speed of the stroke stands in for the pressure
+export function comicPenPresets(): { brush: PenPreset[]; pencil: PenPreset[] } {
   return {
     brush: [
+      { id: 'brush-comic-ink', name: 'Comic ink', size: 6, smoothing: 30, pressure: true, mode: 'normal' },
+      { id: 'brush-comic-bold', name: 'Bold contour', size: 11, smoothing: 25, pressure: true, mode: 'normal' },
+      { id: 'brush-comic-detail', name: 'Face detail', size: 3, smoothing: 40, pressure: true, mode: 'normal' },
+      { id: 'brush-comic-cel', name: 'Cel shade', size: 36, smoothing: 45, pressure: false, mode: 'behind' }
+    ],
+    pencil: [
+      { id: 'pencil-comic-line', name: 'Comic line', size: 4, smoothing: 30, pressure: false, mode: 'smooth' },
+      { id: 'pencil-comic-rough', name: 'Rough ink', size: 3, smoothing: 0, pressure: false, mode: 'ink' }
+    ]
+  };
+}
+
+export function defaultPenPresets(): Preferences['pens'] {
+  const comic = comicPenPresets();
+  return {
+    brush: [
+      ...comic.brush,
       { id: 'brush-fine', name: 'Fine liner', size: 3, smoothing: 60, pressure: true, mode: 'normal' },
       { id: 'brush-round', name: 'Round', size: 8, smoothing: 50, pressure: true, mode: 'normal' },
       { id: 'brush-marker', name: 'Marker', size: 24, smoothing: 40, pressure: false, mode: 'normal' },
       { id: 'brush-under', name: 'Under paint', size: 40, smoothing: 30, pressure: false, mode: 'behind' }
     ],
     pencil: [
+      ...comic.pencil,
       { id: 'pencil-sketch', name: 'Sketch', size: 1, smoothing: 20, pressure: false, mode: 'smooth' },
       { id: 'pencil-clean', name: 'Clean line', size: 1.5, smoothing: 50, pressure: false, mode: 'smooth' },
       { id: 'pencil-ink', name: 'Ink', size: 2, smoothing: 0, pressure: false, mode: 'ink' },
       { id: 'pencil-shapes', name: 'Shapes', size: 2, smoothing: 50, pressure: false, mode: 'straighten' }
     ],
-    brushDefault: 'brush-round',
-    pencilDefault: 'pencil-clean'
+    brushDefault: 'brush-comic-ink',
+    pencilDefault: 'pencil-comic-line',
+    comic: true
   };
 }
 
@@ -207,15 +243,16 @@ export function defaultPreferences(): Preferences {
     guides: { show: true, lock: false, color: '#4fc3f7', snap: true },
     rulers: { show: true },
     snapping: { enabled: true, points: true, objects: true, pixels: false, smartGuides: true, smartColor: '#e06cd0' },
-    stage: { pasteboard: true, shade: 'deep', shadow: true, zoomOnOpen: 'fit', wheel: 'scroll', tablet: false },
+    stage: { pasteboard: true, shade: 'deep', shadow: true, zoomOnOpen: 'fit', wheel: 'scroll', tablet: false, safeZones: true, preview: 'auto' },
     drawing: {
-      pencilSmoothing: 50,
+      // the comic ink and comic line presets
+      pencilSmoothing: 30,
       pencilMode: 'smooth',
       pencilClose: true,
-      pencilWidth: 1.5,
-      brushSize: 8,
+      pencilWidth: 4,
+      brushSize: 6,
       brushPressure: true,
-      brushSmoothing: 50,
+      brushSmoothing: 30,
       brushMode: 'normal',
       eraserSize: 20,
       eraserMode: 'normal',
@@ -229,6 +266,8 @@ export function defaultPreferences(): Preferences {
     },
     pen: { rubberBand: true, showAnchors: true, anchorSize: 7, handleSize: 6, hitTolerance: 6 },
     pens: defaultPenPresets(),
+    swatches: { comic: true },
+    touch: { ui: 'auto', fingers: 'auto', fingerTaps: true, dock: true },
     timeline: {
       fps: 24,
       frameWidth: 10,
@@ -391,6 +430,7 @@ export function mergePreferences(stored: unknown): Preferences {
   st.shade = oneOf(st.shade, SHADES, 'deep');
   st.zoomOnOpen = oneOf(st.zoomOnOpen, ['fit', 'actual'], 'fit');
   st.wheel = oneOf(st.wheel, ['scroll', 'zoom'], 'scroll');
+  st.preview = oneOf(st.preview, ['auto', 'full', 'half'], 'auto');
 
   const d = p.drawing;
   d.pencilSmoothing = clamp(d.pencilSmoothing, 0, 100);
@@ -416,6 +456,9 @@ export function mergePreferences(stored: unknown): Preferences {
   const pens = isObject(raw.pens) ? raw.pens : {};
   p.pens.brush = penList(pens.brush, ['normal', 'behind'], defaults.pens.brush);
   p.pens.pencil = penList(pens.pencil, ['smooth', 'ink', 'straighten'], defaults.pens.pencil);
+
+  p.touch.ui = oneOf(p.touch.ui, ['auto', 'on', 'off'], 'auto');
+  p.touch.fingers = oneOf(p.touch.fingers, ['auto', 'draw', 'navigate'], 'auto');
 
   const t = p.timeline;
   t.fps = clamp(Math.round(t.fps), 1, 120);
@@ -455,12 +498,28 @@ export function mergePreferences(stored: unknown): Preferences {
   return p;
 }
 
+// preferences saved before the comic presets existed get them once, after their own ones, and keep
+// their default preset. after that a deleted comic preset stays deleted
+export function offerComicPresets(p: Preferences, stored: unknown): Preferences {
+  const pens = isObject(stored) && isObject(stored.pens) ? stored.pens : null;
+  if (!pens || pens.comic === true) return p;
+  const comic = comicPenPresets();
+  const add = (list: PenPreset[], extra: PenPreset[]) => [...list, ...extra.filter((e) => !list.some((q) => q.id === e.id))];
+  return {
+    ...p,
+    pens: { ...p.pens, brush: add(p.pens.brush, comic.brush), pencil: add(p.pens.pencil, comic.pencil), comic: true }
+  };
+}
+
 function createPreferencesStore() {
   let initial = defaultPreferences();
   if (browser) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) initial = mergePreferences(JSON.parse(stored));
+      if (stored) {
+        const raw = JSON.parse(stored);
+        initial = offerComicPresets(mergePreferences(raw), raw);
+      }
     } catch {}
   }
 
