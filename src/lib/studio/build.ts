@@ -15,7 +15,8 @@ import { characterFolders, characterLayers } from '$lib/character/model';
 import { rebuildKey } from '$lib/character/rebuild';
 import { modelOf } from '$lib/character/views';
 import { STARTERS, starterLayers, type StarterId } from '$lib/scene/starters';
-import { cuesFrom, sceneStarts } from './production';
+import { cuesFrom, sceneStarts, type ClipSeconds } from './production';
+import { clipLength } from '$lib/io/audio';
 import type { CameraMove, Production, Scene } from './types';
 
 // the storyboard laid onto the timeline: every scene gets its place on the background and the midground,
@@ -423,7 +424,20 @@ export function buildTimeline(doc: Doc, p: Production): Built {
 
   const folders = characterFolders(doc.layers);
   const known = new Set(folders.map((f) => f.id));
-  const cues = cuesFrom(p, fps);
+  // the recordings linked to lines decide how long they take
+  const clips = clipSeconds(doc);
+  const cues = cuesFrom(p, fps, 6, clips);
+  // and play exactly where their line starts
+  for (const l of p.lines) {
+    if (!l.clip) continue;
+    const clip = doc.audio?.find((c) => c.id === l.clip);
+    const first = cues.find((c) => c.line === l.id);
+    if (clip && first) {
+      clip.start = first.start;
+      clip.track ??= l.speaker === 'narrator' ? 'narration' : 'dialogue';
+      clip.speaker ??= l.speaker;
+    }
+  }
   // who is seen in a scene: the cast, without the one whose eyes the camera is
   const seen = (scene: Scene, id: string) => (scene.cast.length === 0 || scene.cast.includes(id)) && !(isPov(scene) && scene.pov?.actor === id);
 
@@ -547,6 +561,16 @@ function animateMove(doc: Doc, id: string, kind: AnimKind, at: number, end: numb
   const distance = kind === 'walk' ? info.face.facing * u * 0.35 : kind === 'run' ? info.face.facing * u * 0.45 : 0;
   const back = ['point', 'reach', 'fall'].includes(kind);
   return animateDraft(doc, id, { kind, repeat: a.cycle ? cycles : back ? 0.8 : 0, speed, mirror: false, distance, back }, at);
+}
+
+// seconds of every recording whose length is known
+export function clipSeconds(doc: Doc): ClipSeconds {
+  const out: ClipSeconds = {};
+  for (const c of doc.audio ?? []) {
+    const n = clipLength(c);
+    if (n) out[c.id] = n / doc.fps;
+  }
+  return out;
 }
 
 export function sceneLabelId(): string {

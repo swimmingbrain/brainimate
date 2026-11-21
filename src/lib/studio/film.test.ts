@@ -164,3 +164,70 @@ describe('camera templates and film language', () => {
     }
   });
 });
+
+describe('pace, recordings and voices', () => {
+  beforeEach(() => {
+    editor.newDoc(W, H, 24);
+    frame.set(0);
+    selection.set(new Set());
+  });
+
+  it('estimates the speech of every scene, recommends lengths, warns when the words do not fit, never changes a word', async () => {
+    const P = await import('./production');
+    addProduction('comedy', 60);
+    const long = Array.from({ length: 60 }, (_, i) => `wort${i}`).join(' ');
+    updateProduction('lines', (p) => {
+      p.lines = [{ id: 'a', beat: p.beats[0].id, speaker: 'narrator', text: long, scene: p.scenes[0].id }];
+      p.scenes[0].duration = 3;
+      return p;
+    });
+    const p = production()!;
+    const t = P.sceneTimings(p);
+    expect(t[0].speech).toBeCloseTo(60 / 2.5 + 0.3, 1);
+    expect(t[0].state).toBe('short');
+    expect(t[0].recommended).toBeGreaterThan(t[0].speech);
+    expect(P.checks(p).some((c) => c.text.includes('shorter than the words'))).toBe(true);
+    // a faster pace needs less time
+    expect(P.sceneTimings({ ...p, pace: 4 })[0].speech).toBeLessThan(t[0].speech);
+    const fitted = P.fitScenesToSpeech(p);
+    expect(fitted.scenes[0].duration).toBe(t[0].recommended);
+    expect(fitted.lines[0].text).toBe(long);
+    const checks = P.lengthChecks(fitted);
+    expect(checks.map((c) => c.target)).toEqual([60, 90, 120]);
+    expect(checks[2].fits).toBe(true);
+  });
+
+  it('a linked recording sets the length of its line and starts where the line starts', async () => {
+    const { tom } = setup();
+    editor.commit('clip', (d) => {
+      d.audio = [{ id: 'c1', asset: 'x', name: 'tom', start: 0, volume: 1, frames: 96 }];
+    });
+    updateProduction('lines', (p) => {
+      p.lines = [
+        { id: 'a', beat: p.beats[0].id, speaker: 'narrator', text: 'Kurz', scene: p.scenes[1].id },
+        { id: 'b', beat: p.beats[0].id, speaker: tom, text: 'Hallo', scene: p.scenes[1].id, clip: 'c1' }
+      ];
+      p.scenes[1].duration = 8;
+      return p;
+    });
+    buildFromStoryboard();
+    const p = production()!;
+    const cue = p.cues.find((c) => c.line === 'b')!;
+    expect(cue.end - cue.start).toBeGreaterThan(80);
+    expect(editor.doc.audio![0].start).toBe(cue.start);
+    expect(editor.doc.audio![0].track).toBe('dialogue');
+  });
+
+  it('keeps the voice of a character with it and plays a speaker as loud as its voice', async () => {
+    const { tom } = setup();
+    const S = await import('$lib/editor/studio');
+    S.setVoice(tom, { pitch: 1.3, rate: 0.9, volume: 0.5, style: 'ruhig' });
+    const folder = editor.doc.layers.find((l) => l.id === tom)!;
+    expect(folder.character!.voice).toMatchObject({ pitch: 1.3, rate: 0.9, volume: 0.5, style: 'ruhig' });
+    const { clipGain } = await import('$lib/io/audio');
+    expect(clipGain(editor.doc, { id: 'c', asset: 'a', name: 'x', start: 0, volume: 1, speaker: tom, track: 'dialogue' })).toBeCloseTo(0.5);
+    // another video with the same character starts with that voice
+    updateProduction('no voices', (p) => ({ ...p, voices: [] }));
+    expect(S.voiceOf(tom).pitch).toBe(1.3);
+  });
+});

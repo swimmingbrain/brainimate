@@ -7,11 +7,11 @@ import { characterFolders } from '$lib/character/model';
 import { libraryEntry, loadLibrary, placeOffset } from '$lib/character/library';
 import { insertPackage } from './character';
 import { FORMATS, type Format } from '$lib/studio/formats';
-import { cloneProduction, cuesFrom, fitToLength, newProduction, sceneOf, sceneStarts } from '$lib/studio/production';
-import { buildTimeline, type Built } from '$lib/studio/build';
+import { cloneProduction, cuesFrom, fitScenesToSpeech, fitToLength, newProduction, sceneOf, sceneStarts } from '$lib/studio/production';
+import { buildTimeline, clipSeconds, type Built } from '$lib/studio/build';
 import { customFormats } from '$lib/studio/library';
 import type { Production, ScriptLine, Voice } from '$lib/studio/types';
-import { addGeneratedClip, importAudio, setClipTrack } from '$lib/io/audio';
+import { addGeneratedClip, clipFrames, decodeAsset, importAudio, setClipTrack } from '$lib/io/audio';
 import { musicSamples, sfxSamples, wavDataUrl, type Mood, type Sfx } from '$lib/studio/sounds';
 import { pickFiles } from './importer';
 
@@ -121,7 +121,7 @@ export function setLength(seconds: number) {
 
 // the subtitles worked out again from the script
 export function refreshSubtitles() {
-  updateProduction('Subtitles from the script', (p) => ({ ...p, cues: cuesFrom(p, editor.doc.fps) }));
+  updateProduction('Subtitles from the script', (p) => ({ ...p, cues: cuesFrom(p, editor.doc.fps, 6, clipSeconds(editor.doc)) }));
 }
 
 // who can speak: the narrator, the characters of the project, names used in the script
@@ -136,20 +136,88 @@ export function speakerName(id: string): string {
   return speakers().find((s) => s.id === id)?.label ?? id;
 }
 
+// the voice of a speaker: what this video set, else what the character keeps in every project
 export function voiceOf(speaker: string): Voice {
   const v = production()?.voices.find((x) => x.speaker === speaker);
-  return v ?? { speaker, label: speakerName(speaker), pitch: 1, rate: 1, provider: '', voiceId: '' };
+  if (v) return v;
+  const own = characterFolders(editor.doc.layers).find((f) => f.id === speaker)?.character?.voice;
+  return { speaker, label: speakerName(speaker), pitch: 1, rate: 1, provider: '', voiceId: '', ...(own ?? {}) };
 }
 
+// a voice set for this video and, for a character, kept with it: saved to the library it comes along
+// into the next project. a locked look does not lock the voice
 export function setVoice(speaker: string, change: Partial<Voice>, key?: string) {
-  updateProduction(
+  const p = production();
+  if (!p) return;
+  const next = { ...voiceOf(speaker), ...change, speaker };
+  editor.commit(
     'Voice',
-    (p) => {
-      const voices = p.voices.filter((v) => v.speaker !== speaker);
-      return { ...p, voices: [...voices, { ...voiceOf(speaker), ...change, speaker }] };
+    (draft) => {
+      const prod = JSON.parse(JSON.stringify(draft.production)) as Production;
+      prod.voices = [...prod.voices.filter((v) => v.speaker !== speaker), next];
+      draft.production = prod;
+      const folder = draft.layers.find((l) => l.id === speaker && l.character);
+      if (folder?.character) folder.character.voice = { pitch: next.pitch, rate: next.rate, volume: next.volume ?? 1, provider: next.provider, voiceId: next.voiceId, ...(next.style ? { style: next.style } : {}) };
     },
     key
   );
+}
+
+// a recording linked to a line: the line takes as long as the recording, and building puts it where the
+// line starts. null takes the link away, the sound stays on the timeline
+export async function linkClip(lineId: string, clipId: string | null) {
+  const clip = clipId ? editor.doc.audio?.find((c) => c.id === clipId) : null;
+  let frames = clip?.frames ?? 0;
+  if (clip && !frames) {
+    try {
+      frames = clipFrames((await decodeAsset(editor.doc, clip.asset)).duration, editor.doc.fps);
+    } catch {
+      frames = 0;
+    }
+  }
+  const line = production()?.lines.find((l) => l.id === lineId);
+  if (!line) return;
+  editor.commit('Link recording', (draft) => {
+    const prod = JSON.parse(JSON.stringify(draft.production)) as Production;
+    const l = prod.lines.find((x) => x.id === lineId);
+    if (l) l.clip = clipId;
+    draft.production = prod;
+    const c = clipId ? draft.audio?.find((x) => x.id === clipId) : null;
+    if (c) {
+      if (frames) c.frames = frames;
+      c.track = line.speaker === 'narrator' ? 'narration' : 'dialogue';
+      c.speaker = line.speaker;
+    }
+  });
+}
+
+// the scenes as long as their speech needs; only the lengths change, the words stay as written
+export function fitScenes(shrink = false) {
+  updateProduction(shrink ? 'Scenes to the speech' : 'Scenes long enough for the speech', (p) => fitScenesToSpeech(p, clipSeconds(editor.doc), shrink));
+}
+
+export function setPace(change: { pace?: number; pause?: number; breathing?: number; gestures?: boolean }, key?: string) {
+  updateProduction('Pace', (p) => ({ ...p, ...change }), key);
+}
+
+// a sound moved by frames, or to the start of a scene
+export function nudgeClip(id: string, by: number) {
+  const c = editor.doc.audio?.find((x) => x.id === id);
+  if (!c) return;
+  editor.commit('Move sound', (draft) => {
+    const clip = draft.audio?.find((x) => x.id === id);
+    if (clip) clip.start = Math.max(0, clip.start + Math.round(by));
+  });
+}
+
+export function clipToScene(id: string, sceneId: string) {
+  const p = production();
+  const span = p ? sceneStarts(p, editor.doc.fps).find((s) => s.scene.id === sceneId) : null;
+  if (!span) return;
+  editor.commit('Sound to scene', (draft) => {
+    const clip = draft.audio?.find((x) => x.id === id);
+    if (clip) clip.start = span.start;
+  });
 }
 
 // a line read out by the voice of the device, to hear the timing. it is not recorded into the video: a
@@ -165,6 +233,7 @@ export function previewLine(line: ScriptLine): boolean {
   u.lang = 'de-DE';
   u.pitch = Math.max(0, Math.min(2, v.pitch));
   u.rate = Math.max(0.5, Math.min(2, v.rate));
+  u.volume = Math.max(0, Math.min(1, v.volume ?? 1));
   synth.cancel();
   synth.speak(u);
   return true;
@@ -174,7 +243,7 @@ export function previewLine(line: ScriptLine): boolean {
 export function lineStart(line: ScriptLine): number {
   const p = production();
   if (!p) return 0;
-  const cue = p.cues.find((c) => c.text && line.text.startsWith(c.text.split(' ')[0]) && c.speaker === line.speaker);
+  const cue = p.cues.find((c) => c.line === line.id) ?? p.cues.find((c) => c.text && line.text.startsWith(c.text.split(' ')[0]) && c.speaker === line.speaker);
   if (cue) return cue.start;
   const scene = sceneOf(p, line);
   return sceneStarts(p, editor.doc.fps).find((s) => s.scene.id === scene?.id)?.start ?? 0;
@@ -189,6 +258,7 @@ export async function recordLine(line: ScriptLine): Promise<boolean> {
   const clip = await importAudio(files[0]);
   if (!clip) return false;
   setClipTrack(clip.id, line.speaker === 'narrator' ? 'narration' : 'dialogue', line.speaker);
+  await linkClip(line.id, clip.id);
   return true;
 }
 

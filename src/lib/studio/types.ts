@@ -152,6 +152,8 @@ export interface Cue {
   text: string;
   speaker: string;
   certainty?: Certainty;
+  // the script line it is a piece of
+  line?: string;
 }
 
 export type TrackKind = 'narration' | 'dialogue' | 'music' | 'sfx';
