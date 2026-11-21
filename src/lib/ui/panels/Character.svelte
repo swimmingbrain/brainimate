@@ -226,7 +226,10 @@
     form = { ...defaultCharacter(editor.doc.width, editor.doc.height), name: `Character ${all.length + 1}`, seed: Math.floor(Math.random() * 1000) };
     heightShare = Math.round((form.height / editor.doc.height) * 100);
     // a second character stands beside the first one
-    placeShare = all.length === 0 ? 50 : all.length % 2 ? 75 : 25;
+    // the place on the stage furthest from the characters already there
+    const taken = all.map((f) => ((f.character?.face.x ?? 0) / editor.doc.width) * 100);
+    const spots = [50, 75, 25, 88, 12, 62, 38];
+    placeShare = taken.length === 0 ? 50 : spots.reduce((best, x) => (Math.min(...taken.map((t) => Math.abs(t - x))) > Math.min(...taken.map((t) => Math.abs(t - best))) ? x : best), spots[0]);
     form = { ...form, facing: placeShare > 50 ? -1 : 1 };
     creating = true;
   }
