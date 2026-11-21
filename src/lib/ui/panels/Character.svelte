@@ -77,6 +77,8 @@
     renameEntry,
     saveCharacter
   } from '$lib/character/library';
+  import { INTERACTIONS, REACTIONS, TEMPLATES, applyTemplate, giveItem, handshake, hug, lookAt, pointAtCharacter, react, waveTo, walkTo, type Interaction } from '$lib/editor/interact';
+  import { characterGroups, focusCharacter, groupCharacters, shiftCharacters, showAllCharacters } from '$lib/editor/cast';
   import { AUDIO_ACCEPT, clipLevels, importAudio, removeClip, setClip } from '$lib/io/audio';
   import { pickFiles } from '$lib/editor/importer';
   import { saveBlob } from '$lib/io/save';
@@ -134,6 +136,32 @@
   // a slider dragged is one undo step
   function restyle(change: Partial<FaceStyle>, key?: string) {
     if (picked) applyFaceStyle(picked.id, change, key ? `face-${picked.id}-${key}` : undefined);
+  }
+  const others = $derived(all.filter((f) => f.id !== picked?.id));
+  const groups = $derived.by(() => {
+    void $docVersion;
+    return characterGroups();
+  });
+  let partner = $state<string | null>(null);
+  const partnerId = $derived(others.some((o) => o.id === partner) ? partner : (others[0]?.id ?? null));
+  let walkX = $state(540);
+  let shiftX = $state(100);
+  let grouping = $state<Set<string>>(new Set());
+
+  function together(kind: Interaction) {
+    if (!picked || !partnerId) return;
+    const a = picked.id;
+    const b = partnerId;
+    const done =
+      kind === 'look' ? lookAt(a, b) : kind === 'point' ? pointAtCharacter(a, b) : kind === 'wave' ? waveTo(a, b) : kind === 'handshake' ? handshake(a, b) : kind === 'give' ? giveItem(a, b) : hug(a, b);
+    if (done) addToast(`${INTERACTIONS.find((i) => i.id === kind)?.label} from frame ${$frame + 1}`, 'success', 1800);
+  }
+
+  function toggleGroup(id: string) {
+    const next = new Set(grouping);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    grouping = next;
   }
   const clips = $derived.by(() => {
     void $docVersion;
@@ -517,6 +545,66 @@
       <button class="btn" disabled={$selection.size !== 1} onclick={() => pickUp(picked!.id, 'L')}>Far hand takes it</button>
       <button class="btn" disabled={$selection.size !== 1} onclick={putDown}>Put down</button>
     </div>
+
+    <h3 class="section">Moves for product videos</h3>
+    <div class="grid">
+      {#each TEMPLATES as t (t.id)}
+        <button class="pill" title={t.hint} disabled={t.needsItem && $selection.size !== 1} onclick={() => applyTemplate(picked!.id, t.id)}>{t.label}</button>
+      {/each}
+    </div>
+    <Field label="Walk to" hint="Where the hip ends up, in stage pixels">
+      <NumberField value={walkX} min={-2000} max={6000} step={10} precision={0} unit=" px" label="Walk to x" onchange={(v) => (walkX = v)} />
+    </Field>
+    <div class="buttons">
+      <button class="btn" onclick={() => walkTo(picked!.id, walkX)}>Walk there</button>
+      <button class="btn" onclick={() => walkTo(picked!.id, walkX, true)}>Run there</button>
+    </div>
+    <p class="note">Every move starts at the playhead. The object ones work on the object picked on the stage.</p>
+
+    <h3 class="section">Reactions</h3>
+    <div class="grid">
+      {#each REACTIONS as r (r.id)}
+        <button class="pill" onclick={() => react(picked!.id, r.id)}>{r.label}</button>
+      {/each}
+    </div>
+
+    {#if others.length > 0}
+      <h3 class="section">Together with</h3>
+      <Field label="Other">
+        <SelectField value={partnerId ?? ''} options={others.map((o) => ({ value: o.id, label: o.character?.name ?? o.name }))} label="Other character" onchange={(v) => (partner = v)} />
+      </Field>
+      <div class="grid">
+        {#each INTERACTIONS as it (it.id)}
+          <button class="pill" title={it.hint} onclick={() => together(it.id)}>{it.label}</button>
+        {/each}
+      </div>
+      <p class="note">{info.name} does it, the other one turns to it. To hand over, {info.name} must hold the object picked on the stage.</p>
+    {/if}
+
+    {#if all.length > 1}
+      <h3 class="section with-action"><span>Cast</span><button class="link" onclick={showAllCharacters}>Show all</button></h3>
+      {#each all as c (c.id)}
+        <div class="part">
+          <button class="eye" aria-label="Pick {c.character?.name} for a group" onclick={() => toggleGroup(c.id)}>
+            <Icon name={grouping.has(c.id) ? 'check' : 'plus'} size={15} />
+          </button>
+          <button class="part-name" class:on={c.id === picked.id} onclick={() => focusCharacter(c.id)}>{c.character?.name ?? c.name}</button>
+        </div>
+      {/each}
+      <div class="buttons">
+        <button class="btn" disabled={grouping.size < 2} onclick={() => { groupCharacters([...grouping]); grouping = new Set(); }}>Group picked</button>
+      </div>
+      {#each groups as g (g.id)}
+        <p class="note">{g.name}: {g.members.length} characters</p>
+        <Field label="Move by">
+          <NumberField value={shiftX} min={-3000} max={3000} step={10} precision={0} unit=" px" label="Move group by" onchange={(v) => (shiftX = v)} />
+        </Field>
+        <div class="buttons">
+          <button class="btn" onclick={() => shiftCharacters(g.members, shiftX)}>Move {g.name} together</button>
+        </div>
+      {/each}
+      <p class="note">Tap a name to work on it: its layers open in the timeline, the others fold away.</p>
+    {/if}
 
     <h3 class="section">Parts</h3>
     {#each roles as role (role)}

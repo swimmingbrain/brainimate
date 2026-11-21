@@ -77,7 +77,7 @@ function draftParts(draft: Doc, folderId: string) {
 }
 
 // every layer reaches frame, so the scene does not go empty while a move plays
-function reach(draft: Doc, frame: number) {
+export function reach(draft: Doc, frame: number) {
   for (const l of draft.layers) if (l.type !== 'folder') l.length = Math.max(l.length, frame + 1);
 }
 
@@ -258,7 +258,11 @@ export function selectPart(folderId: string, role: string) {
 
 // what an animation knows of a character: its size, where it looked, its bones and the pose at frame
 function bodyOf(folderId: string, at: number): (Body & { rig: Layer }) | null {
-  const parts = characterLayers(editor.doc.layers, folderId);
+  return bodyIn(editor.doc.layers, folderId, at);
+}
+
+export function bodyIn(layers: Layer[], folderId: string, at: number): (Body & { rig: Layer }) | null {
+  const parts = characterLayers(layers, folderId);
   if (!parts?.rig) return null;
   const rig = parts.rig;
   const bones = rig.bones;
@@ -301,39 +305,45 @@ export interface AnimChoice {
 export function applyAnimation(folderId: string, choice: AnimChoice, target?: Vec | null): boolean {
   if (!mainOnly()) return false;
   const at = editor.frame;
-  const body = bodyOf(folderId, at);
-  if (!body) {
+  if (!bodyOf(folderId, at)) {
     addToast('This character has no skeleton', 'warning');
     return false;
   }
-  const fps = editor.doc.fps;
+  let done = false;
+  editor.commit(`Animation: ${choice.kind}`, (draft) => {
+    done = animateDraft(draft, folderId, choice, at, target ?? null) !== null;
+  });
+  return done;
+}
+
+// an animation put on a character inside a change, for moves made of several. the frame it ends on
+export function animateDraft(draft: Doc, folderId: string, choice: AnimChoice, at: number, target: Vec | null = null): number | null {
+  const body = bodyIn(draft.layers, folderId, at);
+  if (!body) return null;
+  const fps = draft.fps;
   let keys = animationKeys(choice.kind, body, { at, fps, repeat: choice.repeat, speed: choice.speed, mirror: choice.mirror, distance: choice.distance, back: choice.back, target });
-  if (keys.length === 0) return false;
+  if (keys.length === 0) return null;
   // a cycle starts a moment later and blends in from the pose there
   const cycle = ['idle', 'walk', 'run'].includes(choice.kind);
   const blend = cycle ? Math.max(1, Math.round(fps * 0.15)) : 0;
   if (blend > 0) keys = keys.map((k) => ({ ...k, frame: k.frame + blend }));
   const end = keys[keys.length - 1].frame;
-  const rigId = body.rig.id;
-  editor.commit(`Animation: ${choice.kind}`, (draft) => {
-    const rig = draft.layers.find((l) => l.id === rigId);
-    if (!rig) return;
-    const first = insertKeyframe(rig, at);
-    first.tween = { ease: cycle ? 'inout' : (keys[0].ease ?? 'inout') };
-    rig.keyframes = rig.keyframes.filter((k) => k.frame <= at || k.frame > end);
-    // the bones a move leaves alone keep the pose they had at the playhead: a turn keeps the arm that
-    // holds a phone, pointing while sitting keeps the legs bent
-    const kept = JSON.parse(JSON.stringify(body.start)) as Pose;
-    for (const k of keys) {
-      // the first key of a single move is the pose the character has, the move starts from it
-      if (k.frame === at) continue;
-      const key = insertKeyframe(rig, k.frame);
-      key.pose = { ...kept, ...toPose(k.pose, body.id) };
-      key.tween = k.ease ? { ease: k.ease } : null;
-    }
-    reach(draft, end);
-  });
-  return true;
+  const rig = body.rig;
+  const first = insertKeyframe(rig, at);
+  first.tween = { ease: cycle ? 'inout' : (keys[0].ease ?? 'inout') };
+  rig.keyframes = rig.keyframes.filter((k) => k.frame <= at || k.frame > end);
+  // the bones a move leaves alone keep the pose they had at the playhead: a turn keeps the arm that
+  // holds a phone, pointing while sitting keeps the legs bent
+  const kept = JSON.parse(JSON.stringify(body.start)) as Pose;
+  for (const k of keys) {
+    // the first key of a single move is the pose the character has, the move starts from it
+    if (k.frame === at) continue;
+    const key = insertKeyframe(rig, k.frame);
+    key.pose = { ...kept, ...toPose(k.pose, body.id) };
+    key.tween = k.ease ? { ease: k.ease } : null;
+  }
+  reach(draft, end);
+  return end;
 }
 
 // a move stops at the playhead: the pose there holds and the keyframes after it go
@@ -381,6 +391,27 @@ function setFace(layer: Layer, key: Keyframe, frame: Parameters<typeof faceShape
 }
 
 // a face from frame on. blend frames before it the face starts to morph from what it was
+export function faceDraft(draft: Doc, folderId: string, changes: { frame: number; state: Partial<FaceState>; blink?: boolean; blend?: number }[]) {
+  const parts = characterLayers(draft.layers, folderId);
+  if (!parts?.body) return;
+  const frame = parts.folder.character!.face;
+  const style = faceStyleOf(parts.folder.character);
+  const body = parts.body;
+  for (const c of changes) {
+    const now = faceAt(body, c.frame);
+    const state = { ...now, ...c.state } as FaceState;
+    const blend = c.blend ?? 0;
+    if (blend > 0 && c.frame - blend > 0) {
+      const before = insertKeyframe(body, c.frame - blend);
+      before.tween = { ease: 'inout' };
+    }
+    const key = insertKeyframe(body, c.frame);
+    setFace(body, key, frame, state, !!c.blink, style);
+    key.tween = null;
+  }
+  reach(draft, Math.max(...changes.map((c) => c.frame)));
+}
+
 function faceKeys(folderId: string, label: string, changes: { frame: number; state: Partial<FaceState>; blink?: boolean; blend?: number }[]) {
   if (!mainOnly()) return;
   const parts = characterLayers(editor.doc.layers, folderId);
@@ -477,7 +508,7 @@ function handAt(doc: Doc, folderId: string, side: 'L' | 'R', at: number) {
 }
 
 // the item on a layer of the main timeline at frame, at the top of its keyframe
-function findTop(doc: Doc, id: string, at: number): { layer: Layer; item: Item } | null {
+export function findTop(doc: Doc, id: string, at: number): { layer: Layer; item: Item } | null {
   for (const layer of doc.layers) {
     if (layer.type !== 'normal' && layer.type !== 'guide') continue;
     const item = resolveItems(layer, at).find((i) => i.id === id);
@@ -487,7 +518,7 @@ function findTop(doc: Doc, id: string, at: number): { layer: Layer; item: Item }
 }
 
 // where an item shows: its own transform, through the bone it follows
-function shownTransform(doc: Doc, item: Item, at: number): Mat {
+export function shownTransform(doc: Doc, item: Item, at: number): Mat {
   const bone = item.skin?.rigid;
   if (!bone) return item.transform;
   const delta = rigFor(doc.layers, at)?.skin.get(bone);
@@ -521,7 +552,7 @@ export function setHandPose(folderId: string, side: 'L' | 'R', pose: HandPose, b
 }
 
 // the keys of a hand pose on a rig in a draft
-function handKeys(rig: Layer, side: 'L' | 'R', pose: HandPose, facing: number, at: number, blend: number) {
+export function handKeys(rig: Layer, side: 'L' | 'R', pose: HandPose, facing: number, at: number, blend: number) {
   const values = handPoseValues(pose, facing);
   if (blend > 0 && at - blend > 0) {
     const before = insertKeyframe(rig, at - blend);
@@ -612,7 +643,7 @@ export function putDown(): boolean {
 }
 
 // a tween running into frame would blend a free object into one in a hand, it holds instead
-function holdFrom(layer: Layer, at: number) {
+export function holdFrom(layer: Layer, at: number) {
   const before = keyframeAt(layer, at - 1);
   if (before && before.frame < at && before.tween) before.tween = null;
 }
