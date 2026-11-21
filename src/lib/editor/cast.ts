@@ -1,4 +1,5 @@
 import { insertKeyframe, moveLayer } from '$lib/anim/timeline';
+import { captureMotion, placeMotion, type Motion } from '$lib/character/motions';
 import { characterFolders, characterLayers } from '$lib/character/model';
 import { activeLayer, addToast, collapsedFolders } from '$lib/stores/app';
 import { editor, makeLayer } from './editor';
@@ -88,4 +89,35 @@ export function shiftCharacters(ids: string[], dx: number, dy = 0) {
       reach(draft, at);
     }
   });
+}
+
+// a saved move played by a character from the playhead on, its keys in that stretch give way
+export function playMotion(id: string, motion: Motion): boolean {
+  const rig = characterLayers(editor.doc.layers, id)?.rig;
+  if (!rig || editor.editStack.length > 0) return false;
+  const at = editor.frame;
+  editor.commit(`Move: ${motion.name}`, (draft) => {
+    const r = characterLayers(draft.layers, id)?.rig;
+    if (!r) return;
+    const keys = placeMotion(r, motion, at);
+    const end = at + motion.frames;
+    insertKeyframe(r, at);
+    r.keyframes = r.keyframes.filter((k) => k.frame <= at || k.frame > end);
+    for (const k of keys) {
+      const key = insertKeyframe(r, k.frame);
+      key.pose = { ...key.pose, ...k.pose };
+      key.tween = k.ease ? { ease: k.ease } : null;
+    }
+    reach(draft, end);
+  });
+  return true;
+}
+
+// the move of a character over the next frames, ready to be saved
+export function grabMotion(id: string, frames: number, name: string): Motion | null {
+  const rig = characterLayers(editor.doc.layers, id)?.rig;
+  if (!rig) return null;
+  const m = captureMotion(rig, editor.frame, editor.frame + Math.max(1, Math.round(frames)), name);
+  if (!m || m.keys.length < 2) addToast('There is no move there to save', 'info');
+  return m;
 }

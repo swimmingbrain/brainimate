@@ -78,7 +78,8 @@
     saveCharacter
   } from '$lib/character/library';
   import { INTERACTIONS, REACTIONS, TEMPLATES, applyTemplate, giveItem, handshake, hug, lookAt, pointAtCharacter, react, waveTo, walkTo, type Interaction } from '$lib/editor/interact';
-  import { characterGroups, focusCharacter, groupCharacters, shiftCharacters, showAllCharacters } from '$lib/editor/cast';
+  import { deleteMotion, loadMotions, motions, saveMotion } from '$lib/character/motions';
+  import { grabMotion, playMotion, characterGroups, focusCharacter, groupCharacters, shiftCharacters, showAllCharacters } from '$lib/editor/cast';
   import { AUDIO_ACCEPT, clipLevels, importAudio, removeClip, setClip } from '$lib/io/audio';
   import { pickFiles } from '$lib/editor/importer';
   import { saveBlob } from '$lib/io/save';
@@ -157,6 +158,20 @@
     if (done) addToast(`${INTERACTIONS.find((i) => i.id === kind)?.label} from frame ${$frame + 1}`, 'success', 1800);
   }
 
+  let moveName = $state('My move');
+  let moveSeconds = $state(2);
+  async function keepMove() {
+    if (!picked) return;
+    const m = grabMotion(picked.id, moveSeconds * editor.doc.fps, moveName);
+    if (!m || m.keys.length < 2) return;
+    try {
+      await saveMotion(m);
+      addToast(`${m.name} saved, it plays on every character`, 'success', 2200);
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'The move could not be saved', 'error');
+    }
+  }
+
   function toggleGroup(id: string) {
     const next = new Set(grouping);
     if (next.has(id)) next.delete(id);
@@ -191,6 +206,7 @@
 
   onMount(() => {
     void loadLibrary();
+    void loadMotions();
   });
 
   function startCreate() {
@@ -560,6 +576,24 @@
       <button class="btn" onclick={() => walkTo(picked!.id, walkX, true)}>Run there</button>
     </div>
     <p class="note">Every move starts at the playhead. The object ones work on the object picked on the stage.</p>
+
+    <h3 class="section">My moves</h3>
+    <Field label="Name">
+      <input class="text" bind:value={moveName} aria-label="Move name" />
+    </Field>
+    <Field label="Length" hint="From the playhead on">
+      <NumberField value={moveSeconds} min={0.25} max={60} step={0.25} precision={2} unit=" s" label="Move length" onchange={(v) => (moveSeconds = v)} />
+    </Field>
+    <div class="buttons">
+      <button class="btn" onclick={keepMove}><Icon name="save" size={14} /> Save this move</button>
+    </div>
+    {#each $motions as m (m.id)}
+      <div class="part">
+        <button class="part-name" onclick={() => playMotion(picked!.id, m)}>{m.name} <span class="tag">{(m.frames / editor.doc.fps).toFixed(1)} s</span></button>
+        <button class="eye" aria-label="Delete {m.name}" onclick={() => deleteMotion(m.id)}><Icon name="trash" size={14} /></button>
+      </div>
+    {/each}
+    {#if $motions.length > 0}<p class="note">Tap a move to play it on {info.name} from the playhead.</p>{/if}
 
     <h3 class="section">Reactions</h3>
     <div class="grid">

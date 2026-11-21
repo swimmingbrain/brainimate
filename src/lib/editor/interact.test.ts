@@ -172,3 +172,24 @@ describe('the cast', () => {
     expect(get(collapsedFolders).has(a)).toBe(false);
   });
 });
+
+describe('moves of your own', () => {
+  beforeEach(() => {
+    editor.newDoc(W, H, 24);
+    frame.set(0);
+  });
+
+  it('are saved by bone name from one character and play on another from its own place', async () => {
+    const { captureMotion, isMotion } = await import('$lib/character/motions');
+    const { playMotion } = await import('./cast');
+    const { a, b } = two();
+    walkTo(a, 600);
+    const rigA = characterLayers(editor.doc.layers, a)!.rig!;
+    const m = captureMotion(rigA, 0, lastFrame(), 'Walk right')!;
+    expect(isMotion(JSON.parse(JSON.stringify(m)))).toBe(true);
+    const bx = hipX(b, 0);
+    const travelled = hipX(a, lastFrame()) - hipX(a, 0);
+    expect(playMotion(b, m)).toBe(true);
+    expect(hipX(b, m.frames) - bx).toBeCloseTo(travelled, 0);
+  });
+});
