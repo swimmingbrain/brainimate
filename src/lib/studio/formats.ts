@@ -69,7 +69,7 @@ export const FORMATS: Format[] = [
         cast: true,
         scenes: [
           { beat: 0, name: 'Locked', place: 'kitchen', camera: 'push-in', action: 'Tom pulls at the fridge door, it does not open', weight: 1, subject: 'main1', moves: [{ actor: 'main1', kind: 'reach', at: 0.2 }] },
-          { beat: 1, name: 'Lina comes in', place: 'kitchen', camera: 'reveal', action: 'Lina enters and looks at the display', weight: 1.2, transition: 'cut', subject: 'main2', moves: [{ actor: 'main2', kind: 'walk', at: 0.05 }] },
+          { beat: 1, name: 'Lina comes in', place: 'kitchen', camera: 'reveal', action: 'Lina comes over and looks at the display', weight: 1.2, transition: 'cut', subject: 'main2', moves: [{ actor: 'main2', kind: 'look', at: 0.05 }] },
           { beat: 2, name: 'Negotiation', place: 'kitchen', camera: 'over-shoulder', action: 'Tom argues with the fridge', weight: 1.3, transition: 'cut', subject: 'main2', partner: 'main1', moves: [{ actor: 'main1', kind: 'gesture', at: 0.1 }] },
           { beat: 2, name: 'Escalation', place: 'kitchen', camera: 'handheld', action: 'The fridge orders salad for him', weight: 1.2, transition: 'cut', subject: 'main1', mood: 'action', moves: [{ actor: 'main1', kind: 'startle', at: 0.4 }] },
           { beat: 3, name: 'Punchline', place: 'kitchen', camera: 'scare', action: 'The fridge sides with Lina', weight: 1, transition: 'cut', subject: 'main1', moves: [{ actor: 'main2', kind: 'shrug', at: 0.5 }] }
